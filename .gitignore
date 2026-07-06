@@ -1,0 +1,20 @@
+node_modules/
+dist/
+release/
+*.log
+
+# Android build
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/captures/
+
+# iOS build
+ios/App/Pods/
+ios/App/build/
+ios/DerivedData/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
