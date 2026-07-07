@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Play, Pause, Heart, Search, Mic2, Upload, BarChart3, Plus, ChevronRight,
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
@@ -90,7 +90,10 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
     <div className="relative select-none" style={{ height: 344 }}>
       {[after, next].reverse().map((tr, ri) => (
         <div key={tr.id} className="absolute inset-x-0 mx-auto rounded-[26px] overflow-hidden" style={{ width: "100%", height: 300, top: 20, transform: `scale(${0.88 + ri * 0.06}) translateY(${(1 - ri) * 14}px)`, zIndex: ri, transition: "transform 0.35s ease" }}>
-          <img src={tr.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.35)" }} />
+          <img src={tr.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.5)" }} />
+          {/* Тот же цветовой градиент, что и у верхней карточки — цвет следующего
+              трека виден уже во время свайпа, а не только после того, как карточка сменится */}
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tr.c1}f0 0%, transparent 55%)` }} />
         </div>
       ))}
 
@@ -460,7 +463,7 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
 
 // ─── Рейтинг ──────────────────────────────────────────────────────────────────
 
-export function RatingScreen({ c2, userName, avatar }: { c2: string; userName: string; avatar: string }) {
+export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, onOpenPeer }: { c2: string; userName: string; avatar: string; onOpenPeer: (peer: typeof LEADERBOARD_PEERS[number]) => void }) {
   const { t, lang } = useLang();
   const [metric, setMetric] = useState<"level" | "minutes" | "streak">("level");
 
@@ -504,7 +507,8 @@ export function RatingScreen({ c2, userName, avatar }: { c2: string; userName: s
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
             className="flex items-center gap-3 p-3 rounded-2xl"
-            style={u.you ? { background: `${c2}18`, border: `1px solid ${c2}44` } : GLASS}
+            style={{ ...(u.you ? { background: `${c2}18`, border: `1px solid ${c2}44` } : GLASS), cursor: u.you ? "default" : "pointer" }}
+            onClick={() => { if (!u.you) onOpenPeer(u); }}
           >
             <div className="w-6 text-center font-bold text-sm flex-shrink-0" style={{ color: i < 3 ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{i + 1}</div>
             <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={u.you ? { border: `1.5px solid ${c2}` } : undefined} />
@@ -515,21 +519,23 @@ export function RatingScreen({ c2, userName, avatar }: { c2: string; userName: s
               <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)", fontFamily: F.m }}>{valueFor(u)}</div>
             </div>
             {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+            {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
           </motion.div>
         ))}
       </div>
     </Page>
   );
-}
+});
 
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
-export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, playlists = PLAYLISTS, onCreatePlaylist }: {
+export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, playlists = PLAYLISTS, onCreatePlaylist, customPlIds, onDeletePlaylist }: {
   onPlay: (t: Track) => void; likedIds: Set<number>; onLike: (id: number) => void;
   currentTrack: Track; playing: boolean; onOpenArtist: (name: string) => void;
   onOpenAlbum?: (album: string) => void; onOpenPlaylist?: (id: string) => void;
   myTracks?: Track[]; onDeleteLocal?: (id: number) => void;
   playlists?: typeof PLAYLISTS; onCreatePlaylist?: (name: string) => void;
+  customPlIds?: Set<string>; onDeletePlaylist?: (id: string) => void;
 }) {
   const { t } = useLang();
   const [tab, setTab] = useState<"liked" | "playlists" | "podcasts">("liked");
@@ -633,6 +639,16 @@ export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing,
                         <Play size={17} fill="white" stroke="none" className="ml-0.5" />
                       </div>
                     </div>
+                    {customPlIds?.has(pl.id) && (
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={e => { e.stopPropagation(); onDeletePlaylist?.(pl.id); }}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
+                      >
+                        <Trash2 size={14} style={{ color: "#f87171" }} />
+                      </motion.button>
+                    )}
                   </div>
                   <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{pl.name}</div>
                   <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("lib.nTracks", pl.trackIds.length)}</div>
@@ -671,11 +687,11 @@ export function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing,
       </Sheet>
     </Page>
   );
-}
+});
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onAddFiles, onPlay }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onAddFiles, onPlay }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
   onOpenStats: () => void; myTracks?: Track[]; onAddFiles: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
 }) {
@@ -815,11 +831,11 @@ export function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats,
       <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={amt => { const nb = balance - amt; setBalance(nb); ls.set("balance", nb); }} />
     </Page>
   );
-}
+});
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export function ProfileScreen({ c2, userName, avatar, creatorPlus, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade }: {
   c2: string; userName: string; avatar: string; creatorPlus: boolean;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void;
@@ -965,7 +981,7 @@ export function ProfileScreen({ c2, userName, avatar, creatorPlus, onOpenBlend, 
       />
     </Page>
   );
-}
+});
 
 function SettingRow({ icon, label, sub, children }: { icon: React.ReactNode; label: string; sub?: string; children: React.ReactNode }) {
   return (

@@ -126,13 +126,13 @@ export const MY_STATS = { level: 3, xp: 1240, xpMax: 2000, minutesWeek: 247, str
 
 // Условные соперники в рейтинге (демо, без бэкенда)
 export const LEADERBOARD_PEERS = [
-  { name: "Соня К.",  en: "Sonya K.",  avatar: svgAvatar("С", "#12083a", "#8b5cf6"), level: 7, minutesWeek: 612, streak: 34 },
-  { name: "Данил П.", en: "Danil P.",  avatar: svgAvatar("Д", "#071a10", "#34d399"), level: 5, minutesWeek: 480, streak: 12 },
-  { name: "Марго",    en: "Margo",     avatar: svgAvatar("М", "#1a0a08", "#fb923c"), level: 4, minutesWeek: 190, streak: 45 },
-  { name: "Тимур В.", en: "Timur V.",  avatar: svgAvatar("Т", "#071218", "#38bdf8"), level: 6, minutesWeek: 305, streak: 7 },
-  { name: "Ксюша",    en: "Ksyusha",   avatar: svgAvatar("К", "#181200", "#facc15"), level: 2, minutesWeek: 88,  streak: 3 },
-  { name: "Богдан",   en: "Bogdan",    avatar: svgAvatar("Б", "#0f0818", "#f472b6"), level: 8, minutesWeek: 730, streak: 61 },
-  { name: "Ира Л.",   en: "Ira L.",    avatar: svgAvatar("И", "#071018", "#22d3ee"), level: 3, minutesWeek: 210, streak: 19 },
+  { name: "Соня К.",  en: "Sonya K.",  avatar: svgAvatar("С", "#12083a", "#8b5cf6"), level: 7, minutesWeek: 612, streak: 34, c2: "#8b5cf6", topGenre: "Synthwave" },
+  { name: "Данил П.", en: "Danil P.",  avatar: svgAvatar("Д", "#071a10", "#34d399"), level: 5, minutesWeek: 480, streak: 12, c2: "#34d399", topGenre: "Lo-fi" },
+  { name: "Марго",    en: "Margo",     avatar: svgAvatar("М", "#1a0a08", "#fb923c"), level: 4, minutesWeek: 190, streak: 45, c2: "#fb923c", topGenre: "Indie" },
+  { name: "Тимур В.", en: "Timur V.",  avatar: svgAvatar("Т", "#071218", "#38bdf8"), level: 6, minutesWeek: 305, streak: 7,  c2: "#38bdf8", topGenre: "Ambient" },
+  { name: "Ксюша",    en: "Ksyusha",   avatar: svgAvatar("К", "#181200", "#facc15"), level: 2, minutesWeek: 88,  streak: 3,  c2: "#facc15", topGenre: "Pop" },
+  { name: "Богдан",   en: "Bogdan",    avatar: svgAvatar("Б", "#0f0818", "#f472b6"), level: 8, minutesWeek: 730, streak: 61, c2: "#f472b6", topGenre: "Dream Pop" },
+  { name: "Ира Л.",   en: "Ira L.",    avatar: svgAvatar("И", "#071018", "#22d3ee"), level: 3, minutesWeek: 210, streak: 19, c2: "#22d3ee", topGenre: "Electronic" },
 ];
 
 export const CHARTS = [

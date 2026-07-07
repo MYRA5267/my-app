@@ -314,7 +314,7 @@ export function Aurora({ c2, opacity = 1 }: { c2: string; opacity?: number }) {
 }
 
 /** Фон приложения — обложка + aurora */
-export function DynamicBg({ track }: { track: Track }) {
+export const DynamicBg = React.memo(function DynamicBg({ track }: { track: Track }) {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
       <AnimatePresence>
@@ -335,7 +335,7 @@ export function DynamicBg({ track }: { track: Track }) {
       <div className="absolute bottom-0 left-0 right-0 h-72" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
     </div>
   );
-}
+});
 
 /** Волновая дорожка с сиком; playing — бары у плейхеда пульсируют */
 export const Waveform = React.memo(function Waveform({ progress, color, onSeek, height = 52, seed = 7, bars = 72, dim = false, playing = false }: {
@@ -420,18 +420,20 @@ function smoothPath(points: [number, number][]): string {
   return d;
 }
 
-/** Интерактивный сглаженный график: жми и веди пальцем/курсором, чтобы посмотреть
-    значение в любой точке — с плавающей подсказкой и вертикальной направляющей */
-export function InteractiveChart({ data, labels, color, height = 84, markIndex, valueLabel }: {
-  data: number[]; labels?: string[]; color: string; height?: number; markIndex?: number; valueLabel?: (v: number, i: number) => string;
+/** Интерактивный график: жми и веди пальцем/курсором, чтобы посмотреть значение
+    в любой точке — с плавающей подсказкой и вертикальной направляющей.
+    variant="bars" — объёмные столбики по дням вместо сглаженной кривой */
+export function InteractiveChart({ data, labels, color, height = 84, markIndex, valueLabel, variant = "line" }: {
+  data: number[]; labels?: string[]; color: string; height?: number; markIndex?: number; valueLabel?: (v: number, i: number) => string; variant?: "line" | "bars";
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const [active, setActive] = useState<number | null>(null);
   const gradId = `ic-area-${useId()}`;
+  const barGradId = `ic-bar-${useId()}`;
 
   const W = 300, H = 100, PAD = 8;
-  const { pts, path, areaPath } = useMemo(() => {
+  const { pts, path, areaPath, barW } = useMemo(() => {
     const max = Math.max(...data), min = Math.min(0, ...data);
     const range = max - min || 1;
     const pts: [number, number][] = data.map((v, i) => [
@@ -440,7 +442,8 @@ export function InteractiveChart({ data, labels, color, height = 84, markIndex, 
     ]);
     const path = smoothPath(pts);
     const areaPath = `${path} L${pts[pts.length - 1][0]},${H} L${pts[0][0]},${H} Z`;
-    return { pts, path, areaPath };
+    const barW = Math.max(1.5, (W / data.length) * 0.62);
+    return { pts, path, areaPath, barW };
   }, [data]);
 
   const idxFromClientX = (clientX: number) => {
@@ -485,16 +488,38 @@ export function InteractiveChart({ data, labels, color, height = 84, markIndex, 
             <stop offset="0%" stopColor={color} stopOpacity="0.32" />
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
+          <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.4" />
+          </linearGradient>
         </defs>
-        <path d={areaPath} fill={`url(#${gradId})`} />
-        <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {markIndex != null && shownIdx === null && pts[markIndex] && (
+        {variant === "bars" ? (
+          pts.map((p, i) => (
+            <rect
+              key={i}
+              x={p[0] - barW / 2}
+              y={p[1]}
+              width={barW}
+              height={Math.max(0, H - p[1])}
+              rx={Math.min(2.2, barW / 2)}
+              fill={shownIdx === i ? color : `url(#${barGradId})`}
+              opacity={shownIdx === null || shownIdx === i ? 1 : 0.55}
+              style={{ transition: "opacity 0.15s" }}
+            />
+          ))
+        ) : (
+          <>
+            <path d={areaPath} fill={`url(#${gradId})`} />
+            <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          </>
+        )}
+        {markIndex != null && shownIdx === null && pts[markIndex] && variant === "line" && (
           <circle cx={pts[markIndex][0]} cy={pts[markIndex][1]} r="2.4" fill="#fff" stroke={color} strokeWidth="1.5" />
         )}
         {shownPt && (
           <>
-            <line x1={shownPt[0]} y1={0} x2={shownPt[0]} y2={H} stroke={color} strokeWidth="1" strokeDasharray="2,3" opacity="0.5" vectorEffect="non-scaling-stroke" />
-            <circle cx={shownPt[0]} cy={shownPt[1]} r="3.4" fill="#fff" stroke={color} strokeWidth="2" />
+            <line x1={shownPt[0]} y1={0} x2={shownPt[0]} y2={H} stroke={color} strokeWidth="1" strokeDasharray="2,3" opacity="0.35" vectorEffect="non-scaling-stroke" />
+            {variant === "line" && <circle cx={shownPt[0]} cy={shownPt[1]} r="3.4" fill="#fff" stroke={color} strokeWidth="2" />}
           </>
         )}
       </svg>

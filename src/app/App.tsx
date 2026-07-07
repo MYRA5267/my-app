@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { SkipBack, SkipForward, Play, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
-import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, type Track, type Friend, type Playlist } from "./data";
+import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
 import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
@@ -11,7 +11,7 @@ import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow } from "./auth";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, NAV } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet } from "./overlays";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -65,6 +65,7 @@ function AppInner() {
 
   const [artistName, setArtistName] = useState<string | null>(null);
   const [albumName, setAlbumName] = useState<string | null>(null);
+  const [peerProfile, setPeerProfile] = useState<typeof LEADERBOARD_PEERS[number] | null>(null);
   const [playlistId, setPlaylistId] = useState<string | null>(null);
   const [plOrders, setPlOrders] = useState<Record<string, number[]>>(() => ls.get("plOrders", {}));
   const [blendFriend, setBlendFriend] = useState<Friend | null>(null);
@@ -72,6 +73,10 @@ function AppInner() {
   const [creatorPlusOpen, setCreatorPlusOpen] = useState(false);
   const [wrappedOpen, setWrappedOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const openAccount = useCallback(() => setAccountOpen(true), []);
+  const openCreatorPlus = useCallback(() => setCreatorPlusOpen(true), []);
+  const openWrapped = useCallback(() => setWrappedOpen(true), []);
+  const openStats = useCallback(() => setStatsOpen(true), []);
   const [liveFriend, setLiveFriend] = useState<Friend | null>(null);
   const [sleepLeft, setSleepLeft] = useState<number | null>(null);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
@@ -80,7 +85,8 @@ function AppInner() {
   const [customPls, setCustomPls] = useState<Playlist[]>(() => ls.get<Playlist[]>("customPls", []));
   const [importOpen, setImportOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const allPlaylists = [...customPls, ...PLAYLISTS];
+  const allPlaylists = useMemo(() => [...customPls, ...PLAYLISTS], [customPls]);
+  const customPlIds = useMemo(() => new Set(customPls.map(p => p.id)), [customPls]);
 
   const loadedRef = useRef(false);
   const nextRef = useRef<() => void>(() => {});
@@ -203,6 +209,14 @@ function AppInner() {
     setCustomPls(prev => { const next = [pl, ...prev]; ls.set("customPls", next); return next; });
     return pl;
   }, []);
+
+  const deletePlaylist = useCallback((id: string) => {
+    setCustomPls(prev => { const next = prev.filter(p => p.id !== id); ls.set("customPls", next); return next; });
+    setPlaylistId(cur => (cur === id ? null : cur));
+    toast(t("lib.plDeleted"));
+  }, [t]);
+
+  const handleCreatePlaylist = useCallback((name: string) => { createPlaylist(name, []); }, [createPlaylist]);
 
   // Добавление своих аудиофайлов (клик или drag-n-drop)
   const addFiles = useCallback(async (files: FileList | File[]) => {
@@ -347,6 +361,26 @@ function AppInner() {
   const themedRoot = (children: React.ReactNode) => (
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
       <div className="h-screen w-full" style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
+        <style>{`
+          @keyframes drift1 { 0%,100%{transform:translate(-8%,-6%) scale(1)} 50%{transform:translate(8%,10%) scale(1.2)} }
+          @keyframes drift2 { 0%,100%{transform:translate(10%,6%) scale(1.1)} 50%{transform:translate(-10%,-10%) scale(0.9)} }
+          @keyframes drift3 { 0%,100%{transform:translate(0,12%) scale(1)} 50%{transform:translate(6%,-8%) scale(1.25)} }
+          @keyframes eq1 { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
+          @keyframes eq2 { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
+          @keyframes eq3 { from{transform:scaleY(0.5)} to{transform:scaleY(0.9)} }
+          @keyframes orbPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.04);opacity:1} }
+          @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+          @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
+          @keyframes storyFill { from{width:0%} to{width:100%} }
+          .app-hidden *{animation-play-state:paused!important}
+          ::-webkit-scrollbar{display:none}
+          *{-webkit-tap-highlight-color:transparent}
+          input::placeholder{color:color-mix(in srgb, var(--fg) 28%, transparent)}
+          button{font-family:inherit}
+          /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
+          @media (min-width: 1920px) { html { font-size: 19px; } }
+          :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 2px; border-radius: 12px; }
+        `}</style>
         {children}
         <Toaster
           position="top-center"
@@ -394,7 +428,7 @@ function AppInner() {
         avatar={avatar}
       />
     ),
-    rating: <RatingScreen c2={currentTrack.c2} userName={userName} avatar={avatar} />,
+    rating: <RatingScreen c2={currentTrack.c2} userName={userName} avatar={avatar} onOpenPeer={setPeerProfile} />,
     library: (
       <LibraryScreen
         onPlay={playTrack}
@@ -408,15 +442,17 @@ function AppInner() {
         myTracks={myTracks}
         onDeleteLocal={removeLocal}
         playlists={allPlaylists}
-        onCreatePlaylist={name => { createPlaylist(name, []); }}
+        onCreatePlaylist={handleCreatePlaylist}
+        customPlIds={customPlIds}
+        onDeletePlaylist={deletePlaylist}
       />
     ),
     creator: (
       <CreatorScreen
         c2={currentTrack.c2}
         creatorPlus={creatorPlus}
-        onOpenCreatorPlus={() => setCreatorPlusOpen(true)}
-        onOpenStats={() => setStatsOpen(true)}
+        onOpenCreatorPlus={openCreatorPlus}
+        onOpenStats={openStats}
         myTracks={myTracks}
         onAddFiles={addFiles}
         onPlay={playTrack}
@@ -429,8 +465,8 @@ function AppInner() {
         avatar={avatar}
         creatorPlus={creatorPlus}
         onOpenBlend={setBlendFriend}
-        onOpenAccount={() => setAccountOpen(true)}
-        onOpenWrapped={() => setWrappedOpen(true)}
+        onOpenAccount={openAccount}
+        onOpenWrapped={openWrapped}
         onLogout={handleLogout}
         crossfade={crossfade}
         onToggleCrossfade={toggleCrossfade}
@@ -440,27 +476,6 @@ function AppInner() {
 
   return themedRoot(
     <div className="flex h-full w-full overflow-hidden relative">
-      <style>{`
-        @keyframes drift1 { 0%,100%{transform:translate(-8%,-6%) scale(1)} 50%{transform:translate(8%,10%) scale(1.2)} }
-        @keyframes drift2 { 0%,100%{transform:translate(10%,6%) scale(1.1)} 50%{transform:translate(-10%,-10%) scale(0.9)} }
-        @keyframes drift3 { 0%,100%{transform:translate(0,12%) scale(1)} 50%{transform:translate(6%,-8%) scale(1.25)} }
-        @keyframes eq1 { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
-        @keyframes eq2 { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
-        @keyframes eq3 { from{transform:scaleY(0.5)} to{transform:scaleY(0.9)} }
-        @keyframes orbPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.04);opacity:1} }
-        @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
-        @keyframes storyFill { from{width:0%} to{width:100%} }
-        .app-hidden *{animation-play-state:paused!important}
-        ::-webkit-scrollbar{display:none}
-        *{-webkit-tap-highlight-color:transparent}
-        input::placeholder{color:color-mix(in srgb, var(--fg) 28%, transparent)}
-        button{font-family:inherit}
-        /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
-        @media (min-width: 1920px) { html { font-size: 19px; } }
-        :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 2px; border-radius: 12px; }
-      `}</style>
-
       <DynamicBg track={currentTrack} />
 
       {/* Desktop sidebar */}
@@ -473,7 +488,7 @@ function AppInner() {
           const Icon = n.icon;
           const active = tab === n.id;
           return (
-            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "#fff" : "color-mix(in srgb, var(--fg) 42%, transparent)" }}>
+            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--fg)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
               {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="absolute inset-0 rounded-2xl" style={{ background: `${currentTrack.c2}1a`, border: `1px solid ${currentTrack.c2}30` }} />}
               <Icon size={17} className="relative z-10" style={{ color: active ? currentTrack.c2 : undefined }} />
               <span className="relative z-10">{t(n.label)}</span>
@@ -605,6 +620,8 @@ function AppInner() {
         order={plOrder}
         onReorder={reorderPlaylist}
         playlists={allPlaylists}
+        customPlIds={customPlIds}
+        onDelete={deletePlaylist}
       />
 
       <BlendSheet
@@ -636,7 +653,7 @@ function AppInner() {
         onImported={(name, ids) => { createPlaylist(name, ids); }}
       />
 
-      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} userName={userName} />
+      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
 
       <CreatorPlusSheet
         open={creatorPlusOpen}
@@ -661,6 +678,8 @@ function AppInner() {
       />
 
       <WrappedModal open={wrappedOpen} onClose={() => setWrappedOpen(false)} />
+
+      <PeerProfileSheet peer={peerProfile} onClose={() => setPeerProfile(null)} />
 
     </div>,
   );

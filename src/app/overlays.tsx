@@ -1,14 +1,43 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight,
+  Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
+  Zap, LineChart, Headset, TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, type Track, type Friend } from "./data";
+import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
+
+// ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
+
+const fmtCardNum = (v: string) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})(?=.)/g, "$1 ");
+const fmtCardExp = (v: string) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d; };
+
+/** Правдоподобный QR-паттерн (не сканируется — чисто визуальная симуляция) */
+function FakeQR({ seed }: { seed: number }) {
+  const n = 21;
+  const grid = useMemo(() => {
+    let s = Math.abs(Math.round(seed)) || 1;
+    const rnd = () => { s = (s * 16807 + 11) % 2147483647; return (s % 1000) / 1000; };
+    const g: boolean[][] = Array.from({ length: n }, () => Array.from({ length: n }, () => rnd() > 0.52));
+    const eye = (gx: number, gy: number) => {
+      for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+        g[gy + y][gx + x] = x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+      }
+    };
+    eye(0, 0); eye(n - 7, 0); eye(0, n - 7);
+    return g;
+  }, [seed]);
+  const cell = 152 / n;
+  return (
+    <svg viewBox="0 0 152 152" width={152} height={152} style={{ borderRadius: 14, background: "#fff", flexShrink: 0 }}>
+      {grid.map((row, y) => row.map((on, x) => on && <rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill="#0a0a12" />))}
+    </svg>
+  );
+}
 
 // ─── Страница артиста ─────────────────────────────────────────────────────────
 
@@ -19,18 +48,28 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
 }) {
   const { t } = useLang();
   const [donateOpen, setDonateOpen] = useState(false);
+  const [stage, setStage] = useState<"pick" | "pay" | "sent">("pick");
   const [amount, setAmount] = useState<number | null>(100);
   const [custom, setCustom] = useState("");
-  const [sent, setSent] = useState(false);
+  const [method, setMethod] = useState<"card" | "qr">("card");
+  const [cardNum, setCardNum] = useState("");
+  const [cardExp, setCardExp] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [processing, setProcessing] = useState(false);
 
   const artist = name ? artistByName(name) : null;
-  useEffect(() => { setDonateOpen(false); setSent(false); setAmount(100); setCustom(""); }, [name]);
+  useEffect(() => {
+    setDonateOpen(false); setStage("pick"); setAmount(100); setCustom("");
+    setCardNum(""); setCardExp(""); setCardCvc("");
+  }, [name]);
 
   if (!artist) return <Sheet open={false} onClose={onClose} z={55}><div /></Sheet>;
 
   const { own, similar } = tracksOf(artist.name);
   const isFollowed = followed.has(artist.name);
   const finalAmount = custom ? parseInt(custom) || 0 : amount ?? 0;
+  const fee = Math.round(finalAmount * 0.05);
+  const net = finalAmount - fee;
 
   return (
     <Sheet open={!!name} onClose={onClose} z={55}>
@@ -74,13 +113,77 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
           {donateOpen && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden mb-6">
               <div className="rounded-[20px] p-5" style={GLASS}>
-                {sent ? (
+                {stage === "sent" ? (
                   <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(52,211,153,0.15)" }}>
                       <Check size={22} style={{ color: "#34d399" }} />
                     </div>
                     <div className="text-sm font-semibold" style={{ fontFamily: F.b, color: "#34d399" }}>{t("don.sent", finalAmount, artist.name)}</div>
                   </motion.div>
+                ) : stage === "pay" ? (
+                  <>
+                    <div className="font-bold mb-3" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artist.name)}</div>
+
+                    <div className="rounded-2xl p-3.5 mb-4" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                      <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
+                        <span>{t("don.amount")}</span><span>{finalAmount}₽</span>
+                      </div>
+                      <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
+                        <span>{t("don.fee")}</span><span>−{fee}₽</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-bold pt-1.5" style={{ fontFamily: F.b, borderTop: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+                        <span>{t("don.net")}</span><span style={{ color: artist.c2 }}>{net}₽</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                      {(["card", "qr"] as const).map(m => (
+                        <button key={m} onClick={() => setMethod(m)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: method === m ? `${artist.c2}22` : "color-mix(in srgb, var(--wash) 6%, transparent)", border: `1px solid ${method === m ? artist.c2 + "55" : "transparent"}`, color: method === m ? artist.c2 : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
+                          {m === "card" ? t("don.methodCard") : t("don.methodQr")}
+                        </button>
+                      ))}
+                    </div>
+
+                    {method === "card" ? (
+                      <div className="flex flex-col gap-2 mb-5">
+                        <input value={cardNum} onChange={e => setCardNum(fmtCardNum(e.target.value))} placeholder="0000 0000 0000 0000" inputMode="numeric" className="px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                        <div className="flex gap-2">
+                          <input value={cardExp} onChange={e => setCardExp(fmtCardExp(e.target.value))} placeholder={t("don.expPh")} inputMode="numeric" className="flex-1 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                          <input value={cardCvc} onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="CVC" inputMode="numeric" type="password" className="w-24 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2.5 mb-5 py-1">
+                        <FakeQR seed={finalAmount * 97 + artist.name.length} />
+                        <div className="text-[11px]" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.qrHint")}</div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2.5">
+                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStage("pick")} className="px-5 py-3 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+                        {t("don.back")}
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        disabled={processing}
+                        onClick={() => {
+                          if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
+                          setProcessing(true);
+                          setTimeout(() => {
+                            setProcessing(false);
+                            setStage("sent");
+                            toast.success(t("don.sent", finalAmount, artist.name));
+                            // Донат можно повторить: форма возвращается сама, без ручного закрытия
+                            setTimeout(() => setStage("pick"), 1600);
+                          }, 1300);
+                        }}
+                        className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                        style={{ background: `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)`, color: "#fff", fontFamily: F.b }}
+                      >
+                        {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
+                      </motion.button>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artist.name)}</div>
@@ -102,16 +205,11 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       disabled={finalAmount <= 0}
-                      onClick={() => {
-                        setSent(true);
-                        toast.success(t("don.sent", finalAmount, artist.name));
-                        // Донат можно повторить: форма возвращается сама, без ручного закрытия
-                        setTimeout(() => setSent(false), 1400);
-                      }}
-                      className="w-full py-3 rounded-full text-sm font-semibold"
+                      onClick={() => setStage("pay")}
+                      className="w-full py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
                       style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
                     >
-                      {t("don.send", finalAmount)}
+                      {t("don.next")} <ArrowRight size={13} />
                     </motion.button>
                   </>
                 )}
@@ -175,6 +273,42 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
   );
 }
 
+// ─── Профиль другого пользователя (из Рейтинга) ──────────────────────────────
+
+export function PeerProfileSheet({ peer, onClose }: {
+  peer: typeof LEADERBOARD_PEERS[number] | null; onClose: () => void;
+}) {
+  const { t, lang } = useLang();
+  if (!peer) return <Sheet open={false} onClose={onClose} z={59} center><div /></Sheet>;
+
+  const name = lang === "ru" ? peer.name : peer.en;
+  const c2 = peer.c2;
+
+  return (
+    <Sheet open={!!peer} onClose={onClose} z={59} center>
+      <div className="p-7">
+        <div className="text-center mb-6">
+          <img src={peer.avatar} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{name}</div>
+          <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{t("acc.level", peer.level)}</div>
+        </div>
+
+        <div className="relative rounded-[22px] overflow-hidden p-4" style={GLASS}>
+          <Aurora c2={c2} opacity={0.35} />
+          <div className="relative z-10 flex gap-2">
+            {[[String(peer.minutesWeek), t("acc.stMin")], [String(peer.streak), t("acc.stStreak")], [peer.topGenre, t("acc.stGenre")]].map(([v, l]) => (
+              <div key={l} className="flex-1 rounded-xl px-2 py-2.5 text-center min-w-0" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
+                <div className="text-sm font-bold truncate" style={{ fontFamily: F.d, color: c2 }}>{v}</div>
+                <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 // ─── Страница альбома ─────────────────────────────────────────────────────────
 
 export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOpenArtist }: {
@@ -232,11 +366,12 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
 
 // ─── Плейлист с drag-n-drop ───────────────────────────────────────────────────
 
-export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playing, order, onReorder, playlists = PLAYLISTS }: {
+export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playing, order, onReorder, playlists = PLAYLISTS, customPlIds, onDelete }: {
   playlistId: string | null; onClose: () => void; onPlay: (t: Track) => void;
   currentTrack: Track; playing: boolean;
   order: number[]; onReorder: (ids: number[]) => void;
   playlists?: typeof PLAYLISTS;
+  customPlIds?: Set<string>; onDelete?: (id: string) => void;
 }) {
   const { t } = useLang();
   const pl = playlists.find(p => p.id === playlistId) ?? null;
@@ -262,6 +397,11 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
+        {customPlIds?.has(pl.id) && (
+          <button onClick={() => { onDelete?.(pl.id); onClose(); }} className="absolute top-4 right-16 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(248,113,113,0.12)" }}>
+            <Trash2 size={15} style={{ color: "#f87171" }} />
+          </button>
+        )}
 
         <div className="flex gap-4 mb-6">
           <img src={pl.img} alt="" className="w-24 h-24 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.4)" }} />
@@ -584,7 +724,12 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
     setTimeout(() => { setState("done"); onActivate(); toast.success(t("cp.done")); }, 1600);
   };
 
-  const BENEFITS = [t("cp.b1"), t("cp.b2"), t("cp.b3"), t("cp.b4")];
+  const BENEFITS = [
+    { Icon: Gift, title: t("cp.b1"), sub: t("cp.b1Sub") },
+    { Icon: Zap, title: t("cp.b2"), sub: t("cp.b2Sub") },
+    { Icon: LineChart, title: t("cp.b3"), sub: t("cp.b3Sub") },
+    { Icon: Headset, title: t("cp.b4"), sub: t("cp.b4Sub") },
+  ];
 
   return (
     <Sheet open={open} onClose={onClose} z={65}>
@@ -623,15 +768,23 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
                 <span className="text-xs font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>{t("cp.title")}</span>
               </div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("cr.earn")}</div>
-              <div className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
+              <div className="text-sm mb-4" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
+
+              <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl mb-5" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.28)" }}>
+                <TrendingUp size={15} style={{ color: "#34d399", flexShrink: 0 }} />
+                <span className="text-xs font-semibold" style={{ color: "#34d399", fontFamily: F.b }}>{t("cp.stat")}</span>
+              </div>
 
               <div className="flex flex-col gap-2.5 mb-7">
                 {BENEFITS.map((b, i) => (
-                  <motion.div key={b} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={GLASS}>
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.2)" }}>
-                      <Check size={12} style={{ color: "#c4b5fd" }} />
+                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.2)" }}>
+                      <b.Icon size={15} style={{ color: "#c4b5fd" }} />
                     </div>
-                    <span className="text-sm" style={{ fontFamily: F.b }}>{b}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -812,9 +965,23 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
 // ─── Детальная аналитика студии ───────────────────────────────────────────────
 
 export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose: () => void; c2: string }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const [monthOffset, setMonthOffset] = useState(0);
 
-  const days = Array.from({ length: 30 }, (_, i) => 40 + Math.round(Math.abs(Math.sin(i * 0.7) * 35 + Math.sin(i * 0.23) * 20) + i * 0.9));
+  const viewDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + monthOffset);
+    return d;
+  }, [monthOffset]);
+  const numDays = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+  const monthLabel = viewDate.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
+  // Стабильный сид на месяц: те же цифры при возврате к уже просмотренному месяцу
+  const seed = viewDate.getFullYear() * 12 + viewDate.getMonth();
+
+  const days = useMemo(() => Array.from({ length: numDays }, (_, i) =>
+    Math.max(6, Math.round(42 + Math.abs(Math.sin(i * 0.7 + seed) * 34 + Math.sin(i * 0.23 + seed * 1.7) * 21) + Math.sin(seed * 3.1 + i * 0.05) * 12))
+  ), [numDays, seed]);
 
   const TOP = [
     { tr: ALL_TRACKS[0], plays: "1 204", delta: "+22%", up: true },
@@ -837,10 +1004,18 @@ export function StudioStatsSheet({ open, onClose, c2 }: { open: boolean; onClose
           </button>
         </div>
 
-        {/* 30 дней */}
+        {/* Календарь по месяцам */}
         <div className="rounded-[20px] p-4 mb-4" style={GLASS}>
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.days30")}</div>
-          <InteractiveChart data={days} color={c2} height={84} markIndex={days.length - 1} />
+          <div className="flex items-center justify-between mb-3">
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setMonthOffset(m => Math.max(-11, m - 1))} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+              <ChevronLeft size={14} />
+            </motion.button>
+            <div className="text-[11px] font-semibold capitalize" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 60%, transparent)" }}>{monthLabel}</div>
+            <motion.button whileTap={{ scale: 0.85 }} disabled={monthOffset === 0} onClick={() => setMonthOffset(m => Math.min(0, m + 1))} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)", opacity: monthOffset === 0 ? 0.3 : 1 }}>
+              <ChevronRight size={14} />
+            </motion.button>
+          </div>
+          <InteractiveChart key={seed} data={days} color={c2} height={110} variant="bars" valueLabel={v => t("cr.plays", v)} />
         </div>
 
         {/* Топ треков */}
@@ -999,59 +1174,124 @@ export function ImportSheet({ open, onClose, onImported }: {
   );
 }
 
-// ─── Поддержка (реальный mailto — уходит на почту разработчика) ──────────────
+// ─── Поддержка (чат внутри приложения, история хранится локально) ────────────
 
-const SUPPORT_EMAIL = "gena.mr.2017@gmail.com";
+interface SupportMsg { id: number; from: "me" | "support"; text: string; time: number; topicLabel?: string }
+
 const SUPPORT_TOPICS = ["sup.tBug", "sup.tBilling", "sup.tIdea", "sup.tOther"] as const;
+const REPLY_KEY: Record<typeof SUPPORT_TOPICS[number], string> = {
+  "sup.tBug": "sup.replyBug", "sup.tBilling": "sup.replyBilling", "sup.tIdea": "sup.replyIdea", "sup.tOther": "sup.replyOther",
+};
 
-export function SupportSheet({ open, onClose, userName }: { open: boolean; onClose: () => void; userName: string }) {
+const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
   const [topic, setTopic] = useState<typeof SUPPORT_TOPICS[number]>("sup.tBug");
   const [msg, setMsg] = useState("");
+  const [thread, setThread] = useState<SupportMsg[]>(() => ls.get<SupportMsg[]>("supportChat", []));
+  const [typing, setTyping] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const replyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => { if (open) { setTopic("sup.tBug"); setMsg(""); } }, [open]);
+  // Приветствие при самом первом открытии — дальше история живёт в localStorage
+  useEffect(() => {
+    if (open && thread.length === 0) {
+      const greet: SupportMsg = { id: Date.now(), from: "support", text: t("sup.greet"), time: Date.now() };
+      setThread([greet]);
+      ls.set("supportChat", [greet]);
+    }
+  }, [open]);
+
+  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [thread, typing]);
+  useEffect(() => () => clearTimeout(replyTimer.current), []);
 
   const send = () => {
-    if (!msg.trim()) { toast(t("sup.empty")); return; }
-    const subject = encodeURIComponent(`MYRA · ${t(topic)}`);
-    const body = encodeURIComponent(`${msg.trim()}\n\n— ${userName} (MYRA app)`);
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-    toast.success(t("sup.sent"));
-    onClose();
+    const text = msg.trim();
+    if (!text) { toast(t("sup.empty")); return; }
+    const mine: SupportMsg = { id: Date.now(), from: "me", text, time: Date.now(), topicLabel: t(topic) };
+    setThread(prev => { const next = [...prev, mine]; ls.set("supportChat", next); return next; });
+    setMsg("");
+    setTyping(true);
+    clearTimeout(replyTimer.current);
+    replyTimer.current = setTimeout(() => {
+      const reply: SupportMsg = { id: Date.now() + 1, from: "support", text: t(REPLY_KEY[topic]), time: Date.now() };
+      setThread(prev => { const next = [...prev, reply]; ls.set("supportChat", next); return next; });
+      setTyping(false);
+      toast(t("sup.newReply"));
+    }, 1400);
   };
 
   return (
     <Sheet open={open} onClose={onClose} z={67}>
-      <div className="px-6 pt-7 pb-8">
-        <div className="flex items-center justify-between mb-1.5">
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("sup.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+      <div className="px-6 pt-7 pb-5 flex flex-col" style={{ height: "min(78vh, 640px)" }}>
+        <div className="flex items-center justify-between mb-1 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)" }}>
+              <MessageCircle size={16} style={{ color: "#fff" }} />
+            </div>
+            <div className="min-w-0">
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{t("sup.title")}</div>
+              <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#34d399", fontFamily: F.m }}>
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#34d399" }} /> {t("sup.online")}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
-        <div className="text-xs mb-5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sup.sub")}</div>
 
-        <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sup.topic")}</div>
-        <div className="flex gap-2 flex-wrap mb-5">
-          {SUPPORT_TOPICS.map(id => (
-            <button key={id} onClick={() => setTopic(id)} className="px-3.5 py-2 rounded-full text-xs font-semibold" style={{ background: topic === id ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: topic === id ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
-              {t(id)}
-            </button>
+        <div ref={listRef} className="flex-1 overflow-y-auto py-4 flex flex-col gap-3" style={{ scrollbarWidth: "none" }}>
+          {thread.map(m => (
+            <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
+              <div className="max-w-[80%]">
+                {m.topicLabel && (
+                  <div className="text-[9px] mb-1 text-right px-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{m.topicLabel}</div>
+                )}
+                <div className="px-4 py-2.5 rounded-[18px] text-sm" style={m.from === "me" ? { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", borderBottomRightRadius: 6, fontFamily: F.b } : { ...GLASS, borderBottomLeftRadius: 6, fontFamily: F.b }}>
+                  {m.text}
+                </div>
+                <div className="text-[9px] mt-1 px-1" style={{ textAlign: m.from === "me" ? "right" : "left", color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{fmtTime(m.time)}</div>
+              </div>
+            </motion.div>
           ))}
+          {typing && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+              <div className="px-4 py-3.5 rounded-[18px]" style={{ ...GLASS, borderBottomLeftRadius: 6 }}>
+                <div className="flex gap-1">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: "color-mix(in srgb, var(--fg) 40%, transparent)", animation: `eq${i + 1} 0.8s ease-in-out infinite alternate` }} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
-        <textarea
-          value={msg}
-          onChange={e => setMsg(e.target.value)}
-          placeholder={t("sup.msg")}
-          rows={5}
-          className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm mb-5 resize-none"
-          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
-        />
-
-        <motion.button whileTap={{ scale: 0.97 }} onClick={send} className="w-full py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
-          <Send size={14} /> {t("sup.send")}
-        </motion.button>
+        <div className="flex-shrink-0">
+          <div className="flex gap-2 flex-wrap mb-3">
+            {SUPPORT_TOPICS.map(id => (
+              <button key={id} onClick={() => setTopic(id)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: topic === id ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 6%, transparent)", color: topic === id ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
+                {t(id)}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-end gap-2.5">
+            <textarea
+              value={msg}
+              onChange={e => setMsg(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder={t("sup.msg")}
+              rows={1}
+              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm resize-none"
+              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b, maxHeight: 90 }}
+            />
+            <motion.button whileTap={{ scale: 0.88 }} onClick={send} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: msg.trim() ? "linear-gradient(135deg, #8b5cf6, #a78bfa)" : "color-mix(in srgb, var(--wash) 8%, transparent)" }}>
+              <Send size={16} style={{ color: msg.trim() ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </motion.button>
+          </div>
+        </div>
       </div>
     </Sheet>
   );

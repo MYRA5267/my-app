@@ -61,11 +61,12 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1 }}
-          style={{ filter: "blur(90px) saturate(1.6) brightness(0.22)", transform: "scale(1.2)" }}
+          style={{ filter: "var(--cover-filter)", transform: "scale(1.2)" }}
         />
       </AnimatePresence>
-      <Aurora c2={S.c2} opacity={0.7} />
+      <Aurora c2={S.c2} opacity={0.55} />
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
+      <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
       {/* Верх: лого + тема + язык */}
       <div className="relative z-10 flex items-center justify-between px-7 pt-9">
