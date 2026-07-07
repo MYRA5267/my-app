@@ -1,31 +1,33 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
-  ChevronDown, MoreHorizontal, Volume2, VolumeX, Globe,
+  ChevronDown, Share2, Volume2, VolumeX, Globe,
   MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, LYRICS, INITIAL_COMMENTS, artistByName, type Track } from "./data";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES } from "./lib";
+import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track } from "./data";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText } from "./lib";
 import { useLang } from "./i18n";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, userName }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
-  downloaded: boolean; onDownload: () => void;
+  downloaded: boolean; onDownload: () => void; userName: string;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
-  const [comments, setComments] = useState(INITIAL_COMMENTS);
+  // Реальные комментарии — свои для каждого трека, плюс то, что написал сам пользователь
+  const [myComments, setMyComments] = useState(() => loadMyComments());
+  const comments = useMemo(() => commentsFor(track.id, myComments), [track.id, myComments]);
   const [commentText, setCommentText] = useState("");
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
@@ -41,10 +43,20 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
     ? [...TRACKS.slice(queueIdx + 1), ...TRACKS.slice(0, queueIdx)]
     : TRACKS;
 
+  const shareTrack = async () => {
+    const link = `https://myra.app/track/${track.id}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: track.title, text: `${track.title} — ${track.artist}`, url: link }); } catch { /* пользователь закрыл системный шаринг — это нормально */ }
+      return;
+    }
+    if (await copyText(link)) toast(t("pl.shareCopied"));
+  };
+
   const addComment = () => {
     const text = commentText.trim();
     if (!text) return;
-    setComments(cs => [...cs, { pct: Math.round(progress), user: "@alex_vibe", text, likes: 0, avatar: track.c2 }].sort((a, b) => a.pct - b.pct));
+    const handle = "@" + (userName.trim().toLowerCase().replace(/\s+/g, "_") || "alex_vibe");
+    setMyComments(addMyComment(track.id, { pct: Math.round(progress), user: handle, text, likes: 0, avatar: track.c2 }));
     setCommentText("");
     toast(t("pl.commented", fmtSec(curSec)));
   };
@@ -79,8 +91,8 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             </button>
           ))}
         </div>
-        <motion.button whileTap={{ scale: 0.85 }} onClick={() => toast(t("pl.more"))} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
-          <MoreHorizontal size={18} />
+        <motion.button whileTap={{ scale: 0.85 }} onClick={shareTrack} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
+          <Share2 size={16} />
         </motion.button>
       </div>
 
@@ -102,9 +114,6 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   {track.album}
                 </button>
               </div>
-              <motion.button whileTap={{ scale: 0.8 }} onClick={onDownload} className="mt-1 ml-3 flex-shrink-0" title="offline">
-                {downloaded ? <CheckCircle2 size={22} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={22} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} />}
-              </motion.button>
               <motion.button whileTap={{ scale: 0.7 }} onClick={onLike} className="mt-1 ml-3 flex-shrink-0">
                 <Heart size={24} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)"} />
               </motion.button>
@@ -132,6 +141,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               </motion.button>
               <motion.button whileTap={{ scale: 0.85 }} onClick={onNext} className="w-12 h-12 rounded-full flex items-center justify-center" style={GLASS}>
                 <SkipForward size={20} fill="currentColor" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.8 }} onClick={onDownload} title="offline">
+                {downloaded ? <CheckCircle2 size={20} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={20} style={{ color: "color-mix(in srgb, var(--wash) 35%, transparent)" }} />}
               </motion.button>
               <motion.button whileTap={{ scale: 0.8 }} onClick={() => { setRepeat(r => !r); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }}>
                 <Repeat size={20} style={{ color: repeat ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
@@ -239,6 +251,12 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             </div>
 
             <div className="flex flex-col gap-3 overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
+              {comments.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 text-center flex-shrink-0">
+                  <MessageCircle size={22} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+                  <div className="mt-2.5 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("pl.noComments")}</div>
+                </div>
+              )}
               {comments.map((c, i) => (
                 <motion.div key={`${c.user}-${c.pct}-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="flex gap-3 p-3.5 rounded-2xl" style={GLASS}>
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white" style={{ background: c.avatar }}>
@@ -323,10 +341,13 @@ export const NAV = [
   { id: "profile", icon: User,    label: "nav.profile" },
 ];
 
-export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSeek, activeTab, onTab, liked, onLike }: {
+/** Студия видна только артистам (или тем, кто оформил MYRA Pro) */
+export const navItems = (showStudio: boolean) => showStudio ? NAV : NAV.filter(n => n.id !== "creator");
+
+export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSeek, activeTab, onTab, liked, onLike, showStudio = true }: {
   track: Track; playing: boolean; onToggle: () => void; onOpen: () => void;
   progress: number; onSeek: (p: number) => void; activeTab: string; onTab: (t: string) => void;
-  liked: boolean; onLike: () => void;
+  liked: boolean; onLike: () => void; showStudio?: boolean;
 }) {
   const { t } = useLang();
   const seekRef = useRef<HTMLDivElement>(null);
@@ -378,7 +399,7 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
       </motion.div>
 
       <div className="pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}>
-        {NAV.map(n => {
+        {navItems(showStudio).map(n => {
           const active = activeTab === n.id;
           const Icon = n.icon;
           return (

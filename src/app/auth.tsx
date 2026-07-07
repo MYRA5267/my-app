@@ -1,14 +1,21 @@
 import { useState } from "react";
-import { ArrowRight, Mail, Lock, User, Check, Moon, Sun } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
-import { F, GLASS, SPRING, Aurora, Waveform, useTheme } from "./lib";
+import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
 import { useLang } from "./i18n";
 
-type Step = "slides" | "auth" | "taste";
+type Step = "slides" | "auth" | "taste" | "role";
+export type UserRole = "artist" | "listener";
 
-export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
+const SOCIALS: [string, (p: { size?: number }) => React.JSX.Element][] = [
+  ["Google", GoogleIcon],
+  ["VK", VKIcon],
+  ["Яндекс", YandexIcon],
+];
+
+export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRole, email: string) => void }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
   const [step, setStep] = useState<Step>("slides");
@@ -18,6 +25,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [role, setRole] = useState<UserRole | null>(null);
 
   const SLIDES = [
     { title: t("ob.s1t"), sub: t("ob.s1s"), c2: "#8b5cf6", img: TRACKS[0].img },
@@ -34,7 +42,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
     if (pass.length < 6) { toast(t("au.errPass")); return; }
     if (mode === "login") {
       toast(t("au.welcomeBack", finishName));
-      onDone(finishName);
+      onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
     } else {
       toast(t("au.created"));
       setStep("taste");
@@ -44,6 +52,12 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
   const social = (service: string) => {
     toast(t("au.social", service));
     setTimeout(() => setStep("taste"), 900);
+  };
+
+  const finishRole = (r: UserRole) => {
+    setRole(r);
+    ls.set("taste", [...picked]);
+    onDone(finishName, r, email.trim());
   };
 
   const S = SLIDES[slide];
@@ -160,9 +174,9 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
               </div>
 
               <div className="flex gap-2.5">
-                {[["Google", "G", "var(--fg)"], ["VK", "VK", "#5b9bff"], ["Яндекс", "Я", "#ffcc00"]].map(([s, label, color]) => (
-                  <motion.button key={s} whileTap={{ scale: 0.95 }} onClick={() => social(s)} className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center" style={{ ...GLASS, color, fontFamily: F.d }}>
-                    {label}
+                {SOCIALS.map(([s, Icon]) => (
+                  <motion.button key={s} whileTap={{ scale: 0.95 }} onClick={() => social(s)} className="flex-1 py-3.5 rounded-2xl flex items-center justify-center" style={{ ...GLASS }}>
+                    <Icon size={20} />
                   </motion.button>
                 ))}
               </div>
@@ -200,12 +214,43 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string) => void }) {
                 <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("ta.picked", picked.size)}</span>
                 <motion.button
                   whileTap={{ scale: 0.94 }}
-                  onClick={() => { if (picked.size >= 3) { ls.set("taste", [...picked]); onDone(finishName); } }}
+                  onClick={() => { if (picked.size >= 3) setStep("role"); }}
                   className="flex items-center gap-2 pl-6 pr-5 py-3.5 rounded-full text-sm font-bold transition-opacity"
                   style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", opacity: picked.size >= 3 ? 1 : 0.35, fontFamily: F.b }}
                 >
                   {t("ta.continue")} <ArrowRight size={15} />
                 </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Артист или слушатель ── */}
+          {step === "role" && (
+            <motion.div key="role" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full">
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mb-1.5">{t("role.title")}</h1>
+              <p className="text-sm mb-7" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("role.sub")}</p>
+
+              <div className="flex flex-col gap-3">
+                {([
+                  ["artist", Mic2, t("role.artistT"), t("role.artistS"), "#8b5cf6"],
+                  ["listener", Headphones, t("role.listenerT"), t("role.listenerS"), "#34d399"],
+                ] as const).map(([r, Icon, title, sub, c]) => (
+                  <motion.button
+                    key={r}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => finishRole(r as UserRole)}
+                    className="flex items-start gap-4 p-5 rounded-3xl text-left"
+                    style={{ ...GLASS, border: `1px solid ${c}30` }}
+                  >
+                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${c}22` }}>
+                      <Icon size={20} style={{ color: c }} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-bold mb-1" style={{ fontFamily: F.b }}>{title}</div>
+                      <div className="text-xs leading-relaxed" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{sub}</div>
+                    </div>
+                  </motion.button>
+                ))}
               </div>
             </motion.div>
           )}

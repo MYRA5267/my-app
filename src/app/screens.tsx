@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, PODCASTS, GENRE_TILES, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, svgCover, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, type ActivityItem } from "./stats";
@@ -501,12 +501,30 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
 
 // ─── Рейтинг ──────────────────────────────────────────────────────────────────
 
-export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, level, minutesWeek, streak, onOpenPeer }: {
+export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, level, minutesWeek, streak, onOpenPeer, totalPlays, likedCount, playlistCount, releaseCount, donationCount }: {
   c2: string; userName: string; avatar: string; level: number; minutesWeek: number; streak: number;
   onOpenPeer: (peer: typeof LEADERBOARD_PEERS[number]) => void;
+  totalPlays: number; likedCount: number; playlistCount: number; releaseCount: number; donationCount: number;
 }) {
   const { t, lang } = useLang();
   const [metric, setMetric] = useState<"level" | "minutes" | "streak">("level");
+
+  const achievements = useMemo(() => [
+    { icon: Play,    title: t("ach.firstPlay"), sub: t("ach.firstPlaySub"), have: totalPlays,   need: 1 },
+    { icon: Flame,   title: t("ach.streak7"),   sub: t("ach.streak7Sub"),   have: streak,       need: 7 },
+    { icon: Zap,     title: t("ach.streak30"),  sub: t("ach.streak30Sub"),  have: streak,       need: 30 },
+    { icon: Trophy,  title: t("ach.plays100"),  sub: t("ach.plays100Sub"),  have: totalPlays,   need: 100 },
+    { icon: Sparkles,title: t("ach.plays500"),  sub: t("ach.plays500Sub"),  have: totalPlays,   need: 500 },
+    { icon: Heart,   title: t("ach.liked10"),   sub: t("ach.liked10Sub"),   have: likedCount,   need: 10 },
+    { icon: Heart,   title: t("ach.liked50"),   sub: t("ach.liked50Sub"),   have: likedCount,   need: 50 },
+    { icon: Music2,  title: t("ach.playlist1"), sub: t("ach.playlist1Sub"), have: playlistCount,need: 1 },
+    { icon: Mic2,    title: t("ach.release1"),  sub: t("ach.release1Sub"),  have: releaseCount, need: 1 },
+    { icon: Gift,    title: t("ach.donate1"),   sub: t("ach.donate1Sub"),   have: donationCount,need: 1 },
+    { icon: Crown,   title: t("ach.level5"),    sub: t("ach.level5Sub"),    have: level,        need: 5 },
+    { icon: Crown,   title: t("ach.level10"),   sub: t("ach.level10Sub"),  have: level,        need: 10 },
+  ].map(a => ({ ...a, done: a.have >= a.need, pct: Math.min(100, Math.round((a.have / a.need) * 100)) })),
+  [t, totalPlays, streak, likedCount, playlistCount, releaseCount, donationCount, level]);
+  const unlockedCount = achievements.filter(a => a.done).length;
 
   const you = { name: userName, avatar, level, minutesWeek, streak, you: true as const };
   const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
@@ -574,17 +592,50 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
           </motion.div>
         ))}
       </div>
+
+      {/* Достижения — реальный прогресс по своим цифрам, не завязан на других игроков */}
+      <div className="px-5 mt-8 mb-4 flex items-center justify-between">
+        <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("rt.achievements")}</h2>
+        <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("rt.achUnlocked", unlockedCount, achievements.length)}</span>
+      </div>
+      <div className="px-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-6">
+        {achievements.map((a, i) => {
+          const Icon = a.icon;
+          return (
+            <motion.div
+              key={a.title}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i, 10) * 0.03 }}
+              className="rounded-2xl p-4"
+              style={{ ...GLASS, opacity: a.done ? 1 : 0.55 }}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: a.done ? `${c2}22` : "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+                <Icon size={17} style={{ color: a.done ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
+              </div>
+              <div className="text-sm font-semibold mb-1" style={{ fontFamily: F.b }}>{a.title}</div>
+              <div className="text-xs mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{a.sub}</div>
+              <div className="rounded-full overflow-hidden mb-1.5" style={{ height: 4, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+                <div className="h-full rounded-full" style={{ width: `${a.pct}%`, background: a.done ? c2 : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+              </div>
+              <div className="text-[10px]" style={{ color: a.done ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
+                {t("rt.achProgress", Math.min(a.have, a.need), a.need)}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
     </Page>
   );
 });
 
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
-export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, playlists = PLAYLISTS, onCreatePlaylist, customPlIds, onDeletePlaylist }: {
+export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist }: {
   onPlay: (t: Track) => void; likedIds: Set<number>; onLike: (id: number) => void;
   currentTrack: Track; playing: boolean; onOpenArtist: (name: string) => void;
   onOpenAlbum?: (album: string) => void; onOpenPlaylist?: (id: string) => void;
-  myTracks?: Track[]; onDeleteLocal?: (id: number) => void;
+  myTracks?: Track[]; onDeleteLocal?: (id: number) => void; onUploadFiles?: (files: FileList | File[]) => void;
   playlists?: typeof PLAYLISTS; onCreatePlaylist?: (name: string) => void;
   customPlIds?: Set<string>; onDeletePlaylist?: (id: string) => void;
 }) {
@@ -592,6 +643,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
   const [tab, setTab] = useState<"liked" | "playlists" | "podcasts">("liked");
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const uploadRef = useRef<HTMLInputElement>(null);
   const liked = TRACKS.filter(tr => likedIds.has(tr.id));
 
   const TABS = [
@@ -621,6 +673,27 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
       <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}>
           {tab === "liked" && (
             <div className="px-5 flex flex-col gap-1">
+              {onUploadFiles && (
+                <>
+                  <input
+                    ref={uploadRef}
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg,.aac"
+                    multiple
+                    className="hidden"
+                    onChange={e => { if (e.target.files?.length) { onUploadFiles(e.target.files); e.target.value = ""; } }}
+                  />
+                  <motion.div whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer mb-2" style={GLASS}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
+                      <Upload size={16} style={{ color: currentTrack.c2 }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("cr.uploadTrack")}</div>
+                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("cr.uploadTrackSub")}</div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
               {myTracks.map(tr => (
                 <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors group">
                   <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
@@ -679,7 +752,14 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
             </div>
           )}
 
-          {tab === "playlists" && (
+          {tab === "playlists" && playlists.length === 0 && (
+            <div className="px-5 flex flex-col items-center justify-center py-16 text-center">
+              <Music2 size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+              <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.plEmpty")}</div>
+            </div>
+          )}
+
+          {tab === "playlists" && playlists.length > 0 && (
             <div className="px-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {playlists.map(pl => (
                 <TiltCard key={pl.id} max={9} className="cursor-pointer group" onClick={() => onOpenPlaylist ? onOpenPlaylist(pl.id) : toast(t("lib.plToast", pl.name, pl.trackIds.length))}>
@@ -710,21 +790,10 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
           {tab === "podcasts" && (
             <div className="px-5 flex flex-col gap-4">
-              {PODCASTS.map(p => (
-                <div key={p.name} className="flex gap-4 cursor-pointer p-3 rounded-2xl hover:bg-white/5 transition-colors" onClick={() => toast(t("lib.podToast", p.name, p.p))}>
-                  <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0">
-                    <img src={p.img} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{p.name}</div>
-                    <div className="text-xs mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{p.ep}</div>
-                    <div className="rounded-full overflow-hidden" style={{ height: 3, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
-                      <div className="h-full rounded-full" style={{ width: `${p.p}%`, background: `linear-gradient(90deg, ${currentTrack.c2}88, ${currentTrack.c2})` }} />
-                    </div>
-                    <div className="text-[10px] mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("lib.listened", p.p)}</div>
-                  </div>
-                </div>
-              ))}
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Radio size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
+                <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.podEmpty")}</div>
+              </div>
             </div>
           )}
       </motion.div>
@@ -742,9 +811,9 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onAddFiles, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
-  onOpenStats: () => void; myTracks?: Track[]; onAddFiles: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
+  onOpenStats: () => void; myTracks?: Track[]; onStartRelease: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
   myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>;
   balance: number; onWithdraw: (amt: number) => void;
 }) {
@@ -773,7 +842,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
         {creatorPlus && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-1" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
             <Crown size={12} style={{ color: "#c4b5fd" }} />
-            <span className="text-[11px] font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>Creator+</span>
+            <span className="text-[11px] font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>MYRA Pro</span>
           </div>
         )}
       </div>
@@ -815,9 +884,8 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           ref={fileRef}
           type="file"
           accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg,.aac"
-          multiple
           className="hidden"
-          onChange={e => { if (e.target.files?.length) { onAddFiles(e.target.files); e.target.value = ""; } }}
+          onChange={e => { if (e.target.files?.length) { onStartRelease(e.target.files); e.target.value = ""; } }}
         />
         <div
           className="flex flex-col items-center justify-center rounded-[20px] p-7 cursor-pointer transition-all"
@@ -825,7 +893,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           onClick={() => fileRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) onAddFiles(e.dataTransfer.files); }}
+          onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) onStartRelease(e.dataTransfer.files); }}
         >
           <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: `${c2}1e` }}>
             <Upload size={19} style={{ color: c2 }} />
@@ -877,12 +945,12 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
         ))}
       </div>
 
-      {/* Creator+ / Начни зарабатывать */}
+      {/* MYRA Pro / Начни зарабатывать */}
       <div className="px-5">
         <TiltCard max={5} className="rounded-[24px] p-6 overflow-hidden relative cursor-pointer" style={{ background: "linear-gradient(135deg, rgba(18,8,58,0.85), rgba(59,7,100,0.7))", border: "1px solid rgba(139,92,246,0.3)" }} onClick={onOpenCreatorPlus}>
           <Aurora c2="#8b5cf6" opacity={0.6} />
           <div className="relative z-10">
-            <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>Creator+</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>MYRA Pro</div>
             <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: ON_DARK }} className="mb-1.5">
               {creatorPlus ? t("cr.active") : t("cr.earn")}
             </div>
@@ -901,21 +969,26 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality }: {
   c2: string; userName: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
-  crossfade: boolean; onToggleCrossfade: () => void;
+  crossfade: boolean; onToggleCrossfade: () => void; quality: number; onSetQuality: (idx: number) => void;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
   const [notifs, setNotifs] = useState(true);
   const [autoDl, setAutoDl] = useState(false);
   const [aiFilter, setAiFilter] = useState(true);
-  const [qualityIdx, setQualityIdx] = useState(1);
   const [blendOpen, setBlendOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
+
+  // Реальный текущий месяц — раньше был захардкожен "Июль 2026"
+  const monthLabel = useMemo(() => {
+    const label = new Date().toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [lang]);
 
   return (
     <Page>
@@ -944,7 +1017,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, a
           <Aurora c2="#8b5cf6" opacity={0.7} />
           <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("pr.july")}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{monthLabel}</div>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
                 {t("pr.wrapped")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#c4b5fd" }}>{t("pr.month")}</span>
               </div>
@@ -976,13 +1049,13 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, a
           <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
         </SettingRow>
 
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => { const next = (qualityIdx + 1) % QUALITIES.length; setQualityIdx(next); toast(t("pr.qualitySet", QUALITIES[next])); }}>
+        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => { const next = (quality + 1) % QUALITIES.length; onSetQuality(next); toast(t("pr.qualitySet", QUALITIES[next])); }}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Volume2 size={15} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.quality")}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: "#34d399", fontFamily: F.m }}>{t("pr.lossless")}</div>
+            <div className="text-[10px] mt-0.5" style={{ color: quality === 0 ? "color-mix(in srgb, var(--fg) 40%, transparent)" : "#34d399", fontFamily: F.m }}>{quality === 0 ? t("pr.compressed") : t("pr.lossless")}</div>
           </div>
-          <div className="text-xs px-2.5 py-1 rounded-full" style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>{QUALITIES[qualityIdx]}</div>
+          <div className="text-xs px-2.5 py-1 rounded-full" style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>{QUALITIES[quality]}</div>
         </motion.div>
 
         {/* Blend */}

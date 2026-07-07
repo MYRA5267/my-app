@@ -3,11 +3,11 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp, Users,
+  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, ls, type Track, type Friend } from "./data";
+import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays } from "./stats";
@@ -566,15 +566,26 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
+export function AccountSheet({ open, onClose, userName, onRename, email, onSetEmail, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
+  email: string; onSetEmail: (email: string) => void;
   avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void; onOpenSupport: () => void;
   level: number; xpIntoLevel: number; xpForLevel: number; minutesWeek: number; streak: number; topGenre: string | null;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
+  const [emailInput, setEmailInput] = useState(email);
   const [deleteQ, setDeleteQ] = useState(false);
+  const [xpInfoOpen, setXpInfoOpen] = useState(false);
   useEffect(() => { setName(userName); }, [userName, open]);
+  useEffect(() => { setEmailInput(email); }, [email, open]);
+
+  const saveEmail = () => {
+    const v = emailInput.trim();
+    if (v && !/.+@.+\..+/.test(v)) { toast(t("acc.emailInvalid")); return; }
+    onSetEmail(v);
+    toast(t("acc.emailSaved"));
+  };
 
   return (
     <>
@@ -592,7 +603,12 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
             <Aurora c2="#8b5cf6" opacity={0.35} />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", level)}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", level)}</span>
+                  <button onClick={() => setXpInfoOpen(true)} className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>
+                    <HelpCircle size={14} />
+                  </button>
+                </div>
                 <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{xpIntoLevel} / {xpForLevel} XP</span>
               </div>
               <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
@@ -663,13 +679,28 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
             </motion.button>
           </div>
 
-          {/* Почта, подписка, поддержка */}
-          <div className="flex flex-col gap-1.5 mb-6">
-            <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl" style={GLASS}>
-              <Mail size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
-              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.email")}</div>
-              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>alex@myra.app</div>
+          {/* Почта */}
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.email")}</div>
+          <div className="flex gap-2.5 mb-5">
+            <div className="flex-1 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={GLASS}>
+              <Mail size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+              <input
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") saveEmail(); }}
+                type="email"
+                placeholder={t("acc.emailPlaceholder")}
+                className="flex-1 bg-transparent outline-none text-sm min-w-0"
+                style={{ color: "var(--fg)", fontFamily: F.b }}
+              />
             </div>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={saveEmail} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+              {t("acc.save")}
+            </motion.button>
+          </div>
+
+          {/* Подписка, импорт, поддержка */}
+          <div className="flex flex-col gap-1.5 mb-6">
             <motion.div whileTap={{ scale: 0.99 }} onClick={() => toast(t("acc.planTap"))} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <Crown size={15} style={{ color: "#facc15" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.plan")}</div>
@@ -709,11 +740,51 @@ export function AccountSheet({ open, onClose, userName, onRename, avatarIdx, onA
         danger
         onConfirm={() => { setDeleteQ(false); onClose(); onDeleted(); }}
       />
+
+      <Sheet open={xpInfoOpen} onClose={() => setXpInfoOpen(false)} z={68}>
+        <div className="px-6 pt-7 pb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>{t("acc.xpInfoTitle")}</div>
+            <button onClick={() => setXpInfoOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="rounded-2xl p-4 mb-6" style={GLASS}>
+            <div className="text-xs font-bold uppercase tracking-[0.1em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("acc.xpHowTitle")}</div>
+            <div className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b, lineHeight: 1.55 }}>{t("acc.xpHowBody")}</div>
+          </div>
+
+          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.xpRewardsTitle")}</div>
+          <div className="flex flex-col gap-2">
+            {[
+              [5, t("acc.xpReward5"), Star],
+              [10, t("acc.xpReward10"), Sparkles],
+              [25, t("acc.xpReward25"), Zap],
+              [50, t("acc.xpReward50"), Crown],
+              [100, t("acc.xpReward100"), Gift],
+            ].map(([milestone, desc, Icon]: any) => {
+              const unlocked = level >= milestone;
+              return (
+                <div key={milestone} className="flex items-center gap-3 p-3.5 rounded-2xl" style={{ ...GLASS, opacity: unlocked ? 1 : 0.55 }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: unlocked ? "rgba(139,92,246,0.18)" : "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+                    {unlocked ? <Icon size={15} style={{ color: "#a78bfa" }} /> : <Lock size={13} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold mb-0.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("acc.xpRewardLocked", milestone)}</div>
+                    <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Sheet>
     </>
   );
 }
 
-// ─── Creator+ (монетизация) ───────────────────────────────────────────────────
+// ─── MYRA Pro (монетизация, бывш. Creator+) ───────────────────────────────────
 
 export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSub, onResume }: {
   open: boolean; onClose: () => void; status: "none" | "active" | "grace"; onActivate: () => void; onCancelSub: () => void; onResume: () => void;
@@ -733,6 +804,7 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
     { Icon: Zap, title: t("cp.b2"), sub: t("cp.b2Sub") },
     { Icon: LineChart, title: t("cp.b3"), sub: t("cp.b3Sub") },
     { Icon: Headset, title: t("cp.b4"), sub: t("cp.b4Sub") },
+    { Icon: Sparkles, title: t("cp.b5"), sub: t("cp.b5Sub") },
   ];
 
   return (
@@ -825,7 +897,11 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
 
 const WRAPPED_SLIDE_MS = 4000;
 
-export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function WrappedModal({ open, onClose, minutes, topArtistName, topArtistImg, topGenreName, tracksCount, genresCount }: {
+  open: boolean; onClose: () => void;
+  minutes: number; topArtistName: string | null; topArtistImg?: string; topGenreName: string | null;
+  tracksCount: number; genresCount: number;
+}) {
   const { t } = useLang();
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -836,12 +912,17 @@ export function WrappedModal({ open, onClose }: { open: boolean; onClose: () => 
   const suppressClickRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const SLIDES = [
-    { c1: "#12083a", c2: "#8b5cf6", eyebrow: t("wr.minutesEyebrow"), big: t("wr.minutes"),   sub: t("wr.minutesSub"), img: "", share: false },
-    { c1: "#1a0a08", c2: "#fb923c", eyebrow: t("wr.artistEyebrow"),  big: "Luna Wave",       sub: t("wr.artist"),     img: ALL_TRACKS[0].img, share: false },
-    { c1: "#071a10", c2: "#34d399", eyebrow: t("wr.genreEyebrow"),   big: "Synthwave",       sub: t("wr.genre"),      img: "", share: false },
-    { c1: "#181200", c2: "#facc15", eyebrow: t("wr.tracksEyebrow"),  big: t("wr.tracksVal"), sub: t("wr.tracksSub"),  img: "", share: false },
-    { c1: "#0f0818", c2: "#f472b6", eyebrow: t("wr.shareEyebrow"),   big: t("wr.shareTitle"), sub: "",                img: "", share: true },
+  // Честно: если пользователь ещё ничего не слушал в этом месяце, показываем один
+  // слайд-заглушку вместо придуманной истории
+  const hasData = tracksCount > 0;
+  const SLIDES = hasData ? [
+    { c1: "#12083a", c2: "#8b5cf6", eyebrow: t("wr.minutesEyebrow"), big: t("wr.minutes", minutes), sub: t("wr.minutesSub"), img: "", share: false },
+    ...(topArtistName ? [{ c1: "#1a0a08", c2: "#fb923c", eyebrow: t("wr.artistEyebrow"), big: topArtistName, sub: t("wr.artist"), img: topArtistImg ?? "", share: false }] : []),
+    ...(topGenreName ? [{ c1: "#071a10", c2: "#34d399", eyebrow: t("wr.genreEyebrow"), big: topGenreName, sub: t("wr.genre"), img: "", share: false }] : []),
+    { c1: "#181200", c2: "#facc15", eyebrow: t("wr.tracksEyebrow"), big: String(tracksCount), sub: t("wr.tracksSub", genresCount), img: "", share: false },
+    { c1: "#0f0818", c2: "#f472b6", eyebrow: t("wr.shareEyebrow"), big: t("wr.shareTitle"), sub: "", img: "", share: true },
+  ] : [
+    { c1: "#12083a", c2: "#8b5cf6", eyebrow: t("wr.emptyEyebrow"), big: t("wr.emptyTitle"), sub: t("wr.emptySub"), img: "", share: false },
   ];
 
   useEffect(() => { if (open) { setIdx(0); setPaused(false); } }, [open]);
@@ -1042,6 +1123,123 @@ export function StudioStatsSheet({ open, onClose, c2, myTracks, myPlaysByTrack, 
           <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("st.donations")}</div>
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", color: c2 }}>{balance.toLocaleString("ru-RU")}₽</div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Публикация трека (форма перед релизом, а не мгновенная загрузка) ────────
+
+export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish }: {
+  open: boolean; file: File | null; defaultCover: string; onClose: () => void;
+  onPublish: (meta: { title: string; genre: string; lyrics: string; cover: string | null }) => void;
+}) {
+  const { t } = useLang();
+  const [title, setTitle] = useState("");
+  const [genre, setGenre] = useState<string | null>(null);
+  const [lyrics, setLyrics] = useState("");
+  const [cover, setCover] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && file) {
+      setTitle(file.name.replace(/\.[^.]+$/, ""));
+      setGenre(null);
+      setLyrics("");
+      setCover(null);
+    }
+  }, [open, file]);
+
+  const onCoverFile = (f: File) => {
+    const img = new Image();
+    img.onload = () => {
+      const s = 400, cv = document.createElement("canvas");
+      cv.width = s; cv.height = s;
+      const cx = cv.getContext("2d")!;
+      const k = Math.max(s / img.width, s / img.height);
+      cx.drawImage(img, (s - img.width * k) / 2, (s - img.height * k) / 2, img.width * k, img.height * k);
+      setCover(cv.toDataURL("image/jpeg", 0.85));
+    };
+    img.src = URL.createObjectURL(f);
+  };
+
+  const canPublish = title.trim().length > 0 && !!genre;
+
+  return (
+    <Sheet open={open} onClose={onClose} z={72}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>{t("cr.releaseFormTitle")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Обложка */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0" style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
+            <img src={cover ?? defaultCover} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold mb-1.5" style={{ fontFamily: F.b }}>{t("cr.cover")}</div>
+            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold cursor-pointer" style={GLASS}>
+              <ImagePlus size={13} /> {t("cr.changeCover")}
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onCoverFile(f); }} />
+            </label>
+          </div>
+        </div>
+
+        {/* Название */}
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder={t("cr.trackName")}
+          className="w-full px-4 py-3.5 rounded-2xl bg-transparent outline-none text-sm mb-5"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
+        />
+
+        {/* Жанр */}
+        <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.genre")}</div>
+        <div className="flex flex-wrap gap-2 mb-5">
+          {TASTE_GENRES.map(([g, c]) => {
+            const on = genre === g;
+            return (
+              <button
+                key={g}
+                onClick={() => setGenre(g)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-colors"
+                style={{ background: on ? `${c}2b` : "color-mix(in srgb, var(--wash) 5.5%, transparent)", border: `1px solid ${on ? c : "color-mix(in srgb, var(--wash) 10%, transparent)"}`, color: on ? c : "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b }}
+              >
+                {on && <Check size={11} />} {g}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Текст песни */}
+        <div className="flex items-baseline gap-1.5 mb-2.5">
+          <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.lyrics")}</div>
+          <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 28%, transparent)", fontFamily: F.m }}>· {t("cr.lyricsOptional")}</div>
+        </div>
+        <textarea
+          value={lyrics}
+          onChange={e => setLyrics(e.target.value)}
+          placeholder={t("cr.lyricsPlaceholder")}
+          rows={4}
+          className="w-full px-4 py-3.5 rounded-2xl bg-transparent outline-none text-sm mb-6 resize-none"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b, lineHeight: 1.6 }}
+        />
+
+        <motion.button
+          whileTap={{ scale: canPublish ? 0.97 : 1 }}
+          onClick={() => {
+            if (!canPublish) { toast(genre ? t("cr.nameFirst") : t("cr.pickGenre")); return; }
+            onPublish({ title: title.trim(), genre: genre!, lyrics: lyrics.trim(), cover });
+          }}
+          className="w-full py-4 rounded-full text-sm font-bold transition-opacity"
+          style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b, opacity: canPublish ? 1 : 0.5 }}
+        >
+          {t("cr.publish")}
+        </motion.button>
       </div>
     </Sheet>
   );

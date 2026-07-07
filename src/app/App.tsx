@@ -7,18 +7,41 @@ import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, type Track
 import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import {
-  loadStats, saveStats, touchDailyStreak, addListenSeconds, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
+  loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
+  topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds,
   loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
   type ProfileStats, type ActivityItem, type MyPlays,
 } from "./stats";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
-import { OnboardingFlow } from "./auth";
+import { OnboardingFlow, type UserRole } from "./auth";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
-import { FullPlayer, BottomIsland, NAV } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet } from "./overlays";
+import { FullPlayer, BottomIsland, navItems } from "./player";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
+
+// Вынесено на уровень модуля — статичная строка, незачем пересобирать на каждый рендер
+const GLOBAL_STYLE = `
+  @keyframes drift1 { 0%,100%{transform:translate(-8%,-6%) scale(1)} 50%{transform:translate(8%,10%) scale(1.2)} }
+  @keyframes drift2 { 0%,100%{transform:translate(10%,6%) scale(1.1)} 50%{transform:translate(-10%,-10%) scale(0.9)} }
+  @keyframes drift3 { 0%,100%{transform:translate(0,12%) scale(1)} 50%{transform:translate(6%,-8%) scale(1.25)} }
+  @keyframes eq1 { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
+  @keyframes eq2 { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
+  @keyframes eq3 { from{transform:scaleY(0.5)} to{transform:scaleY(0.9)} }
+  @keyframes orbPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.04);opacity:1} }
+  @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
+  @keyframes storyFill { from{width:0%} to{width:100%} }
+  .app-hidden *{animation-play-state:paused!important}
+  ::-webkit-scrollbar{display:none}
+  *{-webkit-tap-highlight-color:transparent}
+  input::placeholder{color:color-mix(in srgb, var(--fg) 28%, transparent)}
+  button{font-family:inherit}
+  /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
+  @media (min-width: 1920px) { html { font-size: 19px; } }
+  :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 2px; border-radius: 12px; }
+`;
 
 const LOCAL_PALETTE: [string, string][] = [
   ["#12083a", "#8b5cf6"], ["#071a10", "#34d399"], ["#1a0a08", "#fb923c"],
@@ -48,6 +71,8 @@ function AppInner() {
 
   const [onboarded, setOnboarded] = useState(() => ls.get("onboarded", false));
   const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
+  const [email, setEmailState] = useState(() => ls.get("email", ""));
+  const setEmail = useCallback((next: string) => { setEmailState(next); ls.set("email", next); }, []);
   const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
   // Подписка: none → active → grace (отменена, но действует до конца периода)
   const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
@@ -56,6 +81,9 @@ function AppInner() {
   });
   const setCp = useCallback((s: "none" | "active" | "grace") => { setCpStatus(s); ls.set("cpStatus", s); }, []);
   const creatorPlus = cpStatus !== "none";
+  const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
+  // Студия открыта артистам, а также всем, кто оформил MYRA Pro
+  const showStudio = userRole === "artist" || creatorPlus;
   const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
@@ -66,7 +94,7 @@ function AppInner() {
   }, []);
   const [currentTrack, setCurrentTrack] = useState<Track>(TRACKS[0]);
   const [playerOpen, setPlayerOpen] = useState(false);
-  const [likedIds, setLikedIds] = useState<Set<number>>(() => new Set(ls.get<number[]>("liked", TRACKS.filter(tr => tr.liked).map(tr => tr.id))));
+  const [likedIds, setLikedIds] = useState<Set<number>>(() => new Set(ls.get<number[]>("liked", [])));
 
   const [artistName, setArtistName] = useState<string | null>(null);
   const [albumName, setAlbumName] = useState<string | null>(null);
@@ -98,6 +126,8 @@ function AppInner() {
   const [activity, setActivity] = useState<ActivityItem[]>(() => loadActivity());
   const [myPlays, setMyPlays] = useState<MyPlays>(() => loadMyPlays());
   const [totalPlays, setTotalPlays] = useState(() => loadTotalPlays());
+  // Сколько раз реально задонатил другим артистам — для достижений в Рейтинге
+  const donationCount = useMemo(() => activity.filter(a => a.textKey === "act.donateSent").length, [activity]);
   const [balance, setBalance] = useState(() => ls.get("balance", 0));
 
   const logActivity = useCallback((key: string, ...args: (string | number)[]) => {
@@ -130,6 +160,11 @@ function AppInner() {
     prevLevelRef.current = lvl;
   }, [stats, logActivity, t]);
 
+  // Если Студия скрылась (например, отменили MYRA Pro, а сам не артист) — уводим со вкладки
+  useEffect(() => {
+    if (tab === "creator" && !showStudio) setTab("home");
+  }, [tab, showStudio, setTab]);
+
   const withdraw = useCallback((amt: number) => {
     setBalance(b => { const nb = b - amt; ls.set("balance", nb); return nb; });
     logActivity("act.withdrawDone", amt);
@@ -139,12 +174,17 @@ function AppInner() {
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
 
+  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI
+  const [qualityIdx, setQualityIdxState] = useState(() => ls.get("qualityIdx", 1));
+  const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
+  useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
+
   // Реальное время прослушивания — копится, пока реально играет музыка
   useEffect(() => {
     if (!audio.playing) return;
     const TICK = 5;
     const iv = setInterval(() => {
-      setStats(prev => addListenSeconds(prev, TICK, currentTrack.genre));
+      setStats(prev => addListenSeconds(prev, TICK, currentTrack.genre, currentTrack.artist));
     }, TICK * 1000);
     return () => clearInterval(iv);
   }, [audio.playing, currentTrack.genre]);
@@ -160,7 +200,7 @@ function AppInner() {
 
   // dev-хук для интеграционных проверок
   if ((import.meta as any).env?.DEV) {
-    (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, liveFriend: liveFriend?.name ?? null, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length };
+    (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, liveFriend: liveFriend?.name ?? null, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length, audio, qualityIdx };
   }
 
   // Локальные файлы пользователя из IndexedDB
@@ -183,6 +223,7 @@ function AppInner() {
   // Реальный счётчик "начал слушать трек" — для профиля и (если это свой трек) студии
   const registerPlay = useCallback((tr: Track) => {
     setTotalPlays(bumpTotalPlays());
+    setStats(prev => markTrackPlayed(prev, tr.id));
     if (tr.local) setMyPlays(logMyTrackPlay(tr.id));
   }, []);
 
@@ -210,9 +251,10 @@ function AppInner() {
     }
   }, [audio, currentTrack, resolveUrl]);
 
-  // Очередь = локальные файлы + каталог
-  const queueRef = useRef<Track[]>(TRACKS);
-  queueRef.current = myTracks.length ? [...myTracks, ...TRACKS] : TRACKS;
+  // Очередь = локальные файлы + каталог — пересобираем, только когда реально меняются свои треки
+  const queue = useMemo(() => (myTracks.length ? [...myTracks, ...TRACKS] : TRACKS), [myTracks]);
+  const queueRef = useRef<Track[]>(queue);
+  queueRef.current = queue;
 
   const step = useCallback((dir: 1 | -1) => {
     setCurrentTrack(prev => {
@@ -312,6 +354,33 @@ function AppInner() {
     logActivity("cr.added", added.length);
   }, [userName, t, logActivity]);
 
+  // Релиз в Студии: выбор файла не публикует его сразу — сперва форма
+  // с названием, жанром, текстом и обложкой, и только потом явный "Опубликовать"
+  const [pendingRelease, setPendingRelease] = useState<{ file: File; id: number; c1: string; c2: string; defaultImg: string } | null>(null);
+
+  const startRelease = useCallback((files: FileList | File[]) => {
+    const f = [...files].find(f => f.type.startsWith("audio/") || /\.(mp3|wav|flac|m4a|ogg|aac)$/i.test(f.name));
+    if (!f) return;
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const [c1, c2] = LOCAL_PALETTE[id % LOCAL_PALETTE.length];
+    setPendingRelease({ file: f, id, c1, c2, defaultImg: svgCover(c1, c2, id) });
+  }, []);
+
+  const publishRelease = useCallback(async (meta: { title: string; genre: string; lyrics: string; cover: string | null }) => {
+    if (!pendingRelease) return;
+    const { file, id, c1, c2, defaultImg } = pendingRelease;
+    try { await saveLocalTrack({ id, title: meta.title, artist: userName, duration: "", c1, c2, blob: file }); } catch { /* без сохранения */ }
+    const track: Track = {
+      id, title: meta.title, artist: userName, album: "Local", duration: "", genre: meta.genre, plays: "0",
+      liked: false, c1, c2, img: meta.cover ?? defaultImg, url: URL.createObjectURL(file), local: true,
+      lyrics: meta.lyrics || undefined,
+    };
+    setMyTracks(prev => [track, ...prev]);
+    setPendingRelease(null);
+    toast(t("cr.published", meta.title));
+    logActivity("cr.added", 1);
+  }, [pendingRelease, userName, t, logActivity]);
+
   const removeLocal = useCallback((id: number) => {
     setMyTracks(prev => prev.filter(tr => tr.id !== id));
     deleteLocalTrack(id).catch(() => {});
@@ -405,13 +474,16 @@ function AppInner() {
     });
   }, [playlistId]);
 
-  const finishOnboarding = useCallback((name: string) => {
+  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string) => {
     setUserName(name);
     ls.set("userName", name);
+    setUserRole(role);
+    ls.set("userRole", role);
+    setEmail(enteredEmail);
     ls.set("onboarded", true);
     setOnboarded(true);
     toast(t("au.created"));
-  }, [t]);
+  }, [t, setEmail]);
 
   const handleLogout = useCallback(() => {
     audio.pause();
@@ -433,6 +505,7 @@ function AppInner() {
     setDownloads(new Map());
     setPlOrders({});
     setCpStatus("none");
+    setUserRole("listener");
     setCustomAvatar(null);
     setAvatarIdx(0);
     setStats(touchDailyStreak(loadStats()));
@@ -457,26 +530,7 @@ function AppInner() {
   const themedRoot = (children: React.ReactNode) => (
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
       <div className="h-screen w-full" style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
-        <style>{`
-          @keyframes drift1 { 0%,100%{transform:translate(-8%,-6%) scale(1)} 50%{transform:translate(8%,10%) scale(1.2)} }
-          @keyframes drift2 { 0%,100%{transform:translate(10%,6%) scale(1.1)} 50%{transform:translate(-10%,-10%) scale(0.9)} }
-          @keyframes drift3 { 0%,100%{transform:translate(0,12%) scale(1)} 50%{transform:translate(6%,-8%) scale(1.25)} }
-          @keyframes eq1 { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
-          @keyframes eq2 { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
-          @keyframes eq3 { from{transform:scaleY(0.5)} to{transform:scaleY(0.9)} }
-          @keyframes orbPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.04);opacity:1} }
-          @keyframes orbSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-          @keyframes waveBounce { from{transform:scaleY(0.7)} to{transform:scaleY(1.18)} }
-          @keyframes storyFill { from{width:0%} to{width:100%} }
-          .app-hidden *{animation-play-state:paused!important}
-          ::-webkit-scrollbar{display:none}
-          *{-webkit-tap-highlight-color:transparent}
-          input::placeholder{color:color-mix(in srgb, var(--fg) 28%, transparent)}
-          button{font-family:inherit}
-          /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
-          @media (min-width: 1920px) { html { font-size: 19px; } }
-          :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 2px; border-radius: 12px; }
-        `}</style>
+        <style>{GLOBAL_STYLE}</style>
         {children}
         <Toaster
           position="top-center"
@@ -540,6 +594,11 @@ function AppInner() {
         minutesWeek={statMinutesWeek}
         streak={stats.streak}
         onOpenPeer={setPeerProfile}
+        totalPlays={totalPlays}
+        likedCount={likedIds.size}
+        playlistCount={customPls.length}
+        releaseCount={myTracks.length}
+        donationCount={donationCount}
       />
     ),
     library: (
@@ -554,7 +613,8 @@ function AppInner() {
         onOpenPlaylist={setPlaylistId}
         myTracks={myTracks}
         onDeleteLocal={removeLocal}
-        playlists={allPlaylists}
+        onUploadFiles={addFiles}
+        playlists={customPls}
         onCreatePlaylist={handleCreatePlaylist}
         customPlIds={customPlIds}
         onDeletePlaylist={deletePlaylist}
@@ -567,7 +627,7 @@ function AppInner() {
         onOpenCreatorPlus={openCreatorPlus}
         onOpenStats={openStats}
         myTracks={myTracks}
-        onAddFiles={addFiles}
+        onStartRelease={startRelease}
         onPlay={playTrack}
         myPlaysByTrack={myPlays.byTrack}
         myPlaysByDay={myPlays.byDay}
@@ -589,6 +649,8 @@ function AppInner() {
         onLogout={handleLogout}
         crossfade={crossfade}
         onToggleCrossfade={toggleCrossfade}
+        quality={qualityIdx}
+        onSetQuality={setQualityIdx}
       />
     ),
   };
@@ -603,7 +665,7 @@ function AppInner() {
           <span style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.05em" }}>MYRA</span>
           <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
         </div>
-        {NAV.map(n => {
+        {navItems(showStudio).map(n => {
           const Icon = n.icon;
           const active = tab === n.id;
           return (
@@ -670,6 +732,7 @@ function AppInner() {
             liked={likedIds.has(currentTrack.id)}
             onLike={() => toggleLike(currentTrack.id)}
             onSeek={audio.seek}
+            showStudio={showStudio}
           />
         </div>
       </div>
@@ -704,6 +767,7 @@ function AppInner() {
               onSleep={handleSleep}
               downloaded={downloads.has(currentTrack.id)}
               onDownload={() => downloadTrack(currentTrack)}
+              userName={userName}
             />
           </motion.div>
         )}
@@ -758,6 +822,8 @@ function AppInner() {
         onClose={() => setAccountOpen(false)}
         userName={userName}
         onRename={n => { setUserName(n); ls.set("userName", n); }}
+        email={email}
+        onSetEmail={setEmail}
         avatarIdx={avatarIdx}
         onAvatar={i => { setAvatarIdx(i); ls.set("avatarIdx", i); setCustomAvatar(null); ls.set("customAvatar", null); }}
         customAvatar={customAvatar}
@@ -800,6 +866,14 @@ function AppInner() {
         balance={balance}
       />
 
+      <ReleaseFormSheet
+        open={!!pendingRelease}
+        file={pendingRelease?.file ?? null}
+        defaultCover={pendingRelease?.defaultImg ?? ""}
+        onClose={() => setPendingRelease(null)}
+        onPublish={publishRelease}
+      />
+
       <LiveSessionSheet
         friend={liveFriend}
         onClose={() => setLiveFriend(null)}
@@ -811,7 +885,16 @@ function AppInner() {
         avatar={avatar}
       />
 
-      <WrappedModal open={wrappedOpen} onClose={() => setWrappedOpen(false)} />
+      <WrappedModal
+        open={wrappedOpen}
+        onClose={() => setWrappedOpen(false)}
+        minutes={minutesOf(currentMonthSeconds(stats))}
+        topArtistName={topArtist(stats)}
+        topArtistImg={queue.find(tr => tr.artist === topArtist(stats))?.img}
+        topGenreName={topGenre(stats)}
+        tracksCount={distinctTracksPlayed(stats)}
+        genresCount={distinctGenresPlayed(stats)}
+      />
 
       <PeerProfileSheet peer={peerProfile} onClose={() => setPeerProfile(null)} />
 

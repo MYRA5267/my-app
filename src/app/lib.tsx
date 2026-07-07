@@ -11,6 +11,40 @@ export const F = {
   s: "'Sora', sans-serif",
 };
 
+// ─── Иконки соцвходов ─────────────────────────────────────────────────────────
+
+/** Официальный мультицветный логотип Google */
+export function GoogleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" />
+      <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" />
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
+    </svg>
+  );
+}
+
+/** Значок VK — фирменный синий квадрат с логотипом */
+export function VKIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="7" fill="#0077FF" />
+      <text x="12" y="16.5" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="800" fontSize="11.5" fill="#fff">VK</text>
+    </svg>
+  );
+}
+
+/** Значок Яндекса — фирменный красный круг с «Я» */
+export function YandexIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="12" fill="#FC3F1D" />
+      <text x="12.3" y="17" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="800" fontSize="14" fill="#fff">Я</text>
+    </svg>
+  );
+}
+
 // ─── Темы (тёмная / светлая) ──────────────────────────────────────────────────
 
 export type ThemeName = "dark" | "light";
@@ -106,6 +140,15 @@ export const fmtSec = (sec: number) => {
 
 // Два аудиоэлемента: при смене трека старый плавно затухает, новый нарастает.
 // getFade() читает настройку кроссфейда из профиля.
+/** Пресеты обработки под каждый уровень качества: срез верхних частот + компенсация громкости.
+    Честная симуляция через Web Audio API — реального перекодирования потока нет,
+    но звук на выходе действительно меняется, а не только подпись в UI. */
+const QUALITY_DSP = [
+  { freq: 7000,  gain: 0.92 }, // AAC 256 — заметно приглушённые верха, как у лёгкого lossy-сжатия
+  { freq: 20000, gain: 1 },    // FLAC — без обработки, полный диапазон
+  { freq: 20000, gain: 1.1 },  // Hi-Res 24-bit — чуть больше воздуха и громкости
+];
+
 export function useAudio(onEnded: () => void, getFade: () => boolean = () => true) {
   const players = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null);
   const activeIdx = useRef(0);
@@ -115,6 +158,10 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   endedRef.current = onEnded;
   const fadeRef = useRef(getFade);
   fadeRef.current = getFade;
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const filtersRef = useRef<[BiquadFilterNode, BiquadFilterNode] | null>(null);
+  const qualityGainsRef = useRef<[GainNode, GainNode] | null>(null);
+  const qualityRef = useRef(1);
 
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -156,6 +203,29 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     const pair: [HTMLAudioElement, HTMLAudioElement] = [mk(), mk()];
     players.current = pair;
 
+    // Реальная DSP-цепочка (не просто смена подписи): каждый плеер идёт через
+    // фильтр низких частот + компенсирующий gain, которые двигает setQuality
+    try {
+      const AudioCtxCls = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx: AudioContext = new AudioCtxCls();
+      audioCtxRef.current = ctx;
+      const chains = pair.map(a => {
+        const src = ctx.createMediaElementSource(a);
+        const filter = ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        const preset = QUALITY_DSP[qualityRef.current] ?? QUALITY_DSP[1];
+        filter.frequency.value = preset.freq;
+        const gain = ctx.createGain();
+        gain.gain.value = preset.gain;
+        src.connect(filter).connect(gain).connect(ctx.destination);
+        return { filter, gain };
+      });
+      filtersRef.current = [chains[0].filter, chains[1].filter];
+      qualityGainsRef.current = [chains[0].gain, chains[1].gain];
+    } catch {
+      // Web Audio недоступен (старый браузер и т.п.) — просто играем без DSP
+    }
+
     const handlers = pair.map(a => {
       const isActive = () => a === active();
       const onTime = () => { if (!isActive()) return; const p = a.duration ? (a.currentTime / a.duration) * 100 : 0; setProgress(prev => Math.abs(p - prev) < 0.35 && p > prev ? prev : p); };
@@ -181,12 +251,21 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
         a.src = "";
       };
     });
-    return () => { stopSim(); stopFade(); handlers.forEach(h => h()); };
+    return () => {
+      stopSim(); stopFade(); handlers.forEach(h => h());
+      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current = null;
+      filtersRef.current = null;
+      qualityGainsRef.current = null;
+    };
   }, [startSim, stopSim]);
 
   const load = useCallback((url: string) => {
     stopSim();
     modeRef.current = "real";
+    // Контекст стартует в suspended-состоянии, пока не будет жеста пользователя —
+    // клик по треку как раз им и является
+    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume().catch(() => {});
     const pair = players.current;
     if (!pair) return;
     const cur = pair[activeIdx.current];
@@ -230,6 +309,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   }, [startSim, stopSim]);
 
   const toggle = useCallback(() => {
+    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume().catch(() => {});
     if (modeRef.current === "sim") {
       if (simRef.current) { stopSim(); setPlaying(false); }
       else startSim();
@@ -261,7 +341,18 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     setVolumeState(v);
   }, []);
 
-  return { playing, progress, duration, volume, load, toggle, pause, seek, setVolume };
+  // Реально меняет звук под выбранное качество (0 = AAC 256, 1 = FLAC, 2 = Hi-Res) —
+  // плавно двигает срез фильтра и компенсирующую громкость, чтобы не было щелчка
+  const setQuality = useCallback((idx: number) => {
+    qualityRef.current = idx;
+    const preset = QUALITY_DSP[idx] ?? QUALITY_DSP[1];
+    const ctx = audioCtxRef.current;
+    const now = ctx?.currentTime ?? 0;
+    filtersRef.current?.forEach(f => f.frequency.setTargetAtTime(preset.freq, now, 0.08));
+    qualityGainsRef.current?.forEach(g => g.gain.setTargetAtTime(preset.gain, now, 0.08));
+  }, []);
+
+  return { playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality };
 }
 
 export type AudioApi = ReturnType<typeof useAudio>;
@@ -303,7 +394,7 @@ export function TiltCard({ children, className, style, max = 9, onClick }: {
 }
 
 /** Живой aurora-фон */
-export function Aurora({ c2, opacity = 1 }: { c2: string; opacity?: number }) {
+export const Aurora = React.memo(function Aurora({ c2, opacity = 1 }: { c2: string; opacity?: number }) {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity }}>
       <div className="absolute rounded-full" style={{ width: "70%", height: "70%", left: "-10%", top: "-20%", background: `radial-gradient(circle, ${c2}30 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift1 14s ease-in-out infinite" }} />
@@ -311,7 +402,7 @@ export function Aurora({ c2, opacity = 1 }: { c2: string; opacity?: number }) {
       <div className="absolute rounded-full" style={{ width: "55%", height: "55%", left: "20%", bottom: "-25%", background: `radial-gradient(circle, ${c2}22 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift3 16s ease-in-out infinite" }} />
     </div>
   );
-}
+});
 
 /** Фон приложения — обложка + aurora */
 export const DynamicBg = React.memo(function DynamicBg({ track }: { track: Track }) {
@@ -663,7 +754,7 @@ export function FrequencyOrb({ track, playing, progress }: { track: Track; playi
 }
 
 /** Индикатор «сейчас играет» */
-export function EQ({ color, size = 12 }: { color: string; size?: number }) {
+export const EQ = React.memo(function EQ({ color, size = 12 }: { color: string; size?: number }) {
   return (
     <div className="flex items-end gap-[2px]" style={{ height: size }}>
       {[0, 1, 2].map(i => (
@@ -671,7 +762,7 @@ export function EQ({ color, size = 12 }: { color: string; size?: number }) {
       ))}
     </div>
   );
-}
+});
 
 /** iOS-переключатель */
 export function Toggle({ on, onChange, color }: { on: boolean; onChange: () => void; color: string }) {

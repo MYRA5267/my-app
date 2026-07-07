@@ -65,6 +65,7 @@ export interface Track {
   img: string;
   url: string;
   local?: boolean;
+  lyrics?: string;
 }
 
 const mk = (id: number, title: string, artist: string, album: string, duration: string, genre: string, plays: string, liked: boolean, c1: string, c2: string): Track => ({
@@ -200,12 +201,64 @@ export const LYRICS: Record<number, { en: string[]; ru: string }[]> = {
   ],
 };
 
-export const INITIAL_COMMENTS = [
-  { pct: 16, user: "@neon_rabbit", text: "этот бит просто космос", likes: 142, avatar: "#8b5cf6" },
-  { pct: 34, user: "@dj_marzipan", text: "synth line идеальная",   likes: 89,  avatar: "#34d399" },
-  { pct: 58, user: "@luna_fan",    text: "мурашки каждый раз...",  likes: 211, avatar: "#f472b6" },
-  { pct: 80, user: "@wavelet",     text: "ДРОП!!",                 likes: 367, avatar: "#fb923c" },
-];
+export interface Comment { pct: number; user: string; text: string; likes: number; avatar: string }
+
+/** Затравочные комментарии — свои для каждого трека, а не один и тот же набор на все */
+export const SEED_COMMENTS: Record<number, Comment[]> = {
+  1: [
+    { pct: 12, user: "@neon_rabbit",  text: "этот бит просто космос",              likes: 142, avatar: "#8b5cf6" },
+    { pct: 41, user: "@luna_fan",     text: "«растворяюсь в частоте» — мурашки",   likes: 211, avatar: "#f472b6" },
+    { pct: 74, user: "@dj_marzipan",  text: "synth line на этом дропе идеальная",  likes: 89,  avatar: "#34d399" },
+  ],
+  2: [
+    { pct: 18, user: "@urban_ghost",  text: "бас на «underpass» просто ломает",    likes: 96,  avatar: "#34d399" },
+    { pct: 47, user: "@night_driver", text: "миллион окон и ни одно не моё — это про меня", likes: 133, avatar: "#22d3ee" },
+    { pct: 82, user: "@krvt_stan",    text: "KRVT никогда не разочаровывает",      likes: 58,  avatar: "#fb923c" },
+  ],
+  3: [
+    { pct: 15, user: "@rainy_tapes",  text: "дождь по винилу — прямо ощущается",   likes: 174, avatar: "#fb923c" },
+    { pct: 39, user: "@lofi_diary",   text: "под это идеально засыпать",           likes: 245, avatar: "#c4b5fd" },
+    { pct: 63, user: "@solstice_fan", text: "плёнка мотает назад в самый кайф",    likes: 71,  avatar: "#38bdf8" },
+  ],
+  4: [
+    { pct: 22, user: "@piano_soul",   text: "клавиши слоновой кости звучат как снег",  likes: 118, avatar: "#38bdf8" },
+    { pct: 55, user: "@quiet_hours",  text: "пауза держит больше, чем ноты",       likes: 90,  avatar: "#818cf8" },
+    { pct: 88, user: "@mara_dell_fan",text: "включаю каждый вечер перед сном",     likes: 203, avatar: "#f472b6" },
+  ],
+  5: [
+    { pct: 20, user: "@dreampop_kid", text: "«сахар под дождём» — лучшая строчка", likes: 156, avatar: "#facc15" },
+    { pct: 50, user: "@yara_voss_fan",text: "голос просто тает в динамиках",       likes: 199, avatar: "#f472b6" },
+    { pct: 79, user: "@colorwave",    text: "слушаю на повторе третий день",       likes: 64,  avatar: "#fb7185" },
+  ],
+  6: [
+    { pct: 17, user: "@skywatcher",   text: "джет-трейлы в тексте — прямо вижу картинку", likes: 87, avatar: "#f472b6" },
+    { pct: 46, user: "@darkmatter_",  text: "тёмная материя держит и правда крепко", likes: 121, avatar: "#a78bfa" },
+    { pct: 71, user: "@axel_rune_hq", text: "лучший трек с Dark Matter, точка",     likes: 175, avatar: "#22d3ee" },
+  ],
+  7: [
+    { pct: 25, user: "@resonance__",  text: "эхо там, где нас больше нет — жестко", likes: 61,  avatar: "#22d3ee" },
+    { pct: 60, user: "@indie_ears",   text: "недооценённый трек, все спят",        likes: 143, avatar: "#4ade80" },
+  ],
+  8: [
+    { pct: 14, user: "@bay_sunset",   text: "солнце на этой обложке прямо как в тексте", likes: 55,  avatar: "#fdba74" },
+    { pct: 48, user: "@saltwater__",  text: "каждая волна — слово, что я не смог сказать... больно", likes: 98, avatar: "#fb7185" },
+  ],
+};
+
+export function loadMyComments(): Record<number, Comment[]> {
+  return ls.get<Record<number, Comment[]>>("myComments", {});
+}
+
+export function addMyComment(trackId: number, c: Comment): Record<number, Comment[]> {
+  const all = loadMyComments();
+  const next = { ...all, [trackId]: [...(all[trackId] ?? []), c] };
+  ls.set("myComments", next);
+  return next;
+}
+
+export function commentsFor(trackId: number, mine: Record<number, Comment[]>): Comment[] {
+  return [...(SEED_COMMENTS[trackId] ?? []), ...(mine[trackId] ?? [])].sort((a, b) => a.pct - b.pct);
+}
 
 export const AVATARS = [
   svgAvatar("A", "#12083a", "#8b5cf6"),
