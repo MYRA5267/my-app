@@ -624,20 +624,23 @@ export function InteractiveChart({ data, labels, color, height = 84, markIndex, 
   );
 }
 
-/** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум */
-export function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {
+/** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум.
+    React.memo + округление progress до целого % на вызывающей стороне: без этого
+    компонент (48 баров + 7 частиц под backdrop-filter) переотрисовывался бы на
+    каждый тик прогресса и ощутимо подвешивал слабые устройства. */
+export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {
   const bars = 48;
   const ref = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
 
+  // Высота бара — статична для трека, от progress не зависит, поэтому пересчитывать
+  // все 48 значений на каждый тик не нужно (раньше recomputed каждый раз через progress
+  // в зависимостях — самая частая причина лишних ре-рендеров всех 48 узлов).
   const heights = useMemo(
-    () => Array.from({ length: bars }, (_, i) => {
-      const base = Math.abs(Math.sin(i * 0.42 + track.id) * 0.55 + Math.sin(i * 1.1) * 0.35);
-      const active = (i / bars) * 100 <= progress;
-      return { h: 0.22 + base * 0.78, active };
-    }),
-    [bars, track.id, progress],
+    () => Array.from({ length: bars }, (_, i) => Math.abs(Math.sin(i * 0.42 + track.id) * 0.55 + Math.sin(i * 1.1) * 0.35) * 0.78 + 0.22),
+    [bars, track.id],
   );
+  const headIdx = (progress / 100) * bars;
 
   const particles = useMemo(
     () => Array.from({ length: 7 }, (_, i) => ({
@@ -714,25 +717,26 @@ export function FrequencyOrb({ track, playing, progress }: { track: Track; playi
         ))}
         {/* Стеклянная сфера с эквалайзером */}
         <div className="absolute rounded-full flex items-center justify-center" style={{ width: 200, height: 200, background: "var(--glass-bg)", backdropFilter: "blur(20px)", border: `1px solid ${track.c2}30`, boxShadow: `0 0 70px ${track.c2}2e, inset 0 -18px 40px ${track.c2}14, inset 0 14px 30px color-mix(in srgb, var(--wash) 06%, transparent)` }}>
-          {heights.map((b, i) => {
+          {heights.map((h, i) => {
             const angle = (i / bars) * 360;
+            const active = i <= headIdx;
             return (
               <div
                 key={i}
                 className="absolute origin-bottom rounded-full"
                 style={{
                   width: 3,
-                  height: `${b.h * 72}px`,
+                  height: `${h * 72}px`,
                   bottom: "50%",
                   left: "50%",
                   marginLeft: -1.5,
                   transform: `rotate(${angle}deg)`,
                   transformOrigin: "bottom center",
-                  background: b.active ? `linear-gradient(to top, ${track.c2}, ${track.c2}55)` : "var(--glass-border)",
-                  opacity: playing ? (b.active ? 1 : 0.45) : 0.3,
+                  background: active ? `linear-gradient(to top, ${track.c2}, ${track.c2}55)` : "var(--glass-border)",
+                  opacity: playing ? (active ? 1 : 0.45) : 0.3,
                   transition: "background 0.25s, opacity 0.4s",
-                  boxShadow: b.active && playing ? `0 0 8px ${track.c2}66` : "none",
-                  animation: playing && b.active ? `waveBounce ${0.5 + (i % 5) * 0.11}s ease-in-out infinite alternate` : "none",
+                  boxShadow: active && playing ? `0 0 8px ${track.c2}66` : "none",
+                  animation: playing && active ? `waveBounce ${0.5 + (i % 5) * 0.11}s ease-in-out infinite alternate` : "none",
                 }}
               />
             );
@@ -757,7 +761,7 @@ export function FrequencyOrb({ track, playing, progress }: { track: Track; playi
       />
     </div>
   );
-}
+});
 
 /** Индикатор «сейчас играет» */
 export const EQ = React.memo(function EQ({ color, size = 12 }: { color: string; size?: number }) {

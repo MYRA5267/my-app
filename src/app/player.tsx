@@ -36,6 +36,10 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const lyricIndex = Math.min((lines?.length ?? 1) - 1, Math.floor((progress / 100) * (lines?.length ?? 1)));
   const wordIndex = Math.floor(((progress / 100) * (lines?.length ?? 1) - lyricIndex) * (lines?.[lyricIndex]?.en.length ?? 1));
   const curSec = (progress / 100) * (duration || 0);
+  // Округляем до целого % для тяжёлых визуалов (орб, волна) — они и так плавно
+  // доезжают через собственный rAF-интерполятор, а лишний ре-рендер 48+72 узлов
+  // на каждый дробный тик прогресса — то, что подвешивало плеер на слабых телефонах.
+  const progressRounded = Math.round(progress);
   const verified = artistByName(track.artist)?.verified;
 
   const queueIdx = TRACKS.findIndex(q => q.id === track.id);
@@ -99,7 +103,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
         {tab === "player" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 pt-2 overflow-y-auto w-full max-w-xl mx-auto" style={{ scrollbarWidth: "none" }}>
             <div className="flex justify-center items-center mb-6 mt-1">
-              <FrequencyOrb track={track} playing={playing} progress={progress} />
+              <FrequencyOrb track={track} playing={playing} progress={progressRounded} />
             </div>
 
             <div className="flex items-start justify-between mb-5">
@@ -120,7 +124,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
             {/* Волна */}
             <div className="mb-5">
-              <Waveform progress={progress} color={track.c2} onSeek={onSeek} height={56} seed={track.id + 3} playing={playing} />
+              <Waveform progress={progressRounded} color={track.c2} onSeek={onSeek} height={56} seed={track.id + 3} playing={playing} />
               <div className="flex justify-between mt-2 text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
                 <span>{fmtSec(curSec)}</span>
                 <span>{duration ? fmtSec(duration) : track.duration}</span>
@@ -241,7 +245,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
         {tab === "comments" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 py-4 overflow-hidden w-full max-w-xl mx-auto">
             <div className="mb-5 relative flex-shrink-0">
-              <Waveform progress={progress} color={track.c2} onSeek={onSeek} height={48} seed={track.id + 3} dim />
+              <Waveform progress={progressRounded} color={track.c2} onSeek={onSeek} height={48} seed={track.id + 3} dim />
               {comments.map((c, i) => (
                 <div key={i} className="absolute bottom-full mb-1 -translate-x-1/2" style={{ left: `${c.pct}%` }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: c.avatar, boxShadow: `0 0 8px ${c.avatar}` }} />

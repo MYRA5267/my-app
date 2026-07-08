@@ -754,7 +754,7 @@ function AppInner() {
               {audio.playing && <div className="absolute top-2.5 right-2.5"><EQ color={currentTrack.c2} size={10} /></div>}
             </div>
             <div className="p-3">
-              <Waveform progress={audio.progress} color={currentTrack.c2} onSeek={audio.seek} height={22} seed={currentTrack.id + 3} bars={40} dim playing={audio.playing} />
+              <Waveform progress={Math.round(audio.progress)} color={currentTrack.c2} onSeek={audio.seek} height={22} seed={currentTrack.id + 3} bars={40} dim playing={audio.playing} />
               <div className="flex items-center justify-between mt-2.5">
                 <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handlePrev(); }}><SkipBack size={14} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} /></motion.button>
                 <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); togglePlay(); }} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}aa)` }}>
