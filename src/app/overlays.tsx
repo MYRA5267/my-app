@@ -11,6 +11,7 @@ import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADE
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays } from "./stats";
+import { supabaseEnabled, askSupportAI } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -1374,13 +1375,27 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [thread, typing]);
   useEffect(() => () => clearTimeout(replyTimer.current), []);
 
-  const send = () => {
+  const send = async () => {
     const text = msg.trim();
     if (!text) { toast(t("sup.empty")); return; }
     const mine: SupportMsg = { id: Date.now(), from: "me", text, time: Date.now(), topicLabel: t(topic) };
-    setThread(prev => { const next = [...prev, mine]; ls.set("supportChat", next); return next; });
+    const nextThread = [...thread, mine];
+    setThread(nextThread);
+    ls.set("supportChat", nextThread);
     setMsg("");
     setTyping(true);
+
+    if (supabaseEnabled) {
+      // Реальный ИИ-ответ через Edge Function — с историей переписки для контекста
+      const history: { role: "user" | "assistant"; content: string }[] = nextThread.slice(-12).map(m => ({ role: m.from === "me" ? "user" : "assistant", content: m.text }));
+      const { data, error } = await askSupportAI(history);
+      setTyping(false);
+      if (error || !data?.reply) { toast(t("sup.aiError")); return; }
+      const reply: SupportMsg = { id: Date.now() + 1, from: "support", text: data.reply, time: Date.now() };
+      setThread(prev => { const next = [...prev, reply]; ls.set("supportChat", next); return next; });
+      return;
+    }
+
     clearTimeout(replyTimer.current);
     replyTimer.current = setTimeout(() => {
       const reply: SupportMsg = { id: Date.now() + 1, from: "support", text: t(REPLY_KEY[topic]), time: Date.now() };

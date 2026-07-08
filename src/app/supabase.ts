@@ -85,3 +85,10 @@ export async function fetchProfile(id: string) {
   if (profileRes.error) return { data: null, error: profileRes.error };
   return { data: { ...profileRes.data, email: emailRes.data?.email ?? null }, error: null };
 }
+
+// Реальный ИИ-ответ в чате поддержки — идёт через Edge Function support-chat,
+// которая держит ключ OpenRouter на сервере (см. supabase/functions/support-chat)
+export async function askSupportAI(messages: { role: "user" | "assistant"; content: string }[]) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: new Error("supabase not configured") };
+  return supabase.functions.invoke<{ reply: string }>("support-chat", { body: { messages } });
+}

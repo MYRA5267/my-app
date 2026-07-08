@@ -456,6 +456,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "sup.online":  { ru: "в сети · отвечаем быстро", en: "online · fast replies" },
   "sup.greet":   { ru: "Привет! Я на связи и помогу с любым вопросом — просто опиши, что случилось.", en: "Hi! I'm here and ready to help — just describe what happened." },
   "sup.newReply":{ ru: "Новый ответ от поддержки MYRA", en: "New reply from MYRA Support" },
+  "sup.aiError": { ru: "ИИ-поддержка сейчас недоступна, попробуй чуть позже", en: "AI support is unavailable right now, try again shortly" },
   "sup.tBug":    { ru: "Баг", en: "Bug" },
   "sup.tBilling":{ ru: "Оплата", en: "Billing" },
   "sup.tIdea":   { ru: "Идея", en: "Idea" },
