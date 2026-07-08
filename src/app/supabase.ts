@@ -1,0 +1,80 @@
+// ─── Клиент Supabase ──────────────────────────────────────────────────────
+// Единственный файл, импортирующий "@supabase/supabase-js" — весь остальной
+// код приложения дергает только функции-хелперы отсюда.
+// Пока проект не подключён (нет env-переменных), приложение должно работать
+// ровно как раньше: каждый хелпер сам проверяет supabaseEnabled и тихо
+// возвращает безопасный no-op, чтобы не городить проверки на каждом вызове.
+
+import { createClient, type SupabaseClient, type Session } from "@supabase/supabase-js";
+
+const env = (import.meta as any).env ?? {};
+const url = env.VITE_SUPABASE_URL;
+const anonKey = env.VITE_SUPABASE_ANON_KEY;
+
+export const supabaseEnabled = Boolean(url && anonKey);
+
+export const supabase: SupabaseClient | null = supabaseEnabled ? createClient(url, anonKey) : null;
+
+export type UserRole = "artist" | "listener";
+
+export async function signUpWithEmail(email: string, password: string, username: string, role?: UserRole) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  return supabase.auth.signUp({ email, password, options: { data: { username, role } } });
+}
+
+export async function signInWithEmail(email: string, password: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function signOutRemote() {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  return supabase.auth.signOut();
+}
+
+export async function getSession(): Promise<Session | null> {
+  if (!supabaseEnabled || !supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+export function onAuthStateChange(callback: (session: Session | null) => void) {
+  if (!supabaseEnabled || !supabase) return { data: { subscription: { unsubscribe() {} } } };
+  return supabase.auth.onAuthStateChange((_event: string, session: Session | null) => callback(session));
+}
+
+export interface ProfileFields {
+  username: string;
+  email: string;
+  avatar_url: string;
+  role: UserRole;
+}
+
+// Почта — PII, в схеме она сознательно вынесена из publicly-readable profiles
+// в отдельную profile_private (иначе email каждого пользователя утёк бы всем
+// через "profiles_select_public"). Здесь это скрыто за тем же интерфейсом —
+// вызывающий код (auth.tsx, App.tsx) как писал/читал единый объект профиля
+// с полем email, так и продолжает, не зная о разделении на две таблицы.
+export async function upsertProfile(id: string, fields: Partial<ProfileFields>) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  const { email, ...profileFields } = fields;
+  const [profileRes, emailRes] = await Promise.all([
+    Object.keys(profileFields).length
+      ? supabase.from("profiles").upsert({ id, ...profileFields }).select().single()
+      : Promise.resolve({ data: null, error: null }),
+    email !== undefined
+      ? supabase.from("profile_private").upsert({ user_id: id, email }).select().single()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  return { data: profileRes.data, error: profileRes.error ?? emailRes.error };
+}
+
+export async function fetchProfile(id: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  const [profileRes, emailRes] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", id).single(),
+    supabase.from("profile_private").select("email").eq("user_id", id).single(),
+  ]);
+  if (profileRes.error) return { data: null, error: profileRes.error };
+  return { data: { ...profileRes.data, email: emailRes.data?.email ?? null }, error: null };
+}

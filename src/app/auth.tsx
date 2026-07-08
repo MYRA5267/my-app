@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
 import { useLang } from "./i18n";
+import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile } from "./supabase";
 
 type Step = "slides" | "auth" | "taste" | "role";
 export type UserRole = "artist" | "listener";
@@ -35,15 +36,24 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
   const finishName = name.trim() || (lang === "ru" ? "Алекс" : "Alex");
 
-  const submitAuth = () => {
+  const submitAuth = async () => {
     const emailOk = /.+@.+\..+/.test(email);
     if (mode === "signup" && !name.trim()) { toast(t("au.errName")); return; }
     if (!emailOk) { toast(t("au.errEmail")); return; }
     if (pass.length < 6) { toast(t("au.errPass")); return; }
     if (mode === "login") {
+      if (supabaseEnabled) {
+        const { error } = await signInWithEmail(email, pass);
+        if (error) { toast(t("au.loginFailed", error.message)); return; }
+      }
       toast(t("au.welcomeBack", finishName));
       onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
     } else {
+      if (supabaseEnabled) {
+        // Роль ещё не выбрана — на этом шаге её нет, метаданные о ней допишет upsertProfile в finishRole
+        const { error } = await signUpWithEmail(email, pass, name.trim());
+        if (error) { toast(t("au.signupFailed", error.message)); return; }
+      }
       toast(t("au.created"));
       setStep("taste");
     }
@@ -54,9 +64,23 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
     setTimeout(() => setStep("taste"), 900);
   };
 
-  const finishRole = (r: UserRole) => {
+  const finishRole = async (r: UserRole) => {
     setRole(r);
     ls.set("taste", [...picked]);
+    if (supabaseEnabled) {
+      const session = await getSession();
+      const uid = session?.user?.id;
+      // Ждём апсерт, чтобы ошибка успела попасть в лог, но не показываем тост —
+      // неудачная синхронизация профиля не должна запирать пользователя в онбординге
+      if (uid) {
+        try {
+          const { error } = await upsertProfile(uid, { username: finishName, role: r, email: email.trim() });
+          if (error) console.warn("upsertProfile:", error.message);
+        } catch (err) {
+          console.warn("upsertProfile:", err);
+        }
+      }
+    }
     onDone(finishName, r, email.trim());
   };
 

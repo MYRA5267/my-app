@@ -15,6 +15,7 @@ import {
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
+import { supabaseEnabled, getSession, fetchProfile, signOutRemote } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
@@ -195,6 +196,28 @@ function AppInner() {
       if (recs.length) setDownloads(new Map(recs.map(r => [r.id, URL.createObjectURL(r.blob)])));
     });
   }, []);
+
+  // Уже зарегистрирован на Supabase (другое устройство или localStorage очищен),
+  // но локально флаг онбординга не стоит — подтягиваем профиль вместо повторного онбординга
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    (async () => {
+      const session = await getSession();
+      const uid = session?.user?.id;
+      if (!uid || ls.get("onboarded", false)) return;
+      const { data: profile } = await fetchProfile(uid);
+      if (!profile) return;
+      setUserName(profile.username);
+      ls.set("userName", profile.username);
+      setEmail(profile.email ?? "");
+      if (profile.role === "artist" || profile.role === "listener") {
+        setUserRole(profile.role);
+        ls.set("userRole", profile.role);
+      }
+      ls.set("onboarded", true);
+      setOnboarded(true);
+    })();
+  }, [setEmail]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
@@ -487,6 +510,9 @@ function AppInner() {
 
   const handleLogout = useCallback(() => {
     audio.pause();
+    // Гасим и серверную сессию Supabase — иначе getSession() на следующем запуске
+    // решит, что пользователь всё ещё залогинен, и попытается восстановить профиль
+    if (supabaseEnabled) signOutRemote().catch(() => {});
     // Чистим и офлайн-хранилище (IndexedDB), не только localStorage —
     // иначе после входа в новый аккаунт старые файлы всё ещё будут тут
     myTracks.forEach(tr => deleteLocalTrack(tr.id).catch(() => {}));

@@ -386,6 +386,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "au.errEmail":{ ru: "Похоже, почта с опечаткой", en: "That email looks off" },
   "au.errPass": { ru: "Пароль — минимум 6 символов", en: "Password: 6+ characters" },
   "au.social":  { ru: "Входим через {0}…", en: "Signing in with {0}…" },
+  "au.signupFailed": { ru: "Не удалось создать аккаунт: {0}", en: "Couldn't create account: {0}" },
+  "au.loginFailed":  { ru: "Не удалось войти: {0}", en: "Couldn't sign in: {0}" },
   "ta.title":   { ru: "Что ты слушаешь?", en: "What do you listen to?" },
   "ta.sub":     { ru: "Выбери минимум 3 жанра — настроим «Мою волну»", en: "Pick at least 3 genres — we'll tune My Wave" },
   "ta.continue":{ ru: "Продолжить", en: "Continue" },
