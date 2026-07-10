@@ -489,6 +489,16 @@ const STR: Record<string, { ru: string; en: string }> = {
   "dev.achReset":{ ru: "Сбросить", en: "Reset" },
   "dev.achResetDone": { ru: "Прогресс достижений сброшен", en: "Achievement progress reset" },
   "dev.close":  { ru: "Готово", en: "Done" },
+  // Инбокс поддержки для админов (двух создателей MYRA)
+  "dev.supportRow":     { ru: "Поддержка (админ)", en: "Support (admin)" },
+  "dev.supportTitle":   { ru: "Входящие поддержки", en: "Support inbox" },
+  "dev.supportDenied":  { ru: "Нет доступа", en: "No access" },
+  "dev.supportDeniedSub":{ ru: "Этот аккаунт не в списке админов поддержки", en: "This account isn't on the support admins list" },
+  "dev.supportEmpty":   { ru: "Пока нет обращений", en: "No requests yet" },
+  "dev.supportBack":    { ru: "Все треды", en: "All threads" },
+  "dev.supportReplyPh": { ru: "Ответ пользователю…", en: "Reply to user…" },
+  "dev.supportErr":     { ru: "Не удалось отправить ответ", en: "Failed to send reply" },
+  "dev.supportAiTag":   { ru: "ИИ", en: "AI" },
 
   // Скрытые достижения — уведомление при открытии
   "ach.unlocked": { ru: "Достижение открыто: «{0}»", en: "Achievement unlocked: “{0}”" },

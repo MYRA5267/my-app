@@ -11,7 +11,7 @@ import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADE
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays } from "./stats";
-import { supabaseEnabled, askSupportAI } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, type SupportMessageRow } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -1451,9 +1451,13 @@ export function ImportSheet({ open, onClose, onImported }: {
   );
 }
 
-// ─── Поддержка (чат внутри приложения, история хранится локально) ────────────
+// ─── Поддержка (чат внутри приложения) ───────────────────────────────────────
+// Без Supabase история живёт только в localStorage этого устройства, как и
+// раньше. С Supabase — сообщения пользователя реально сохраняются на сервере
+// (support_messages), чтобы их увидели живые админы в AdminSupportSheet
+// (см. dev.tsx), а не только локальный ИИ-автоответ ниже.
 
-interface SupportMsg { id: number; from: "me" | "support"; text: string; time: number; topicLabel?: string }
+interface SupportMsg { id: string; from: "me" | "support"; text: string; time: number; topicLabel?: string }
 
 const SUPPORT_TOPICS = ["sup.tBug", "sup.tBilling", "sup.tIdea", "sup.tOther"] as const;
 const REPLY_KEY: Record<typeof SUPPORT_TOPICS[number], string> = {
@@ -1462,7 +1466,14 @@ const REPLY_KEY: Record<typeof SUPPORT_TOPICS[number], string> = {
 
 const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+const rowToSupportMsg = (r: SupportMessageRow): SupportMsg => ({
+  id: r.id,
+  from: r.from_role === "user" ? "me" : "support",
+  text: r.text,
+  time: new Date(r.created_at).getTime(),
+});
+
+export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: () => void; uid: string | null }) {
   const { t } = useLang();
   const [topic, setTopic] = useState<typeof SUPPORT_TOPICS[number]>("sup.tBug");
   const [msg, setMsg] = useState("");
@@ -1471,14 +1482,29 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
   const listRef = useRef<HTMLDivElement>(null);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Приветствие при самом первом открытии — дальше история живёт в localStorage
+  // Приветствие — только если ни локально, ни на сервере ещё нет ни одного
+  // сообщения (используем функциональный setThread, чтобы не тянуть thread в deps)
+  const ensureGreeting = () => setThread(prev => {
+    if (prev.length) return prev;
+    const greet: SupportMsg = { id: String(Date.now()), from: "support", text: t("sup.greet"), time: Date.now() };
+    ls.set("supportChat", [greet]);
+    return [greet];
+  });
+
+  // При открытии — если Supabase подключён, подтягиваем реальную историю
+  // треда (там может быть уже и ответ живого админа), иначе как раньше
+  // работаем только с localStorage
   useEffect(() => {
-    if (open && thread.length === 0) {
-      const greet: SupportMsg = { id: Date.now(), from: "support", text: t("sup.greet"), time: Date.now() };
-      setThread([greet]);
-      ls.set("supportChat", [greet]);
+    if (!open) return;
+    if (supabaseEnabled && uid) {
+      fetchSupportThread(uid).then(({ data }) => {
+        if (data.length) setThread(data.map(rowToSupportMsg));
+        else ensureGreeting();
+      });
+      return;
     }
-  }, [open]);
+    ensureGreeting();
+  }, [open, uid]);
 
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [thread, typing]);
   useEffect(() => () => clearTimeout(replyTimer.current), []);
@@ -1486,12 +1512,18 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
   const send = async () => {
     const text = msg.trim();
     if (!text) { toast(t("sup.empty")); return; }
-    const mine: SupportMsg = { id: Date.now(), from: "me", text, time: Date.now(), topicLabel: t(topic) };
+    const mine: SupportMsg = { id: String(Date.now()), from: "me", text, time: Date.now(), topicLabel: t(topic) };
     const nextThread = [...thread, mine];
     setThread(nextThread);
     ls.set("supportChat", nextThread);
     setMsg("");
     setTyping(true);
+
+    if (supabaseEnabled && uid) {
+      // Реально сохраняем на сервере — иначе обращению просто некуда попасть,
+      // кроме локального ИИ-автоответа ниже
+      sendSupportMessage(uid, "user", text).catch(err => console.warn("sendSupportMessage:", err));
+    }
 
     if (supabaseEnabled) {
       // Реальный ИИ-ответ через Edge Function — с историей переписки для контекста
@@ -1499,14 +1531,17 @@ export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => 
       const { data, error } = await askSupportAI(history);
       setTyping(false);
       if (error || !data?.reply) { toast(t("sup.aiError")); return; }
-      const reply: SupportMsg = { id: Date.now() + 1, from: "support", text: data.reply, time: Date.now() };
+      const reply: SupportMsg = { id: String(Date.now() + 1), from: "support", text: data.reply, time: Date.now() };
       setThread(prev => { const next = [...prev, reply]; ls.set("supportChat", next); return next; });
+      // Тоже пишем в тред на сервере — чтобы админ видел полную картину переписки,
+      // а не только реплики пользователя без ответов
+      if (uid) sendSupportMessage(uid, "ai", data.reply).catch(err => console.warn("sendSupportMessage:", err));
       return;
     }
 
     clearTimeout(replyTimer.current);
     replyTimer.current = setTimeout(() => {
-      const reply: SupportMsg = { id: Date.now() + 1, from: "support", text: t(REPLY_KEY[topic]), time: Date.now() };
+      const reply: SupportMsg = { id: String(Date.now() + 1), from: "support", text: t(REPLY_KEY[topic]), time: Date.now() };
       setThread(prev => { const next = [...prev, reply]; ls.set("supportChat", next); return next; });
       setTyping(false);
       toast(t("sup.newReply"));

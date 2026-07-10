@@ -14,7 +14,7 @@ import {
 } from "./stats";
 import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
 import { MyraWordmark } from "./logo";
-import { DevPanelSheet } from "./dev";
+import { DevPanelSheet, AdminSupportSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
@@ -140,6 +140,7 @@ function AppInner() {
   // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
   const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
   const [devPanelOpen, setDevPanelOpen] = useState(false);
+  const [adminSupportOpen, setAdminSupportOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
@@ -252,6 +253,7 @@ function AppInner() {
     });
   }, [t]);
   const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
+  const openAdminSupport = useCallback(() => setAdminSupportOpen(true), []);
   const openPlus = useCallback(() => setPlusOpen(true), []);
   const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
   const addBalance = useCallback((amt: number) => {
@@ -1047,7 +1049,7 @@ function AppInner() {
         onImported={(name, ids) => { createPlaylist(name, ids); }}
       />
 
-      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} uid={uid} />
 
       <CreatorPlusSheet
         open={creatorPlusOpen}
@@ -1080,7 +1082,10 @@ function AppInner() {
         balance={balance}
         onAddBalance={addBalance}
         onGrantXp={handleGrantXp}
+        onOpenAdminSupport={openAdminSupport}
       />
+
+      <AdminSupportSheet open={adminSupportOpen} onClose={() => setAdminSupportOpen(false)} uid={uid} />
 
       <StudioStatsSheet
         open={statsOpen}

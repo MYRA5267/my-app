@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ls } from "./data";
@@ -7,6 +7,7 @@ import { F, GLASS, Sheet } from "./lib";
 import { useLang } from "./i18n";
 import { buildAchievements, type AchievementCounters } from "./achievements";
 import type { UserRole } from "./auth";
+import { isAdmin, fetchAllSupportThreads, fetchSupportThread, sendSupportMessage, markSupportThreadRead, type SupportMessageRow, type SupportThreadPreview } from "./supabase";
 
 // ─── Панель разработчика ──────────────────────────────────────────────────────
 // Только для создателей MYRA. Активируется семью быстрыми тапами по аватару в
@@ -18,7 +19,7 @@ import type { UserRole } from "./auth";
 const XP_PRESETS = [500, 2500, 10000];
 const BALANCE_PRESETS = [1000, 10000];
 
-export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, plusActive, onSetPlus, balance, onAddBalance, onGrantXp }: {
+export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetRole, cpStatus, onSetCp, plusActive, onSetPlus, balance, onAddBalance, onGrantXp, onOpenAdminSupport }: {
   open: boolean; onClose: () => void; level: number;
   counters: AchievementCounters;
   userRole: UserRole; onSetRole: (r: UserRole) => void;
@@ -26,6 +27,7 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   plusActive: boolean; onSetPlus: (v: boolean) => void;
   balance: number; onAddBalance: (amt: number) => void;
   onGrantXp: (xp: number) => void;
+  onOpenAdminSupport: () => void;
 }) {
   const { t } = useLang();
   // achVersion — форс-пересчёт после сброса прогресса кнопкой ниже
@@ -58,6 +60,16 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
           </button>
         </div>
         <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.sub")}</div>
+
+        {/* Инбокс поддержки — devMode только открывает эту кнопку, реальный
+            доступ к чужим переписке проверяет сам AdminSupportSheet (таблица admins) */}
+        <motion.button whileTap={{ scale: 0.98 }} onClick={onOpenAdminSupport} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(34,211,238,0.3)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,211,238,0.14)" }}>
+            <Inbox size={15} style={{ color: "#22d3ee" }} />
+          </div>
+          <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportRow")}</div>
+          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.button>
 
         {/* XP и уровень */}
         {label(t("dev.xp"))}
@@ -138,6 +150,166 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
         <motion.button whileTap={{ scale: 0.97 }} onClick={onClose} className="w-full py-3.5 rounded-full text-sm font-semibold mt-6 flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #f472b6, #f9a8d4)", color: "#3f0d24", fontFamily: F.b }}>
           <Sparkles size={14} /> {t("dev.close")}
         </motion.button>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Инбокс поддержки для админов (двух создателей MYRA) ─────────────────────
+// Точка входа — кнопка выше, внутри DevPanelSheet: devMode лишь ПОКАЗЫВАЕТ её
+// (обнаружение), а реальное разрешение на чужую переписку тут же, при
+// открытии, проверяется отдельно через isAdmin(uid) (таблица admins — она и
+// есть источник правды на доступ к данным). Если пользователь не в admins, но
+// каким-то образом включил devMode, он увидит только "нет доступа" — ни
+// одного чужого сообщения не подгрузится.
+
+const fmtThreadTime = (iso: string) => new Date(iso).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+function AdminThreadView({ userId, username, onBack }: { userId: string; username: string | null; onBack: () => void }) {
+  const { t } = useLang();
+  const [messages, setMessages] = useState<SupportMessageRow[] | null>(null);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(() => {
+    fetchSupportThread(userId).then(({ data }) => setMessages(data));
+    // Открыли тред — считаем, что админ увидел сообщения пользователя
+    markSupportThreadRead(userId).catch(() => {});
+  }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages]);
+
+  const send = async () => {
+    const text = reply.trim();
+    if (!text) return;
+    setSending(true);
+    const { error } = await sendSupportMessage(userId, "support", text);
+    setSending(false);
+    if (error) { toast(t("dev.supportErr")); return; }
+    setReply("");
+    load();
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold mb-3 flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
+        <ChevronLeft size={14} /> {t("dev.supportBack")}
+      </button>
+      <div className="text-sm font-bold mb-3 flex-shrink-0 truncate" style={{ fontFamily: F.d }}>{username ?? userId.slice(0, 8)}</div>
+
+      <div ref={listRef} className="flex-1 overflow-y-auto flex flex-col gap-3 pb-3" style={{ scrollbarWidth: "none" }}>
+        {messages === null && (
+          <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
+        )}
+        {messages?.map(m => (
+          <div key={m.id} className={`flex ${m.from_role === "support" ? "justify-end" : "justify-start"}`}>
+            <div className="max-w-[85%]">
+              <div className="px-4 py-2.5 rounded-[18px] text-sm" style={m.from_role === "support" ? { background: "linear-gradient(135deg, #f472b6, #f9a8d4)", color: "#3f0d24", borderBottomRightRadius: 6, fontFamily: F.b } : { ...GLASS, borderBottomLeftRadius: 6, fontFamily: F.b }}>
+                {m.text}
+              </div>
+              <div className="text-[9px] mt-1 px-1" style={{ textAlign: m.from_role === "support" ? "right" : "left", color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
+                {m.from_role === "ai" ? `${t("dev.supportAiTag")} · ` : ""}{fmtThreadTime(m.created_at)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-end gap-2.5 flex-shrink-0 pt-1">
+        <textarea
+          value={reply}
+          onChange={e => setReply(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder={t("dev.supportReplyPh")}
+          rows={1}
+          className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm resize-none"
+          style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b, maxHeight: 90 }}
+        />
+        <motion.button whileTap={{ scale: 0.88 }} disabled={sending} onClick={send} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: reply.trim() ? "linear-gradient(135deg, #f472b6, #f9a8d4)" : "color-mix(in srgb, var(--wash) 8%, transparent)" }}>
+          <Send size={16} style={{ color: reply.trim() ? "#3f0d24" : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
+export function AdminSupportSheet({ open, onClose, uid }: { open: boolean; onClose: () => void; uid: string | null }) {
+  const { t } = useLang();
+  // null = проверяем, true/false = результат isAdmin(uid)
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [threads, setThreads] = useState<SupportThreadPreview[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [activeThread, setActiveThread] = useState<SupportThreadPreview | null>(null);
+
+  const loadThreads = useCallback(() => {
+    setThreadsLoading(true);
+    fetchAllSupportThreads().then(list => { setThreads(list); setThreadsLoading(false); });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveThread(null);
+    if (!uid) { setAllowed(false); return; }
+    setAllowed(null);
+    isAdmin(uid).then(ok => { setAllowed(ok); if (ok) loadThreads(); });
+  }, [open, uid, loadThreads]);
+
+  return (
+    <Sheet open={open} onClose={onClose} z={71}>
+      <div className="px-6 pt-7 pb-8 flex flex-col" style={{ height: "min(78vh, 640px)" }}>
+        <div className="flex items-center justify-between mb-5 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,211,238,0.15)", border: "1px solid rgba(34,211,238,0.4)" }}>
+              <Inbox size={15} style={{ color: "#22d3ee" }} />
+            </div>
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("dev.supportTitle")}</div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {allowed === null && (
+          <div className="flex-1 flex items-center justify-center"><Loader2 size={20} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
+        )}
+
+        {allowed === false && (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-4">
+            <ShieldAlert size={22} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
+            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportDenied")}</div>
+            <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.supportDeniedSub")}</div>
+          </div>
+        )}
+
+        {allowed && !activeThread && (
+          <div className="flex-1 overflow-y-auto flex flex-col gap-2" style={{ scrollbarWidth: "none" }}>
+            {threadsLoading && (
+              <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></div>
+            )}
+            {!threadsLoading && threads.length === 0 && (
+              <div className="text-xs text-center py-8" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("dev.supportEmpty")}</div>
+            )}
+            {threads.map(th => (
+              <motion.button key={th.userId} whileTap={{ scale: 0.98 }} onClick={() => setActiveThread(th)} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left" style={GLASS}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{th.username ?? th.userId.slice(0, 8)}</div>
+                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{th.lastText}</div>
+                </div>
+                {th.unreadCount > 0 && (
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "#f472b6", color: "#3f0d24", fontFamily: F.m }}>
+                    {th.unreadCount}
+                  </div>
+                )}
+              </motion.button>
+            ))}
+          </div>
+        )}
+
+        {allowed && activeThread && (
+          <AdminThreadView userId={activeThread.userId} username={activeThread.username} onBack={() => { setActiveThread(null); loadThreads(); }} />
+        )}
       </div>
     </Sheet>
   );
