@@ -4,7 +4,7 @@ import {
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Bot, Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
-  Trophy, Clock, Flame, Gift, UserPlus,
+  Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, svg
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, type ActivityItem } from "./stats";
+import { MyraWordmark } from "./logo";
+import type { UserRole } from "./auth";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -149,6 +151,7 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
   "act.donateSent": Gift, "act.withdrawDone": Wallet,
   "act.plCreated": Music2, "act.plDeleted": Music2,
   "cr.added": Upload, "dl.done": Download,
+  "ach.unlocked": Trophy, "act.plusActivated": Sparkles,
 };
 
 /** Компактная запись счётчика: 2400 → "2.4K" */
@@ -190,7 +193,7 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
     <Page>
       {/* Верхняя панель */}
       <div className="px-5 pt-6 pb-5 flex items-center justify-between">
-        <div className="lg:hidden" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, letterSpacing: "-0.03em" }}>MYRA</div>
+        <div className="lg:hidden" style={{ color: "var(--fg)" }}><MyraWordmark height={22} /></div>
         <div className="hidden lg:block" style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("nav.home")}</div>
         <div className="flex gap-2 relative items-center">
           <motion.button whileTap={{ scale: 0.85 }} onClick={() => setNotifOpen(o => !o)} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ ...GLASS, background: notifOpen ? `${currentTrack.c2}30` : GLASS.background }}>
@@ -501,30 +504,12 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
 
 // ─── Рейтинг ──────────────────────────────────────────────────────────────────
 
-export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, level, minutesWeek, streak, onOpenPeer, totalPlays, likedCount, playlistCount, releaseCount, donationCount }: {
+export const RatingScreen = React.memo(function RatingScreen({ c2, userName, avatar, level, minutesWeek, streak, onOpenPeer }: {
   c2: string; userName: string; avatar: string; level: number; minutesWeek: number; streak: number;
   onOpenPeer: (peer: typeof LEADERBOARD_PEERS[number]) => void;
-  totalPlays: number; likedCount: number; playlistCount: number; releaseCount: number; donationCount: number;
 }) {
   const { t, lang } = useLang();
   const [metric, setMetric] = useState<"level" | "minutes" | "streak">("level");
-
-  const achievements = useMemo(() => [
-    { icon: Play,    title: t("ach.firstPlay"), sub: t("ach.firstPlaySub"), have: totalPlays,   need: 1 },
-    { icon: Flame,   title: t("ach.streak7"),   sub: t("ach.streak7Sub"),   have: streak,       need: 7 },
-    { icon: Zap,     title: t("ach.streak30"),  sub: t("ach.streak30Sub"),  have: streak,       need: 30 },
-    { icon: Trophy,  title: t("ach.plays100"),  sub: t("ach.plays100Sub"),  have: totalPlays,   need: 100 },
-    { icon: Sparkles,title: t("ach.plays500"),  sub: t("ach.plays500Sub"),  have: totalPlays,   need: 500 },
-    { icon: Heart,   title: t("ach.liked10"),   sub: t("ach.liked10Sub"),   have: likedCount,   need: 10 },
-    { icon: Heart,   title: t("ach.liked50"),   sub: t("ach.liked50Sub"),   have: likedCount,   need: 50 },
-    { icon: Music2,  title: t("ach.playlist1"), sub: t("ach.playlist1Sub"), have: playlistCount,need: 1 },
-    { icon: Mic2,    title: t("ach.release1"),  sub: t("ach.release1Sub"),  have: releaseCount, need: 1 },
-    { icon: Gift,    title: t("ach.donate1"),   sub: t("ach.donate1Sub"),   have: donationCount,need: 1 },
-    { icon: Crown,   title: t("ach.level5"),    sub: t("ach.level5Sub"),    have: level,        need: 5 },
-    { icon: Crown,   title: t("ach.level10"),   sub: t("ach.level10Sub"),  have: level,        need: 10 },
-  ].map(a => ({ ...a, done: a.have >= a.need, pct: Math.min(100, Math.round((a.have / a.need) * 100)) })),
-  [t, totalPlays, streak, likedCount, playlistCount, releaseCount, donationCount, level]);
-  const unlockedCount = achievements.filter(a => a.done).length;
 
   const you = { name: userName, avatar, level, minutesWeek, streak, you: true as const };
   const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
@@ -593,38 +578,10 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
         ))}
       </div>
 
-      {/* Достижения — реальный прогресс по своим цифрам, не завязан на других игроков */}
-      <div className="px-5 mt-8 mb-4 flex items-center justify-between">
-        <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("rt.achievements")}</h2>
-        <span className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("rt.achUnlocked", unlockedCount, achievements.length)}</span>
-      </div>
-      <div className="px-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-6">
-        {achievements.map((a, i) => {
-          const Icon = a.icon;
-          return (
-            <motion.div
-              key={a.title}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i, 10) * 0.03 }}
-              className="rounded-2xl p-4"
-              style={{ ...GLASS, opacity: a.done ? 1 : 0.55 }}
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: a.done ? `${c2}22` : "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
-                <Icon size={17} style={{ color: a.done ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-              </div>
-              <div className="text-sm font-semibold mb-1" style={{ fontFamily: F.b }}>{a.title}</div>
-              <div className="text-xs mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{a.sub}</div>
-              <div className="rounded-full overflow-hidden mb-1.5" style={{ height: 4, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
-                <div className="h-full rounded-full" style={{ width: `${a.pct}%`, background: a.done ? c2 : "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-              </div>
-              <div className="text-[10px]" style={{ color: a.done ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
-                {t("rt.achProgress", Math.min(a.have, a.need), a.need)}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+      {/* Достижения намеренно убраны с этого экрана: они скрытые — пользователь
+          узнаёт о каждом только в момент открытия (тост + уведомление).
+          Полный список остался в панели разработчика для проверки. */}
+      <div className="pb-6" />
     </Page>
   );
 });
@@ -969,10 +926,12 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void; quality: number; onSetQuality: (idx: number) => void;
+  userRole: UserRole; plusActive: boolean; donationCount: number;
+  devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
@@ -981,6 +940,29 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   const [aiFilter, setAiFilter] = useState(true);
   const [blendOpen, setBlendOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
+
+  // Секретная активация режима разработчика: 7 быстрых тапов по аватару —
+  // стандартный паттерн (как версия сборки в настройках Android)
+  const tapCount = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onAvatarTap = () => {
+    tapCount.current += 1;
+    clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
+    if (tapCount.current >= 7) { tapCount.current = 0; onToggleDevMode(); }
+  };
+
+  // Бейджи: у артиста и слушателя — свои, визуально разные; Pro/Plus и «Меценат»
+  // добавляются к базовому; «Разработчик» — только у создателей в dev-режиме
+  const badges = useMemo(() => [
+    userRole === "artist"
+      ? { icon: Mic2, label: t("bd.artist"), c: "#a78bfa" }
+      : { icon: Headphones, label: t("bd.listener"), c: "#34d399" },
+    ...(userRole === "artist" && creatorPlus ? [{ icon: Crown, label: "MYRA Pro", c: "#c4b5fd" }] : []),
+    ...(userRole === "listener" && plusActive ? [{ icon: Sparkles, label: "MYRA Plus", c: "#22d3ee" }] : []),
+    ...(donationCount > 0 ? [{ icon: Gift, label: t("bd.donor"), c: "#facc15" }] : []),
+    ...(devMode ? [{ icon: Wrench, label: t("bd.dev"), c: "#f472b6" }] : []),
+  ], [userRole, creatorPlus, plusActive, donationCount, devMode, t]);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
 
@@ -993,14 +975,25 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   return (
     <Page>
       <div className="px-5 pt-8 pb-6 text-center">
-        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mb-4">
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mb-4" onClick={onAvatarTap}>
           <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
-            {creatorPlus ? <Crown size={12} /> : <Mic2Icon />}
+            {userRole === "artist" ? <Mic2Icon /> : <Headphones size={12} />}
           </div>
         </motion.div>
         <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{userName}</div>
-        <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle} · Creator{creatorPlus ? "+" : ""}</div>
+        <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
+        {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик» */}
+        <div className="flex justify-center gap-2 mt-3.5 flex-wrap px-6">
+          {badges.map(b => {
+            const Icon = b.icon;
+            return (
+              <span key={b.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: `${b.c}1c`, border: `1px solid ${b.c}44`, color: b.c, fontFamily: F.b }}>
+                <Icon size={12} /> {b.label}
+              </span>
+            );
+          })}
+        </div>
         <div className="flex justify-center gap-10 mt-6">
           {[[String(follows), t("pr.follows")], ["0", t("pr.fans")], [fmtCount(totalPlays), t("pr.plays")]].map(([v, l]) => (
             <div key={l} className="text-center">
@@ -1026,6 +1019,24 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           </div>
         </TiltCard>
       </div>
+
+      {/* MYRA Plus — бесплатный уровень, виден только слушателям (Pro — у артистов в Студии) */}
+      {userRole === "listener" && (
+        <div className="px-5 mb-6">
+          <TiltCard max={6} onClick={onOpenPlus} className="rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(6,38,27,0.9), rgba(6,78,59,0.55))", border: "1px solid rgba(52,211,153,0.3)" }}>
+            <Aurora c2="#34d399" opacity={0.7} />
+            <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</div>
+                <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
+                  {plusActive ? t("plus.activeCard") : t("plus.card")}
+                </div>
+              </div>
+              <ChevronRight size={20} style={{ color: onDark(50) }} />
+            </div>
+          </TiltCard>
+        </div>
+      )}
 
       {/* Настройки */}
       <div className="px-5 flex flex-col gap-1.5">
@@ -1116,6 +1127,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.account")}</div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.div>
+
+        {/* Панель разработчика — появляется после 7 тапов по аватару */}
+        {devMode && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(244,114,182,0.12)" }}><Wrench size={15} style={{ color: "#f472b6" }} /></div>
+            <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("dev.row")}</div>
+            <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+          </motion.div>
+        )}
 
         <motion.button whileTap={{ scale: 0.98 }} onClick={() => setLogoutQ(true)} className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl mt-2 text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>
           <LogOut size={14} /> {t("pr.logout")}

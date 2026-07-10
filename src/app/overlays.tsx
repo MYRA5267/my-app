@@ -3,7 +3,7 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles,
+  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -567,12 +567,13 @@ function BlendTracks({ ids, onPlay, currentTrack, playing, c2 }: {
 
 // ─── Аккаунт ──────────────────────────────────────────────────────────────────
 
-export function AccountSheet({ open, onClose, userName, onRename, email, onSetEmail, handle, onSetHandle, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre }: {
+export function AccountSheet({ open, onClose, userName, onRename, email, onSetEmail, handle, onSetHandle, avatarIdx, onAvatar, customAvatar, onAvatarFile, onDeleted, onOpenImport, onOpenSupport, level, xpIntoLevel, xpForLevel, minutesWeek, streak, topGenre, planLabel, onOpenPlan }: {
   open: boolean; onClose: () => void; userName: string; onRename: (n: string) => void;
   email: string; onSetEmail: (email: string) => void;
   handle: string; onSetHandle: (handle: string) => void;
   avatarIdx: number; onAvatar: (i: number) => void; customAvatar: string | null; onAvatarFile: (dataUrl: string) => void; onDeleted: () => void; onOpenImport: () => void; onOpenSupport: () => void;
   level: number; xpIntoLevel: number; xpForLevel: number; minutesWeek: number; streak: number; topGenre: string | null;
+  planLabel: string; onOpenPlan: () => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState(userName);
@@ -729,10 +730,11 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
 
           {/* Подписка, импорт, поддержка */}
           <div className="flex flex-col gap-1.5 mb-6">
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => toast(t("acc.planTap"))} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <Crown size={15} style={{ color: "#facc15" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.plan")}</div>
-              <div className="text-xs" style={{ color: "#facc15", fontFamily: F.m }}>{t("acc.planVal")}</div>
+              <div className="text-xs" style={{ color: "#facc15", fontFamily: F.m }}>{planLabel}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
             <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
               <ImportIcon size={15} style={{ color: "#8b5cf6" }} />
@@ -917,6 +919,85 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
         danger
         onConfirm={() => { setCancelQ(false); onCancelSub(); toast(t("cp.cancelled")); onClose(); }}
       />
+    </Sheet>
+  );
+}
+
+// ─── MYRA Plus — бесплатный уровень для слушателей ────────────────────────────
+// Pro оставлен артистам; слушателям — свой план, и он принципиально бесплатный:
+// этим и выделяемся. Активация мгновенная, без симуляции оплаты.
+
+export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactivate }: {
+  open: boolean; onClose: () => void; active: boolean; onActivate: () => void; onDeactivate: () => void;
+}) {
+  const { t } = useLang();
+
+  const BENEFITS = [
+    { Icon: Star, title: t("plus.b1"), sub: t("plus.b1Sub") },
+    { Icon: Zap, title: t("plus.b2"), sub: t("plus.b2Sub") },
+    { Icon: ArrowDownToLine, title: t("plus.b3"), sub: t("plus.b3Sub") },
+    { Icon: Sparkles, title: t("plus.b4"), sub: t("plus.b4Sub") },
+  ];
+
+  return (
+    <Sheet open={open} onClose={onClose} z={65}>
+      <div className="relative px-6 pt-8 pb-8 overflow-hidden">
+        <Aurora c2="#34d399" opacity={0.55} />
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <X size={16} />
+        </button>
+
+        <div className="relative z-10">
+          {active ? (
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="text-center py-6">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING, delay: 0.15 }} className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: "rgba(52,211,153,0.13)", border: "1.5px solid rgba(52,211,153,0.4)" }}>
+                <Check size={34} style={{ color: "#34d399" }} />
+              </motion.div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("plus.done")}</div>
+              <div className="text-sm mt-2 mb-2" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.doneSub")}</div>
+              <div className="text-xs mb-7" style={{ color: "#34d399", fontFamily: F.m }}>{t("plus.price")}</div>
+              <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="px-10 py-3 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b }}>
+                {t("cp.great")}
+              </motion.button>
+              <button onClick={() => { onDeactivate(); toast(t("plus.deactivated")); }} className="block mx-auto mt-4 text-xs transition-colors hover:text-red-300" style={{ color: "rgba(248,113,113,0.75)", fontFamily: F.b }}>
+                {t("plus.deactivate")}
+              </button>
+            </motion.div>
+          ) : (
+            <>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)" }}>
+                <Star size={13} style={{ color: "#6ee7b7" }} />
+                <span className="text-xs font-semibold" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</span>
+              </div>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("plus.price")}</div>
+              <div className="text-sm mb-5" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("plus.sub")}</div>
+
+              <div className="flex flex-col gap-2.5 mb-7">
+                {BENEFITS.map((b, i) => (
+                  <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.16)" }}>
+                      <b.Icon size={15} style={{ color: "#6ee7b7" }} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{b.title}</div>
+                      <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{b.sub}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => { onActivate(); toast.success(t("plus.done")); }}
+                className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
+              >
+                {t("plus.activate")}
+              </motion.button>
+            </>
+          )}
+        </div>
+      </div>
     </Sheet>
   );
 }

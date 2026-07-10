@@ -8,17 +8,20 @@ import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, 
 import { smartNext, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
-  topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds,
+  topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
   loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
   type ProfileStats, type ActivityItem, type MyPlays,
 } from "./stats";
+import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
+import { MyraWordmark } from "./logo";
+import { DevPanelSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
 import { supabaseEnabled, getSession, fetchProfile, upsertProfile, signOutRemote } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -96,9 +99,17 @@ function AppInner() {
   });
   const setCp = useCallback((s: "none" | "active" | "grace") => { setCpStatus(s); ls.set("cpStatus", s); }, []);
   const creatorPlus = cpStatus !== "none";
+  // MYRA Plus — бесплатный план слушателя (Pro оставлен артистам)
+  const [plusActive, setPlusActiveState] = useState(() => ls.get("plusActive", false));
+  const setPlusActive = useCallback((v: boolean) => { setPlusActiveState(v); ls.set("plusActive", v); }, []);
   const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
-  // Студия открыта артистам, а также всем, кто оформил MYRA Pro
-  const showStudio = userRole === "artist" || creatorPlus;
+  const setRole = useCallback((r: UserRole) => { setUserRole(r); ls.set("userRole", r); }, []);
+  // Студия — только артистам: MYRA Pro больше не открывает её слушателям
+  const showStudio = userRole === "artist";
+  // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
+  const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
+  const [devPanelOpen, setDevPanelOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
@@ -152,6 +163,8 @@ function AppInner() {
   const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
   const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
   const resumeCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpResumed"); }, [logActivity]);
+  const activatePlus = useCallback(() => { setPlusActive(true); logActivity("act.plusActivated"); }, [setPlusActive, logActivity]);
+  const deactivatePlus = useCallback(() => { setPlusActive(false); }, [setPlusActive]);
 
   // Серия дней подряд — считаем один раз при заходе в приложение
   useEffect(() => {
@@ -175,10 +188,44 @@ function AppInner() {
     prevLevelRef.current = lvl;
   }, [stats, logActivity, t]);
 
-  // Если Студия скрылась (например, отменили MYRA Pro, а сам не артист) — уводим со вкладки
+  // Если Студия скрылась (например, сменили роль на слушателя) — уводим со вкладки
   useEffect(() => {
     if (tab === "creator" && !showStudio) setTab("home");
   }, [tab, showStudio, setTab]);
+
+  // Скрытые достижения: списка в интерфейсе нет — пользователь узнаёт о каждом
+  // только в момент открытия (тост + запись в уведомлениях). Прогресс — в ls.
+  useEffect(() => {
+    const unlocked = new Set(ls.get<string[]>("achUnlocked", []));
+    const counters: AchievementCounters = {
+      totalPlays, streak: stats.streak, likedCount: likedIds.size,
+      playlistCount: customPls.length, releaseCount: myTracks.length,
+      donationCount, level: levelInfo(xpOf(stats)).level,
+    };
+    const fresh = ACHIEVEMENTS.filter(a => !unlocked.has(a.id) && a.of(counters) >= a.need);
+    if (!fresh.length) return;
+    fresh.forEach(a => unlocked.add(a.id));
+    ls.set("achUnlocked", [...unlocked]);
+    fresh.forEach(a => logActivity("ach.unlocked", t(a.key)));
+    toast.success(t("ach.unlocked", t(fresh[0].key)));
+  }, [totalPlays, stats, likedIds, customPls, myTracks, donationCount, logActivity, t]);
+
+  // Режим разработчика: тумблер дергается секретным жестом из ProfileScreen
+  const toggleDevMode = useCallback(() => {
+    setDevModeState(d => {
+      const next = !d;
+      ls.set("devMode", next);
+      toast(next ? t("dev.on") : t("dev.off"));
+      if (!next) setDevPanelOpen(false);
+      return next;
+    });
+  }, [t]);
+  const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
+  const openPlus = useCallback(() => setPlusOpen(true), []);
+  const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
+  const addBalance = useCallback((amt: number) => {
+    setBalance(b => { const nb = b + amt; ls.set("balance", nb); return nb; });
+  }, []);
 
   const withdraw = useCallback((amt: number) => {
     setBalance(b => { const nb = b - amt; ls.set("balance", nb); return nb; });
@@ -576,6 +623,10 @@ function AppInner() {
     setDownloads(new Map());
     setPlOrders({});
     setCpStatus("none");
+    setPlusActiveState(false);
+    setDevModeState(false);
+    setDevPanelOpen(false);
+    setPlusOpen(false);
     setUserRole("listener");
     setCustomAvatar(null);
     setAvatarIdx(0);
@@ -642,6 +693,19 @@ function AppInner() {
   const statMinutesWeek = minutesOf(weekSeconds(stats));
   const statTopGenre = topGenre(stats);
 
+  // Текущий план для строки в аккаунте: Pro — у артистов, Plus — у слушателей
+  const planLabel = userRole === "artist"
+    ? (cpStatus === "active" ? t("plan.proActive") : cpStatus === "grace" ? t("plan.proGrace") : t("plan.free"))
+    : (plusActive ? t("plan.plus") : t("plan.free"));
+  const openPlan = userRole === "artist" ? openCreatorPlus : openPlus;
+
+  // Счётчики для скрытых достижений — их полный список видит только дев-панель
+  const achCounters: AchievementCounters = {
+    totalPlays, streak: stats.streak, likedCount: likedIds.size,
+    playlistCount: customPls.length, releaseCount: myTracks.length,
+    donationCount, level: lvl.level,
+  };
+
   const screens: Record<Tab, React.ReactNode> = {
     home: (
       <HomeScreen
@@ -667,11 +731,6 @@ function AppInner() {
         minutesWeek={statMinutesWeek}
         streak={stats.streak}
         onOpenPeer={setPeerProfile}
-        totalPlays={totalPlays}
-        likedCount={likedIds.size}
-        playlistCount={customPls.length}
-        releaseCount={myTracks.length}
-        donationCount={donationCount}
       />
     ),
     library: (
@@ -725,6 +784,13 @@ function AppInner() {
         onToggleCrossfade={toggleCrossfade}
         quality={qualityIdx}
         onSetQuality={setQualityIdx}
+        userRole={userRole}
+        plusActive={plusActive}
+        donationCount={donationCount}
+        devMode={devMode}
+        onToggleDevMode={toggleDevMode}
+        onOpenDevPanel={openDevPanel}
+        onOpenPlus={openPlus}
       />
     ),
   };
@@ -735,8 +801,8 @@ function AppInner() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid color-mix(in srgb, var(--wash) 05%, transparent)", background: "var(--island)", backdropFilter: "blur(32px)" }}>
-        <div className="px-6 mb-9 flex items-baseline gap-2">
-          <span style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.05em" }}>MYRA</span>
+        <div className="px-6 mb-9 flex items-center gap-2">
+          <MyraWordmark height={20} style={{ color: "var(--fg)" }} />
           <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
         </div>
         {navItems(showStudio).map(n => {
@@ -913,6 +979,8 @@ function AppInner() {
         minutesWeek={statMinutesWeek}
         streak={stats.streak}
         topGenre={statTopGenre}
+        planLabel={planLabel}
+        onOpenPlan={openPlan}
       />
 
       <ImportSheet
@@ -930,6 +998,30 @@ function AppInner() {
         onActivate={activateCreatorPlus}
         onCancelSub={cancelCreatorPlusSub}
         onResume={resumeCreatorPlus}
+      />
+
+      <ListenerPlusSheet
+        open={plusOpen}
+        onClose={() => setPlusOpen(false)}
+        active={plusActive}
+        onActivate={activatePlus}
+        onDeactivate={deactivatePlus}
+      />
+
+      <DevPanelSheet
+        open={devPanelOpen}
+        onClose={() => setDevPanelOpen(false)}
+        level={lvl.level}
+        counters={achCounters}
+        userRole={userRole}
+        onSetRole={setRole}
+        cpStatus={cpStatus}
+        onSetCp={setCp}
+        plusActive={plusActive}
+        onSetPlus={setPlusActive}
+        balance={balance}
+        onAddBalance={addBalance}
+        onGrantXp={handleGrantXp}
       />
 
       <StudioStatsSheet

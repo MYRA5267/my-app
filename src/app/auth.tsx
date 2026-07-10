@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
+import { MyraWordmark } from "./logo";
 import { useLang } from "./i18n";
 import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
 
@@ -154,7 +155,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
       {/* Верх: лого + тема + язык */}
       <div className="relative z-10 flex items-center justify-between px-7 pt-9">
-        <div style={{ fontFamily: F.d, fontWeight: 900, fontSize: 26, letterSpacing: "-0.04em" }}>MYRA</div>
+        <MyraWordmark height={24} style={{ color: "var(--fg)" }} />
         <div className="flex items-center gap-2">
           <motion.button whileTap={{ scale: 0.88 }} onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ ...GLASS }}>
             {theme === "dark" ? <Moon size={15} /> : <Sun size={15} />}
