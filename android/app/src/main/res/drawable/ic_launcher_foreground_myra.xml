@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Логотип MYRA (бренд-гайд Logo System v1.0): на размерах лаунчера стеклянный
+     вариант не читается, поэтому плоская «M» на фиолете — как в myra-favicon.svg.
+     «M» занимает центральные 54% вьюпорта и целиком помещается в safe zone
+     адаптивной иконки (центральные 66%), так что не режется ни одной маской. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+    <path
+        android:pathData="M60,178 L60,62 L120,132 L180,62 L180,178"
+        android:strokeColor="#8B5CF6"
+        android:strokeWidth="36"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"/>
+</vector>

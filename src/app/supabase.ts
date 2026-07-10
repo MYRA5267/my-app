@@ -93,3 +93,28 @@ export async function askSupportAI(messages: { role: "user" | "assistant"; conte
   if (!supabaseEnabled || !supabase) return { data: null, error: new Error("supabase not configured") };
   return supabase.functions.invoke<{ reply: string }>("support-chat", { body: { messages } });
 }
+
+// Донат — обычная запись в таблицу, RLS уже разрешает insert от своего имени
+// (donations_insert_own), никакой edge function тут не нужно
+export async function recordDonation(userId: string, toArtist: string, amount: number) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.from("donations").insert({ from_user: userId, to_artist: toArtist, amount });
+  return { error };
+}
+
+export type SubStatus = "none" | "active" | "grace";
+
+// Статус подписки читаем напрямую (RLS разрешает select своей строки), но
+// СТАВИМ его только через Edge Function set-subscription — RLS сознательно
+// запрещает клиенту самому проставлять 'active' (см. schema.sql)
+export async function fetchSubscriptionStatus(userId: string): Promise<SubStatus | null> {
+  if (!supabaseEnabled || !supabase) return null;
+  const { data, error } = await supabase.from("subscriptions").select("status").eq("user_id", userId).single();
+  if (error || !data) return null;
+  return data.status as SubStatus;
+}
+
+export async function setSubscriptionStatus(status: SubStatus) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  return supabase.functions.invoke<{ ok: boolean }>("set-subscription", { body: { status } });
+}

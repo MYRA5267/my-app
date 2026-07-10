@@ -60,6 +60,13 @@ export function markTrackPlayed(s: ProfileStats, trackId: number): ProfileStats 
   return { ...s, playedTracks: { ...s.playedTracks, [trackId]: (s.playedTracks[trackId] ?? 0) + 1 } };
 }
 
+/** Панель разработчика: выдать XP напрямую. XP = секунды/6, поэтому докидываем
+    только секунды дня — жанры и артисты не трогаются, Wrapped не искажается */
+export function grantXp(s: ProfileStats, xp: number): ProfileStats {
+  const day = todayIso();
+  return { ...s, secondsByDay: { ...s.secondsByDay, [day]: (s.secondsByDay[day] ?? 0) + xp * 6 } };
+}
+
 export const totalSeconds = (s: ProfileStats) => Object.values(s.secondsByDay).reduce((a, b) => a + b, 0);
 export const weekSeconds = (s: ProfileStats) => {
   let sum = 0;

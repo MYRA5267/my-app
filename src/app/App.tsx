@@ -8,17 +8,20 @@ import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, 
 import { smartNext, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
-  topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds,
+  topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
   loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
   type ProfileStats, type ActivityItem, type MyPlays,
 } from "./stats";
+import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
+import { MyraWordmark } from "./logo";
+import { DevPanelSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, fetchProfile, upsertProfile, signOutRemote } from "./supabase";
+import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, type SubStatus } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
+import { ArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -48,6 +51,10 @@ const LOCAL_PALETTE: [string, string][] = [
   ["#12083a", "#8b5cf6"], ["#071a10", "#34d399"], ["#1a0a08", "#fb923c"],
   ["#0f0818", "#f472b6"], ["#071218", "#38bdf8"], ["#181200", "#facc15"],
 ];
+
+// Без MYRA Pro/Plus офлайн-загрузки ограничены — иначе "безлимит" на апгрейде
+// ничем не отличался бы от того, что и так доступно всем
+const FREE_DOWNLOAD_LIMIT = 20;
 
 type Tab = "home" | "rating" | "library" | "creator" | "profile";
 
@@ -89,16 +96,51 @@ function AppInner() {
     }
   }, [setCustomHandle]);
   const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
-  // Подписка: none → active → grace (отменена, но действует до конца периода)
+
+  // uid текущей сессии Supabase — нужен, чтобы донаты и статус подписки
+  // писались на сервер, а не только в localStorage этого устройства
+  const [uid, setUid] = useState<string | null>(null);
+  const uidRef = useRef<string | null>(null);
+  uidRef.current = uid;
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    getSession().then(s => setUid(s?.user?.id ?? null));
+    const { data } = onAuthStateChange(s => setUid(s?.user?.id ?? null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  // Подписка: none → active → grace (отменена, но действует до конца периода).
+  // RLS специально не даёт клиенту самому ставить 'active' напрямую — это
+  // делает только Edge Function set-subscription (см. supabase.ts)
   const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
     const raw = ls.get<"none" | "active" | "grace" | boolean>("cpStatus", ls.get("creatorPlus", false) ? "active" : "none");
     return raw === true ? "active" : raw === false ? "none" : raw;
   });
-  const setCp = useCallback((s: "none" | "active" | "grace") => { setCpStatus(s); ls.set("cpStatus", s); }, []);
+  const setCp = useCallback((s: "none" | "active" | "grace") => {
+    setCpStatus(s);
+    ls.set("cpStatus", s);
+    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(s).catch(err => console.warn("setSubscriptionStatus:", err));
+  }, []);
   const creatorPlus = cpStatus !== "none";
+  // MYRA Plus — бесплатный план слушателя (Pro оставлен артистам)
+  const [plusActive, setPlusActiveState] = useState(() => ls.get("plusActive", false));
+  const setPlusActive = useCallback((v: boolean) => {
+    setPlusActiveState(v);
+    ls.set("plusActive", v);
+    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(v ? "active" : "none").catch(err => console.warn("setSubscriptionStatus:", err));
+  }, []);
   const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
-  // Студия открыта артистам, а также всем, кто оформил MYRA Pro
-  const showStudio = userRole === "artist" || creatorPlus;
+  const setRole = useCallback((r: UserRole) => { setUserRole(r); ls.set("userRole", r); }, []);
+  // Студия — только артистам: MYRA Pro больше не открывает её слушателям
+  const showStudio = userRole === "artist";
+  // Единая проверка апгрейда своей роли — Pro для артиста, Plus для слушателя.
+  // На неё завязаны реальные ограничения бесплатного тарифа (качество, офлайн-лимит),
+  // а не только бейджи и текст — иначе Free и Pro/Plus не отличались бы ничем, кроме подписи
+  const hasUpgrade = userRole === "artist" ? creatorPlus : plusActive;
+  // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
+  const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
+  const [devPanelOpen, setDevPanelOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
@@ -152,6 +194,8 @@ function AppInner() {
   const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
   const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
   const resumeCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpResumed"); }, [logActivity]);
+  const activatePlus = useCallback(() => { setPlusActive(true); logActivity("act.plusActivated"); }, [setPlusActive, logActivity]);
+  const deactivatePlus = useCallback(() => { setPlusActive(false); }, [setPlusActive]);
 
   // Серия дней подряд — считаем один раз при заходе в приложение
   useEffect(() => {
@@ -175,10 +219,44 @@ function AppInner() {
     prevLevelRef.current = lvl;
   }, [stats, logActivity, t]);
 
-  // Если Студия скрылась (например, отменили MYRA Pro, а сам не артист) — уводим со вкладки
+  // Если Студия скрылась (например, сменили роль на слушателя) — уводим со вкладки
   useEffect(() => {
     if (tab === "creator" && !showStudio) setTab("home");
   }, [tab, showStudio, setTab]);
+
+  // Скрытые достижения: списка в интерфейсе нет — пользователь узнаёт о каждом
+  // только в момент открытия (тост + запись в уведомлениях). Прогресс — в ls.
+  useEffect(() => {
+    const unlocked = new Set(ls.get<string[]>("achUnlocked", []));
+    const counters: AchievementCounters = {
+      totalPlays, streak: stats.streak, likedCount: likedIds.size,
+      playlistCount: customPls.length, releaseCount: myTracks.length,
+      donationCount, level: levelInfo(xpOf(stats)).level,
+    };
+    const fresh = ACHIEVEMENTS.filter(a => !unlocked.has(a.id) && a.of(counters) >= a.need);
+    if (!fresh.length) return;
+    fresh.forEach(a => unlocked.add(a.id));
+    ls.set("achUnlocked", [...unlocked]);
+    fresh.forEach(a => logActivity("ach.unlocked", t(a.key)));
+    toast.success(t("ach.unlocked", t(fresh[0].key)));
+  }, [totalPlays, stats, likedIds, customPls, myTracks, donationCount, logActivity, t]);
+
+  // Режим разработчика: тумблер дергается секретным жестом из ProfileScreen
+  const toggleDevMode = useCallback(() => {
+    setDevModeState(d => {
+      const next = !d;
+      ls.set("devMode", next);
+      toast(next ? t("dev.on") : t("dev.off"));
+      if (!next) setDevPanelOpen(false);
+      return next;
+    });
+  }, [t]);
+  const openDevPanel = useCallback(() => setDevPanelOpen(true), []);
+  const openPlus = useCallback(() => setPlusOpen(true), []);
+  const handleGrantXp = useCallback((xp: number) => { setStats(prev => grantXp(prev, xp)); }, []);
+  const addBalance = useCallback((amt: number) => {
+    setBalance(b => { const nb = b + amt; ls.set("balance", nb); return nb; });
+  }, []);
 
   const withdraw = useCallback((amt: number) => {
     setBalance(b => { const nb = b - amt; ls.set("balance", nb); return nb; });
@@ -189,12 +267,22 @@ function AppInner() {
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
 
-  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI
+  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI.
+  // Hi-Res (индекс 2) — настоящая, а не только косметическая привилегия Pro/Plus:
+  // без апгрейда потолок — FLAC (индекс 1)
   const [qualityIdx, setQualityIdxState] = useState(() => ls.get("qualityIdx", 1));
   const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
   useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
+  // Если апгрейд закончился (отмена/grace), а качество уже стояло на Hi-Res —
+  // тихо откатываем на FLAC, а не оставляем недоступный уровень висеть в настройках
+  useEffect(() => {
+    if (!hasUpgrade && qualityIdx > 1) setQualityIdx(1);
+  }, [hasUpgrade, qualityIdx, setQualityIdx]);
 
-  // Реальное время прослушивания — копится, пока реально играет музыка
+  // Реальное время прослушивания — копится, пока реально играет музыка.
+  // artist обязан быть в зависимостях наравне с genre: иначе при переходе на
+  // трек того же жанра интервал не пересоздаётся и секунды продолжают
+  // засчитываться прежнему артисту (ломая Wrapped и топ-артиста)
   useEffect(() => {
     if (!audio.playing) return;
     const TICK = 5;
@@ -202,7 +290,7 @@ function AppInner() {
       setStats(prev => addListenSeconds(prev, TICK, currentTrack.genre, currentTrack.artist));
     }, TICK * 1000);
     return () => clearInterval(iv);
-  }, [audio.playing, currentTrack.genre]);
+  }, [audio.playing, currentTrack.genre, currentTrack.artist]);
 
   // Скачанные для офлайна треки каталога
   useEffect(() => {
@@ -256,6 +344,18 @@ function AppInner() {
       setOnboarded(true);
     })();
   }, [setEmail, t]);
+
+  // Статус Pro/Plus — правда живёт на сервере (см. Edge Function set-subscription);
+  // подтягиваем один раз, когда есть и сессия, и завершённый онбординг, чтобы
+  // подписка была видна с любого устройства, а не только с того, где её оформили
+  useEffect(() => {
+    if (!supabaseEnabled || !uid || !onboarded) return;
+    fetchSubscriptionStatus(uid).then(status => {
+      if (status === null) return;
+      if (userRole === "artist") { setCpStatus(status); ls.set("cpStatus", status); }
+      else { const active = status === "active"; setPlusActiveState(active); ls.set("plusActive", active); }
+    });
+  }, [uid, onboarded, userRole]);
 
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
@@ -349,7 +449,8 @@ function AppInner() {
     });
   }, [audio, resolveUrl, registerPlay]);
 
-  // Загрузка трека для офлайна
+  // Загрузка трека для офлайна — без апгрейда лимит FREE_DOWNLOAD_LIMIT треков,
+  // иначе "безлимит на Plus/Pro" ничем не отличался бы от того, что уже есть у всех
   const downloadTrack = useCallback(async (tr: Track) => {
     if (downloadsRef.current.has(tr.id)) {
       const url = downloadsRef.current.get(tr.id)!;
@@ -357,6 +458,10 @@ function AppInner() {
       setDownloads(prev => { const m = new Map(prev); m.delete(tr.id); return m; });
       deleteDownload(tr.id).catch(() => {});
       toast(t("dl.removed"));
+      return;
+    }
+    if (!hasUpgrade && downloadsRef.current.size >= FREE_DOWNLOAD_LIMIT) {
+      toast(t("dl.limitReached", FREE_DOWNLOAD_LIMIT));
       return;
     }
     toast(t("dl.loading", tr.title));
@@ -371,7 +476,7 @@ function AppInner() {
     } catch {
       toast(t("dl.fail"));
     }
-  }, [t, logActivity]);
+  }, [t, logActivity, hasUpgrade]);
 
   // Свои плейлисты (создание + импорт)
   const createPlaylist = useCallback((name: string, trackIds: number[]) => {
@@ -535,16 +640,20 @@ function AppInner() {
     });
   }, [playlistId]);
 
-  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string) => {
+  // Тост здесь не нужен: каждый путь онбординга (регистрация, вход, соцсети)
+  // уже показывает свой — раньше «Аккаунт создан» дублировался и вылезал даже при входе
+  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string, handle?: string | null) => {
     setUserName(name);
     ls.set("userName", name);
     setUserRole(role);
     ls.set("userRole", role);
     setEmail(enteredEmail);
+    // При входе в существующий аккаунт приходит серверный хендл; при регистрации —
+    // null, чтобы не унаследовать кастомный хендл предыдущего владельца устройства
+    setCustomHandle(handle ?? null);
     ls.set("onboarded", true);
     setOnboarded(true);
-    toast(t("au.created"));
-  }, [t, setEmail]);
+  }, [setEmail, setCustomHandle]);
 
   const handleLogout = useCallback(() => {
     audio.pause();
@@ -569,9 +678,15 @@ function AppInner() {
     setDownloads(new Map());
     setPlOrders({});
     setCpStatus("none");
+    setPlusActiveState(false);
+    setDevModeState(false);
+    setDevPanelOpen(false);
+    setPlusOpen(false);
     setUserRole("listener");
     setCustomAvatar(null);
     setAvatarIdx(0);
+    setCustomHandleState(null);
+    setEmailState("");
     setStats(touchDailyStreak(loadStats()));
     setActivity([]);
     setMyPlays({ byTrack: {}, byDay: {} });
@@ -633,6 +748,19 @@ function AppInner() {
   const statMinutesWeek = minutesOf(weekSeconds(stats));
   const statTopGenre = topGenre(stats);
 
+  // Текущий план для строки в аккаунте: Pro — у артистов, Plus — у слушателей
+  const planLabel = userRole === "artist"
+    ? (cpStatus === "active" ? t("plan.proActive") : cpStatus === "grace" ? t("plan.proGrace") : t("plan.free"))
+    : (plusActive ? t("plan.plus") : t("plan.free"));
+  const openPlan = userRole === "artist" ? openCreatorPlus : openPlus;
+
+  // Счётчики для скрытых достижений — их полный список видит только дев-панель
+  const achCounters: AchievementCounters = {
+    totalPlays, streak: stats.streak, likedCount: likedIds.size,
+    playlistCount: customPls.length, releaseCount: myTracks.length,
+    donationCount, level: lvl.level,
+  };
+
   const screens: Record<Tab, React.ReactNode> = {
     home: (
       <HomeScreen
@@ -658,11 +786,6 @@ function AppInner() {
         minutesWeek={statMinutesWeek}
         streak={stats.streak}
         onOpenPeer={setPeerProfile}
-        totalPlays={totalPlays}
-        likedCount={likedIds.size}
-        playlistCount={customPls.length}
-        releaseCount={myTracks.length}
-        donationCount={donationCount}
       />
     ),
     library: (
@@ -716,6 +839,13 @@ function AppInner() {
         onToggleCrossfade={toggleCrossfade}
         quality={qualityIdx}
         onSetQuality={setQualityIdx}
+        userRole={userRole}
+        plusActive={plusActive}
+        donationCount={donationCount}
+        devMode={devMode}
+        onToggleDevMode={toggleDevMode}
+        onOpenDevPanel={openDevPanel}
+        onOpenPlus={openPlus}
       />
     ),
   };
@@ -726,8 +856,8 @@ function AppInner() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid color-mix(in srgb, var(--wash) 05%, transparent)", background: "var(--island)", backdropFilter: "blur(32px)" }}>
-        <div className="px-6 mb-9 flex items-baseline gap-2">
-          <span style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.05em" }}>MYRA</span>
+        <div className="px-6 mb-9 flex items-center gap-2">
+          <MyraWordmark height={20} style={{ color: "var(--fg)" }} />
           <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
         </div>
         {navItems(showStudio).map(n => {
@@ -848,7 +978,10 @@ function AppInner() {
         onFollow={toggleFollow}
         onOpenArtist={openArtist}
         onOpenAlbum={openAlbum}
-        onDonate={(name, amt) => logActivity("act.donateSent", amt, name)}
+        onDonate={(name, amt) => {
+          logActivity("act.donateSent", amt, name);
+          if (supabaseEnabled && uid) recordDonation(uid, name, amt).catch(err => console.warn("recordDonation:", err));
+        }}
       />
 
       <AlbumSheet
@@ -904,6 +1037,8 @@ function AppInner() {
         minutesWeek={statMinutesWeek}
         streak={stats.streak}
         topGenre={statTopGenre}
+        planLabel={planLabel}
+        onOpenPlan={openPlan}
       />
 
       <ImportSheet
@@ -921,6 +1056,30 @@ function AppInner() {
         onActivate={activateCreatorPlus}
         onCancelSub={cancelCreatorPlusSub}
         onResume={resumeCreatorPlus}
+      />
+
+      <ListenerPlusSheet
+        open={plusOpen}
+        onClose={() => setPlusOpen(false)}
+        active={plusActive}
+        onActivate={activatePlus}
+        onDeactivate={deactivatePlus}
+      />
+
+      <DevPanelSheet
+        open={devPanelOpen}
+        onClose={() => setDevPanelOpen(false)}
+        level={lvl.level}
+        counters={achCounters}
+        userRole={userRole}
+        onSetRole={setRole}
+        cpStatus={cpStatus}
+        onSetCp={setCp}
+        plusActive={plusActive}
+        onSetPlus={setPlusActive}
+        balance={balance}
+        onAddBalance={addBalance}
+        onGrantXp={handleGrantXp}
       />
 
       <StudioStatsSheet
