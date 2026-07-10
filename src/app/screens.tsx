@@ -802,7 +802,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
         <div className="p-6">
           <div className="mb-4" style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("lib.newPlTitle")}</div>
           <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && newName.trim()) { onCreatePlaylist?.(newName.trim()); setNewName(""); setCreateOpen(false); toast(t("lib.plCreated")); } }} placeholder={t("lib.plName")} className="w-full px-4 py-3 rounded-2xl bg-transparent outline-none text-sm mb-4" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }} />
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { if (newName.trim()) { onCreatePlaylist?.(newName.trim()); setNewName(""); setCreateOpen(false); toast(t("lib.plCreated")); } }} className="w-full py-3 rounded-full text-sm font-semibold" style={{ background: `linear-gradient(135deg, , 99)`, color: "#fff", fontFamily: F.b }}>{t("lib.plCreate")}</motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { if (newName.trim()) { onCreatePlaylist?.(newName.trim()); setNewName(""); setCreateOpen(false); toast(t("lib.plCreated")); } }} className="w-full py-3 rounded-full text-sm font-semibold" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}99)`, color: "#fff", fontFamily: F.b }}>{t("lib.plCreate")}</motion.button>
         </div>
       </Sheet>
     </Page>

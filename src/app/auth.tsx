@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
 import { useLang } from "./i18n";
-import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, resendConfirmation } from "./supabase";
+import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
 
 type Step = "slides" | "auth" | "taste" | "role" | "confirm";
 export type UserRole = "artist" | "listener";
@@ -16,7 +16,7 @@ const SOCIALS: [string, (p: { size?: number }) => React.JSX.Element][] = [
   ["Яндекс", YandexIcon],
 ];
 
-export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRole, email: string) => void }) {
+export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRole, email: string, handle?: string | null) => void }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
   const [step, setStep] = useState<Step>("slides");
@@ -46,6 +46,21 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
       if (supabaseEnabled) {
         const { error } = await signInWithEmail(email, pass);
         if (error) { toast(t("au.loginFailed", error.message)); return; }
+        // Существующий аккаунт: имя, роль и хендл живут в серверном профиле,
+        // а не в localStorage этого устройства. Подтягиваем их прямо сейчас —
+        // эффект восстановления в App.tsx срабатывает только на старте
+        // приложения и после логина уже не выполнится, так что без этого
+        // пользователь навсегда остался бы с именем-заглушкой.
+        const uid = (await getSession())?.user?.id;
+        if (uid) {
+          const { data: profile } = await fetchProfile(uid);
+          if (profile?.username) {
+            const role: UserRole = profile.role === "artist" ? "artist" : "listener";
+            toast(t("au.welcomeBack", profile.username));
+            onDone(profile.username, role, email.trim(), profile.handle ?? null);
+            return;
+          }
+        }
       }
       toast(t("au.welcomeBack", finishName));
       onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
@@ -93,14 +108,23 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
     onDone(finishName, r, email.trim());
   };
 
+  // Интервал в ref + очистка на размонтировании: без этого отсчёт продолжал бы
+  // дёргать setState после закрытия онбординга
+  const resendIv = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (resendIv.current) clearInterval(resendIv.current); }, []);
+
   const resendEmail = async () => {
     if (resendCooldown > 0) return;
     await resendConfirmation(email.trim());
     toast(t("au.resendDone"));
     setResendCooldown(30);
-    const iv = setInterval(() => {
+    if (resendIv.current) clearInterval(resendIv.current);
+    resendIv.current = setInterval(() => {
       setResendCooldown(c => {
-        if (c <= 1) { clearInterval(iv); return 0; }
+        if (c <= 1) {
+          if (resendIv.current) { clearInterval(resendIv.current); resendIv.current = null; }
+          return 0;
+        }
         return c - 1;
       });
     }, 1000);

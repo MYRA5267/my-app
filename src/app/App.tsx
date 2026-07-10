@@ -194,7 +194,10 @@ function AppInner() {
   const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
   useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
 
-  // Реальное время прослушивания — копится, пока реально играет музыка
+  // Реальное время прослушивания — копится, пока реально играет музыка.
+  // artist обязан быть в зависимостях наравне с genre: иначе при переходе на
+  // трек того же жанра интервал не пересоздаётся и секунды продолжают
+  // засчитываться прежнему артисту (ломая Wrapped и топ-артиста)
   useEffect(() => {
     if (!audio.playing) return;
     const TICK = 5;
@@ -202,7 +205,7 @@ function AppInner() {
       setStats(prev => addListenSeconds(prev, TICK, currentTrack.genre, currentTrack.artist));
     }, TICK * 1000);
     return () => clearInterval(iv);
-  }, [audio.playing, currentTrack.genre]);
+  }, [audio.playing, currentTrack.genre, currentTrack.artist]);
 
   // Скачанные для офлайна треки каталога
   useEffect(() => {
@@ -535,16 +538,20 @@ function AppInner() {
     });
   }, [playlistId]);
 
-  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string) => {
+  // Тост здесь не нужен: каждый путь онбординга (регистрация, вход, соцсети)
+  // уже показывает свой — раньше «Аккаунт создан» дублировался и вылезал даже при входе
+  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string, handle?: string | null) => {
     setUserName(name);
     ls.set("userName", name);
     setUserRole(role);
     ls.set("userRole", role);
     setEmail(enteredEmail);
+    // При входе в существующий аккаунт приходит серверный хендл; при регистрации —
+    // null, чтобы не унаследовать кастомный хендл предыдущего владельца устройства
+    setCustomHandle(handle ?? null);
     ls.set("onboarded", true);
     setOnboarded(true);
-    toast(t("au.created"));
-  }, [t, setEmail]);
+  }, [setEmail, setCustomHandle]);
 
   const handleLogout = useCallback(() => {
     audio.pause();
@@ -572,6 +579,8 @@ function AppInner() {
     setUserRole("listener");
     setCustomAvatar(null);
     setAvatarIdx(0);
+    setCustomHandleState(null);
+    setEmailState("");
     setStats(touchDailyStreak(loadStats()));
     setActivity([]);
     setMyPlays({ byTrack: {}, byDay: {} });
