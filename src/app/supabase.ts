@@ -119,6 +119,124 @@ export async function setSubscriptionStatus(status: SubStatus) {
   return supabase.functions.invoke<{ ok: boolean }>("set-subscription", { body: { status } });
 }
 
+// Реальное удаление аккаунта (auth.users + всё, что на него ссылается, через
+// on delete cascade) — идёт через Edge Function delete-account, потому что
+// удалить самого себя из auth.users клиент не может ни при каком RLS
+export async function deleteAccountRemote() {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.functions.invoke<{ ok: boolean }>("delete-account", { body: {} });
+  return { error };
+}
+
+// ─── Поддержка: тред пользователя + инбокс для админов ───────────────────────
+// (два создателя MYRA, строки в admins проставляются вручную ими самими через
+// Supabase Dashboard — см. schema.sql)
+
+export type SupportRole = "user" | "support" | "ai";
+
+export interface SupportMessageRow {
+  id: string;
+  user_id: string;
+  from_role: SupportRole;
+  text: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+// "Я админ?" — читаем свою же строку в admins (RLS разрешает select только
+// auth.uid() = user_id), поэтому у обычного пользователя тут всегда пусто,
+// без ошибки доступа
+export async function isAdmin(uid: string): Promise<boolean> {
+  if (!supabaseEnabled || !supabase) return false;
+  const { data, error } = await supabase.from("admins").select("user_id").eq("user_id", uid).maybeSingle();
+  return !error && !!data;
+}
+
+// Вся переписка одного треда — для самого пользователя это его собственный
+// тред, для админа это может быть любой чужой тред (обе ситуации разрешает
+// RLS: support_messages_select_own или support_messages_select_admin)
+export async function fetchSupportThread(userId: string) {
+  if (!supabaseEnabled || !supabase) return { data: [] as SupportMessageRow[], error: null };
+  const { data, error } = await supabase
+    .from("support_messages")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  return { data: (data as SupportMessageRow[] | null) ?? [], error };
+}
+
+// userId — это ID ТРЕДА (не автора конкретной строки): пользователь пишет в
+// свой же тред (userId = свой uid), админ отвечает в чужом (userId = uid
+// человека, чей это тикет, а from_role='support' — id самого админа нигде
+// отдельно не хранится, это не нужно продукту сейчас)
+export async function sendSupportMessage(userId: string, fromRole: SupportRole, text: string) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: null };
+  return supabase.from("support_messages").insert({ user_id: userId, from_role: fromRole, text }).select().single();
+}
+
+export interface SupportThreadPreview {
+  userId: string;
+  username: string | null;
+  lastText: string;
+  lastFromRole: SupportRole;
+  lastAt: string;
+  unreadCount: number;
+}
+
+// Инбокс для админов: один select всех сообщений (RLS сама отдаёт все строки,
+// если запрос идёт от админа) + группировка по треду на клиенте — переписки
+// поддержки мало, отдельная RPC/view ради этого объёма избыточна
+export async function fetchAllSupportThreads(): Promise<SupportThreadPreview[]> {
+  if (!supabaseEnabled || !supabase) return [];
+  const { data, error } = await supabase.from("support_messages").select("*").order("created_at", { ascending: true });
+  if (error || !data) return [];
+
+  const rows = data as SupportMessageRow[];
+  const byUser = new Map<string, SupportMessageRow[]>();
+  for (const row of rows) {
+    const list = byUser.get(row.user_id) ?? [];
+    list.push(row);
+    byUser.set(row.user_id, list);
+  }
+
+  const userIds = [...byUser.keys()];
+  // Имя треда для инбокса — просто для удобства чтения (профили публично
+  // читаемы, см. profiles_select_public), само по себе не влияет на доступ
+  const { data: profilesData } = userIds.length
+    ? await supabase.from("profiles").select("id, username").in("id", userIds)
+    : { data: [] as { id: string; username: string }[] };
+  const usernames = new Map((profilesData ?? []).map(p => [p.id, p.username]));
+
+  const threads: SupportThreadPreview[] = userIds.map(userId => {
+    const userRows = byUser.get(userId)!;
+    const last = userRows[userRows.length - 1];
+    const unreadCount = userRows.filter(r => r.from_role === "user" && !r.read_at).length;
+    return {
+      userId,
+      username: usernames.get(userId) ?? null,
+      lastText: last.text,
+      lastFromRole: last.from_role,
+      lastAt: last.created_at,
+      unreadCount,
+    };
+  });
+  threads.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+  return threads;
+}
+
+// Помечаем сообщения пользователя прочитанными — вызывается, когда админ
+// открывает тред в инбоксе
+export async function markSupportThreadRead(userId: string) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase
+    .from("support_messages")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("from_role", "user")
+    .is("read_at", null);
+  return { error };
+}
+
 // ─── Треки: реальный релиз, опубликованный через Студию ────────────────────
 
 export interface TrackInput {

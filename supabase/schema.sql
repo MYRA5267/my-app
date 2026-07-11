@@ -352,3 +352,89 @@ create policy "tracks_storage_update_own"
 create policy "tracks_storage_delete_own"
   on storage.objects for delete
   using (bucket_id = 'tracks' and auth.uid()::text = (storage.foldername(name))[1]);
+
+
+-- ============================================================================
+-- 8. admins — плоский список создателей MYRA (для админ-инбокса поддержки)
+-- ============================================================================
+-- Сознательно нет insert/update/delete-политик для anon/authenticated: строки
+-- сюда добавляют вручную сами создатели через Table Editor в Supabase Dashboard.
+-- Это защита от самовыдачи админки — если бы insert был разрешён с клиента,
+-- любой авторизованный пользователь мог бы вписать себя в эту таблицу и
+-- получить доступ к чужой переписке в support_messages ниже.
+create table public.admins (
+  user_id uuid primary key references public.profiles(id) on delete cascade
+);
+
+alter table public.admins enable row level security;
+
+-- Каждый может проверить только СВОЮ строку ("я админ?") — этого достаточно
+-- клиенту для гейта UI. Видеть весь список админов никому не нужно.
+create policy "admins_select_own"
+  on public.admins for select
+  using (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- 9. support_messages — переписка с поддержкой (пользователь ⇄ ИИ ⇄ админ)
+-- ============================================================================
+-- user_id — это автор ТРЕДА (обычный пользователь, чей это тикет), а не автор
+-- конкретной строки: когда админ отвечает в чужом тикете, его ответ тоже
+-- пишется с этим же user_id (id треда), только с from_role='support'.
+create table public.support_messages (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  from_role  text not null check (from_role in ('user', 'support', 'ai')),
+  text       text not null,
+  created_at timestamptz not null default now(),
+  read_at    timestamptz
+);
+
+-- Ускоряет выборку «весь тред этого пользователя» (свой чат и админ-инбокс)
+create index support_messages_user_id_idx on public.support_messages (user_id);
+
+alter table public.support_messages enable row level security;
+
+-- Свой тред видит сам пользователь...
+create policy "support_messages_select_own"
+  on public.support_messages for select
+  using (auth.uid() = user_id);
+
+-- ...а админ — вообще любой тред (несколько permissive-политик для одной
+-- операции объединяются через OR, отдельный security definer не нужен —
+-- admins сама читаема хотя бы для своей строки, exists() внутри чужой
+-- RLS-политики это использует обычным select)
+create policy "support_messages_select_admin"
+  on public.support_messages for select
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+-- Пользователь пишет в свой же тред, но НЕ может подделать from_role='support' —
+-- иначе можно было бы нарисовать себе фальшивый "официальный" ответ поддержки.
+-- from_role='ai' здесь тоже разрешён: автоответ ИИ в чате сохраняется тем же
+-- клиентским запросом от имени самого пользователя, отдельного сервисного
+-- вызова под это не заводим.
+create policy "support_messages_insert_own"
+  on public.support_messages for insert
+  with check (auth.uid() = user_id and from_role in ('user', 'ai'));
+
+-- Админ отвечает в ЧУЖОМ треде (user_id = id треда, а не его собственный uid) —
+-- это в принципе не покрывается "auth.uid() = user_id", поэтому нужна отдельная
+-- insert-политика именно для админов, тоже через exists() в admins
+create policy "support_messages_insert_admin"
+  on public.support_messages for insert
+  with check (from_role = 'support' and exists (select 1 from public.admins where user_id = auth.uid()));
+
+-- UPDATE нужен админам — пометить сообщения пользователя прочитанными
+-- (read_at) при открытии треда в инбоксе. Обычным пользователям UPDATE не
+-- нужен: переписка, как и комментарии выше, append-only с их стороны.
+create policy "support_messages_update_admin"
+  on public.support_messages for update
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+
+-- ============================================================================
+-- GRANT для таблиц из секций 8-9 выше (см. пояснение про grant в начале файла)
+-- ============================================================================
+grant select on public.admins to authenticated;
+
+grant select, insert, update on public.support_messages to authenticated;
