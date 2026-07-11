@@ -79,6 +79,39 @@ const mk = (id: number, title: string, artist: string, album: string, duration: 
   url: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${id}.mp3`,
 });
 
+export const LOCAL_PALETTE: [string, string][] = [
+  ["#12083a", "#8b5cf6"], ["#071a10", "#34d399"], ["#1a0a08", "#fb923c"],
+  ["#0f0818", "#f472b6"], ["#071218", "#38bdf8"], ["#181200", "#facc15"],
+];
+
+// Стабильный (не крипто) хэш uuid → положительное число: реальным трекам из
+// Supabase (community-лента, профиль настоящего артиста) нужен числовой
+// Track.id для React key / подсветки "сейчас играет", а их единственный
+// стабильный идентификатор — строковый uuid. Коллизии теоретически возможны,
+// но не критичны — id тут не хранится и не используется как ключ БД.
+const hashToId = (uuid: string): number => {
+  let h = 0;
+  for (let i = 0; i < uuid.length; i++) h = (h * 31 + uuid.charCodeAt(i)) | 0;
+  return Math.abs(h) || 1;
+};
+
+// Превращает строку public.tracks (Supabase) в Track для существующего
+// плеера/очереди — используется в ленте «Релизы сообщества» и в профиле
+// настоящего артиста, там, где треки принадлежат ДРУГИМ пользователям.
+export function trackFromRow(row: { id: string; title: string; genre: string; lyrics: string | null; cover_url: string | null; audio_url: string }, artistName: string): Track {
+  const id = hashToId(row.id);
+  const [c1, c2] = LOCAL_PALETTE[id % LOCAL_PALETTE.length];
+  return {
+    id, title: row.title, artist: artistName, album: "Community", duration: "",
+    genre: row.genre, plays: "", liked: false, c1, c2,
+    img: row.cover_url || svgCover(c1, c2, id),
+    // local НЕ ставим: этот флаг также означает "это мой трек" для счётчика
+    // logMyTrackPlay в App.tsx — трек чужого артиста не должен попадать в
+    // собственную статистику прослушиваний пользователя
+    url: row.audio_url, lyrics: row.lyrics ?? undefined, remoteId: row.id,
+  };
+}
+
 export const TRACKS: Track[] = [
   mk(1, "Midnight Echo",   "Luna Wave",   "Synthwave Sessions", "6:12", "Synthwave",  "2.1M", true,  "#12083a", "#8b5cf6"),
   mk(2, "Glass City",      "KRVT",        "Urban Frequencies",  "7:04", "Electronic", "890K", false, "#071a10", "#34d399"),

@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, type Track, type Friend } from "./data";
+import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays } from "./stats";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, searchProfiles, type SupportMessageRow, type PublicProfile } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -41,6 +41,143 @@ function FakeQR({ seed }: { seed: number }) {
   );
 }
 
+// ─── Виджет доната — общий для демо-артистов каталога и настоящих артистов ───
+// Вынесен из ArtistSheet, чтобы RealArtistSheet (донаты настоящим артистам)
+// не дублировал ~110 строк одной и той же логики (этапы pick/pay/sent,
+// карта/QR, расчёт комиссии). Родитель отвечает за то, кому именно уходит
+// донат — сюда передаётся только отображаемое имя и обработчик суммы.
+// key={artistLabel} на стороне родителя сбрасывает весь внутренний стейт при
+// смене артиста — отдельный reset-эффект тут не нужен.
+function DonateWidget({ open, artistLabel, c2, onDonate }: {
+  open: boolean; artistLabel: string; c2: string; onDonate: (amount: number) => void;
+}) {
+  const { t } = useLang();
+  const [stage, setStage] = useState<"pick" | "pay" | "sent">("pick");
+  const [amount, setAmount] = useState<number | null>(100);
+  const [custom, setCustom] = useState("");
+  const [method, setMethod] = useState<"card" | "qr">("card");
+  const [cardNum, setCardNum] = useState("");
+  const [cardExp, setCardExp] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  const finalAmount = custom ? parseInt(custom) || 0 : amount ?? 0;
+  const fee = Math.round(finalAmount * 0.05);
+  const net = finalAmount - fee;
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden mb-6">
+          <div className="rounded-[20px] p-5" style={GLASS}>
+            {stage === "sent" ? (
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(52,211,153,0.15)" }}>
+                  <Check size={22} style={{ color: "#34d399" }} />
+                </div>
+                <div className="text-sm font-semibold" style={{ fontFamily: F.b, color: "#34d399" }}>{t("don.sent", finalAmount, artistLabel)}</div>
+              </motion.div>
+            ) : stage === "pay" ? (
+              <>
+                <div className="font-bold mb-3" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artistLabel)}</div>
+
+                <div className="rounded-2xl p-3.5 mb-4" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
+                  <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
+                    <span>{t("don.amount")}</span><span>{finalAmount}₽</span>
+                  </div>
+                  <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
+                    <span>{t("don.fee")}</span><span>−{fee}₽</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold pt-1.5" style={{ fontFamily: F.b, borderTop: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+                    <span>{t("don.net")}</span><span style={{ color: c2 }}>{net}₽</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  {(["card", "qr"] as const).map(m => (
+                    <button key={m} onClick={() => setMethod(m)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: method === m ? `${c2}22` : "color-mix(in srgb, var(--wash) 6%, transparent)", border: `1px solid ${method === m ? c2 + "55" : "transparent"}`, color: method === m ? c2 : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
+                      {m === "card" ? t("don.methodCard") : t("don.methodQr")}
+                    </button>
+                  ))}
+                </div>
+
+                {method === "card" ? (
+                  <div className="flex flex-col gap-2 mb-5">
+                    <input value={cardNum} onChange={e => setCardNum(fmtCardNum(e.target.value))} placeholder="0000 0000 0000 0000" inputMode="numeric" className="px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                    <div className="flex gap-2">
+                      <input value={cardExp} onChange={e => setCardExp(fmtCardExp(e.target.value))} placeholder={t("don.expPh")} inputMode="numeric" className="flex-1 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                      <input value={cardCvc} onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="CVC" inputMode="numeric" type="password" className="w-24 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2.5 mb-5 py-1">
+                    <FakeQR seed={finalAmount * 97 + artistLabel.length} />
+                    <div className="text-[11px]" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.qrHint")}</div>
+                  </div>
+                )}
+
+                <div className="flex gap-2.5">
+                  <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStage("pick")} className="px-5 py-3 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+                    {t("don.back")}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    disabled={processing}
+                    onClick={() => {
+                      if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
+                      setProcessing(true);
+                      setTimeout(() => {
+                        setProcessing(false);
+                        setStage("sent");
+                        toast.success(t("don.sent", finalAmount, artistLabel));
+                        onDonate(finalAmount);
+                        // Донат можно повторить: форма возвращается сама, без ручного закрытия
+                        setTimeout(() => setStage("pick"), 1600);
+                      }, 1300);
+                    }}
+                    className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}
+                  >
+                    {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
+                  </motion.button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artistLabel)}</div>
+                <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.sub")}</div>
+                <div className="flex gap-2 mb-4 flex-wrap">
+                  {[50, 100, 300, 500].map(a => (
+                    <button key={a} onClick={() => { setAmount(a); setCustom(""); }} className="px-4 py-2 rounded-full text-sm font-semibold transition-all" style={{ background: amount === a && !custom ? c2 : "color-mix(in srgb, var(--wash) 07%, transparent)", color: amount === a && !custom ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
+                      {a}₽
+                    </button>
+                  ))}
+                  <input
+                    value={custom}
+                    onChange={e => setCustom(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder={t("don.custom")}
+                    className="w-24 px-3 py-2 rounded-full text-sm bg-transparent outline-none text-center"
+                    style={{ border: `1px solid ${custom ? c2 : "color-mix(in srgb, var(--wash) 12%, transparent)"}`, color: "var(--fg)", fontFamily: F.b }}
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  disabled={finalAmount <= 0}
+                  onClick={() => setStage("pay")}
+                  className="w-full py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                  style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${c2}, ${c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
+                >
+                  {t("don.next")} <ArrowRight size={13} />
+                </motion.button>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── Страница артиста ─────────────────────────────────────────────────────────
 
 export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, followed, onFollow, onOpenArtist, onOpenAlbum, onDonate }: {
@@ -51,28 +188,14 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
 }) {
   const { t } = useLang();
   const [donateOpen, setDonateOpen] = useState(false);
-  const [stage, setStage] = useState<"pick" | "pay" | "sent">("pick");
-  const [amount, setAmount] = useState<number | null>(100);
-  const [custom, setCustom] = useState("");
-  const [method, setMethod] = useState<"card" | "qr">("card");
-  const [cardNum, setCardNum] = useState("");
-  const [cardExp, setCardExp] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  const [processing, setProcessing] = useState(false);
 
   const artist = name ? artistByName(name) : null;
-  useEffect(() => {
-    setDonateOpen(false); setStage("pick"); setAmount(100); setCustom("");
-    setCardNum(""); setCardExp(""); setCardCvc("");
-  }, [name]);
+  useEffect(() => { setDonateOpen(false); }, [name]);
 
   if (!artist) return <Sheet open={false} onClose={onClose} z={55}><div /></Sheet>;
 
   const { own, similar } = tracksOf(artist.name);
   const isFollowed = followed.has(artist.name);
-  const finalAmount = custom ? parseInt(custom) || 0 : amount ?? 0;
-  const fee = Math.round(finalAmount * 0.05);
-  const net = finalAmount - fee;
 
   return (
     <Sheet open={!!name} onClose={onClose} z={55}>
@@ -111,116 +234,13 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
           </motion.button>
         </div>
 
-        {/* Донат */}
-        <AnimatePresence>
-          {donateOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden mb-6">
-              <div className="rounded-[20px] p-5" style={GLASS}>
-                {stage === "sent" ? (
-                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(52,211,153,0.15)" }}>
-                      <Check size={22} style={{ color: "#34d399" }} />
-                    </div>
-                    <div className="text-sm font-semibold" style={{ fontFamily: F.b, color: "#34d399" }}>{t("don.sent", finalAmount, artist.name)}</div>
-                  </motion.div>
-                ) : stage === "pay" ? (
-                  <>
-                    <div className="font-bold mb-3" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artist.name)}</div>
-
-                    <div className="rounded-2xl p-3.5 mb-4" style={{ background: "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
-                      <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
-                        <span>{t("don.amount")}</span><span>{finalAmount}₽</span>
-                      </div>
-                      <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
-                        <span>{t("don.fee")}</span><span>−{fee}₽</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-bold pt-1.5" style={{ fontFamily: F.b, borderTop: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)" }}>
-                        <span>{t("don.net")}</span><span style={{ color: artist.c2 }}>{net}₽</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 mb-4">
-                      {(["card", "qr"] as const).map(m => (
-                        <button key={m} onClick={() => setMethod(m)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: method === m ? `${artist.c2}22` : "color-mix(in srgb, var(--wash) 6%, transparent)", border: `1px solid ${method === m ? artist.c2 + "55" : "transparent"}`, color: method === m ? artist.c2 : "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.b }}>
-                          {m === "card" ? t("don.methodCard") : t("don.methodQr")}
-                        </button>
-                      ))}
-                    </div>
-
-                    {method === "card" ? (
-                      <div className="flex flex-col gap-2 mb-5">
-                        <input value={cardNum} onChange={e => setCardNum(fmtCardNum(e.target.value))} placeholder="0000 0000 0000 0000" inputMode="numeric" className="px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
-                        <div className="flex gap-2">
-                          <input value={cardExp} onChange={e => setCardExp(fmtCardExp(e.target.value))} placeholder={t("don.expPh")} inputMode="numeric" className="flex-1 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
-                          <input value={cardCvc} onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="CVC" inputMode="numeric" type="password" className="w-24 px-4 py-2.5 rounded-2xl bg-transparent outline-none text-sm" style={{ ...GLASS, color: "var(--fg)", fontFamily: F.m }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2.5 mb-5 py-1">
-                        <FakeQR seed={finalAmount * 97 + artist.name.length} />
-                        <div className="text-[11px]" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.qrHint")}</div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2.5">
-                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStage("pick")} className="px-5 py-3 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
-                        {t("don.back")}
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        disabled={processing}
-                        onClick={() => {
-                          if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
-                          setProcessing(true);
-                          setTimeout(() => {
-                            setProcessing(false);
-                            setStage("sent");
-                            toast.success(t("don.sent", finalAmount, artist.name));
-                            onDonate?.(artist.name, finalAmount);
-                            // Донат можно повторить: форма возвращается сама, без ручного закрытия
-                            setTimeout(() => setStage("pick"), 1600);
-                          }, 1300);
-                        }}
-                        className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
-                        style={{ background: `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)`, color: "#fff", fontFamily: F.b }}
-                      >
-                        {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
-                      </motion.button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="font-bold mb-1" style={{ fontFamily: F.d, fontSize: 16, letterSpacing: "-0.01em" }}>{t("don.title", artist.name)}</div>
-                    <div className="text-xs mb-4" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("don.sub")}</div>
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {[50, 100, 300, 500].map(a => (
-                        <button key={a} onClick={() => { setAmount(a); setCustom(""); }} className="px-4 py-2 rounded-full text-sm font-semibold transition-all" style={{ background: amount === a && !custom ? artist.c2 : "color-mix(in srgb, var(--wash) 07%, transparent)", color: amount === a && !custom ? "#fff" : "color-mix(in srgb, var(--fg) 60%, transparent)", fontFamily: F.b }}>
-                          {a}₽
-                        </button>
-                      ))}
-                      <input
-                        value={custom}
-                        onChange={e => setCustom(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder={t("don.custom")}
-                        className="w-24 px-3 py-2 rounded-full text-sm bg-transparent outline-none text-center"
-                        style={{ border: `1px solid ${custom ? artist.c2 : "color-mix(in srgb, var(--wash) 12%, transparent)"}`, color: "var(--fg)", fontFamily: F.b }}
-                      />
-                    </div>
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      disabled={finalAmount <= 0}
-                      onClick={() => setStage("pay")}
-                      className="w-full py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
-                      style={{ background: finalAmount > 0 ? `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)` : "color-mix(in srgb, var(--wash) 06%, transparent)", color: finalAmount > 0 ? "#fff" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.b }}
-                    >
-                      {t("don.next")} <ArrowRight size={13} />
-                    </motion.button>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <DonateWidget
+          key={artist.name}
+          open={donateOpen}
+          artistLabel={artist.name}
+          c2={artist.c2}
+          onDonate={amt => onDonate?.(artist.name, amt)}
+        />
 
         {/* Популярное */}
         <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
@@ -272,6 +292,103 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
             );
           })}
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Профиль настоящего артиста (реальный пользователь, не демо-каталог) ─────
+// В отличие от ArtistSheet (фиксированные 8 артистов каталога), здесь артист —
+// это чья-то реальная запись в profiles/tracks: данные подгружаются из
+// Supabase по artistId (uuid), а не берутся из статичного ARTISTS.
+const REAL_ARTIST_C2 = "#8b5cf6";
+
+export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playing, onDonate }: {
+  artistId: string | null; onClose: () => void; onPlay: (t: Track) => void;
+  currentTrack: Track; playing: boolean;
+  onDonate?: (toUserId: string, artistName: string, amount: number) => void;
+}) {
+  const { t } = useLang();
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [profile, setProfile] = useState<ArtistProfileData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setDonateOpen(false);
+    setProfile(null);
+    if (!artistId) return;
+    setLoading(true);
+    fetchArtistProfile(artistId)
+      .then(({ data }) => setProfile(data))
+      .finally(() => setLoading(false));
+  }, [artistId]);
+
+  if (!artistId) return <Sheet open={false} onClose={onClose} z={55}><div /></Sheet>;
+
+  const name = profile?.username ?? "";
+  const avatar = profile?.avatar_url || svgAvatar((name[0] || "?").toUpperCase(), "#12083a", REAL_ARTIST_C2);
+  const tracks = (profile?.tracks ?? []).map(row => trackFromRow(row, name));
+
+  return (
+    <Sheet open={!!artistId} onClose={onClose} z={55}>
+      <div className="relative" style={{ height: 200 }}>
+        <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${REAL_ARTIST_C2}33, #07070f 75%)` }} />
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+          <X size={16} />
+        </button>
+        <div className="absolute bottom-4 left-6 right-6 flex items-end gap-3">
+          <img src={avatar} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" style={{ border: "2px solid rgba(255,255,255,0.2)" }} />
+          <div className="min-w-0 pb-0.5">
+            <div style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", color: ON_DARK }} className="truncate">{name || "…"}</div>
+            {profile?.handle && <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>@{profile.handle}</div>}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 pt-4 pb-8">
+        <div className="flex gap-2.5 mb-6">
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            disabled={!tracks[0]}
+            onClick={() => tracks[0] && onPlay(tracks[0])}
+            className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${REAL_ARTIST_C2}, ${REAL_ARTIST_C2}99)`, boxShadow: `0 8px 26px ${REAL_ARTIST_C2}55`, opacity: tracks[0] ? 1 : 0.4 }}
+          >
+            <Play size={18} fill="white" stroke="none" className="ml-0.5" />
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setDonateOpen(o => !o)} className="flex-1 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `${REAL_ARTIST_C2}22`, border: `1px solid ${REAL_ARTIST_C2}44`, color: REAL_ARTIST_C2, fontFamily: F.b }}>
+            <Gift size={14} /> {t("ar.support")}
+          </motion.button>
+        </div>
+
+        <DonateWidget
+          key={artistId}
+          open={donateOpen}
+          artistLabel={name}
+          c2={REAL_ARTIST_C2}
+          onDonate={amt => onDonate?.(artistId, name, amt)}
+        />
+
+        <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
+        {loading ? (
+          <div className="text-xs py-6 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("ra.loading")}</div>
+        ) : tracks.length === 0 ? (
+          <div className="text-xs py-6 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("ra.empty")}</div>
+        ) : tracks.map(tr => (
+          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
+            <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
+              <img src={tr.img} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
+                {tr.title}
+                {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
+              </div>
+              <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.genre}</div>
+            </div>
+            <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
+          </div>
+        ))}
       </div>
     </Sheet>
   );

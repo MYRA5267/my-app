@@ -8,13 +8,13 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, ls, type Track, type Friend } from "./data";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
 import type { UserRole } from "./auth";
-import { supabaseEnabled, type FriendFeedItem, type PublicProfile } from "./supabase";
+import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -234,17 +234,28 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
   );
 }
 
-export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile }: {
+export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; progress: number; onNavigate: (tab: string) => void;
-  onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void; avatar: string;
+  onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void;
+  onOpenRealArtist: (id: string) => void; avatar: string;
   activity: ActivityItem[];
   friendsFeed: FriendFeedItem[]; onOpenPeopleSearch: () => void; onOpenRealProfile: (p: PublicProfile) => void;
+  uid: string | null;
 }) {
   const { t, lang } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const waveActive = playing;
   const { playingId: previewPlayingId, toggle: togglePreview } = useTrackPreview();
+
+  // Лента «Релизы сообщества» — последние по-настоящему опубликованные треки
+  // ДРУГИХ пользователей. Без Supabase этой секции просто нет (а не пустышка
+  // с призывом поделиться треком, который никуда не долетит)
+  const [communityTracks, setCommunityTracks] = useState<CommunityTrackRow[]>([]);
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    fetchRecentTracks(uid ?? undefined).then(({ data }) => setCommunityTracks(data));
+  }, [uid]);
 
   const inviteBlend = async () => {
     const link = `https://myra.app/i/${genInviteCode()}`;
@@ -397,6 +408,36 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
         </div>
         <DiscoveryDeck onPlay={onPlay} />
       </div>
+
+      {/* Релизы сообщества — реальные треки реальных пользователей MYRA */}
+      {supabaseEnabled && communityTracks.length > 0 && (
+        <div className="px-5 mb-8">
+          <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.community")}</h2>
+          <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {communityTracks.map(row => {
+              const artistName = row.profiles?.username ?? "?";
+              const tr = trackFromRow(row, artistName);
+              return (
+                <motion.div key={row.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
+                  <div className="relative w-full rounded-[18px] overflow-hidden mb-2" style={{ aspectRatio: "1", boxShadow: currentTrack.id === tr.id ? `0 10px 34px ${tr.c2}50` : "0 6px 20px rgba(0,0,0,0.35)" }}>
+                    <img src={tr.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.4)" }}>
+                      <Play size={18} fill="white" stroke="none" />
+                    </div>
+                    {currentTrack.id === tr.id && playing && (
+                      <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }}>
+                        <EQ color="#fff" size={9} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
+                  <button onClick={e => { e.stopPropagation(); onOpenRealArtist(row.owner_id); }} className="text-[10px] truncate hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{artistName}</button>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Лента подписок — реальные аккаунты Supabase, полностью скрыта без бэкенда
           (см. supabaseEnabled в src/app/supabase.ts), в отличие от "Друзья слушают"
@@ -869,11 +910,11 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
 // ─── Студия ───────────────────────────────────────────────────────────────────
 
-export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw }: {
+export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus, onOpenCreatorPlus, onOpenStats, myTracks = [], onStartRelease, onPlay, myPlaysByTrack, myPlaysByDay, balance, onWithdraw, realDonationsTotal }: {
   c2: string; creatorPlus: boolean; onOpenCreatorPlus: () => void;
   onOpenStats: () => void; myTracks?: Track[]; onStartRelease: (files: FileList | File[]) => void; onPlay: (t: Track) => void;
   myPlaysByTrack: Record<number, number>; myPlaysByDay: Record<string, number>;
-  balance: number; onWithdraw: (amt: number) => void;
+  balance: number; onWithdraw: (amt: number) => void; realDonationsTotal: number;
 }) {
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -933,6 +974,13 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             </motion.div>
           ))}
         </div>
+
+        {supabaseEnabled && realDonationsTotal > 0 && (
+          <div className="mt-2.5 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+            <Gift size={14} style={{ color: "#34d399" }} />
+            <span className="text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{t("cr.realDonations", realDonationsTotal.toLocaleString("ru-RU"))}</span>
+          </div>
+        )}
       </div>
 
       <div className="px-5 mb-7">

@@ -95,10 +95,12 @@ export async function askSupportAI(messages: { role: "user" | "assistant"; conte
 }
 
 // Донат — обычная запись в таблицу, RLS уже разрешает insert от своего имени
-// (donations_insert_own), никакой edge function тут не нужно
-export async function recordDonation(userId: string, toArtist: string, amount: number) {
+// (donations_insert_own), никакой edge function тут не нужно. toUserId — для
+// доната настоящему артисту (профиль с реальным аккаунтом); для демо-артистов
+// каталога его просто нет, to_artist остаётся единственной привязкой получателя
+export async function recordDonation(userId: string, toArtist: string, amount: number, toUserId?: string) {
   if (!supabaseEnabled || !supabase) return { error: null };
-  const { error } = await supabase.from("donations").insert({ from_user: userId, to_artist: toArtist, amount });
+  const { error } = await supabase.from("donations").insert({ from_user: userId, to_artist: toArtist, amount, to_user_id: toUserId ?? null });
   return { error };
 }
 
@@ -275,6 +277,58 @@ export async function insertTrack(ownerId: string, fields: TrackInput) {
   if (!supabaseEnabled || !supabase) return { data: null as TrackRow | null, error: null };
   const { data, error } = await supabase.from("tracks").insert({ owner_id: ownerId, ...fields }).select().single();
   return { data: data as TrackRow | null, error };
+}
+
+// Лента «Релизы сообщества» на главной — последние реально опубликованные
+// треки ДРУГИХ пользователей. excludeOwnerId — чтобы не показывать в общей
+// ленте свои же треки, они и так видны в Студии/Медиатеке.
+export interface CommunityTrackRow extends TrackRow {
+  profiles: { username: string; handle: string | null } | null;
+}
+
+export async function fetchRecentTracks(excludeOwnerId?: string, limit = 12) {
+  if (!supabaseEnabled || !supabase) return { data: [] as CommunityTrackRow[], error: null };
+  let query = supabase
+    .from("tracks")
+    .select("id, owner_id, title, genre, lyrics, cover_url, audio_url, created_at, profiles(username, handle)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (excludeOwnerId) query = query.neq("owner_id", excludeOwnerId);
+  const { data, error } = await query;
+  return { data: (data as unknown as CommunityTrackRow[] | null) ?? [], error };
+}
+
+export interface ArtistProfileData {
+  id: string;
+  username: string;
+  handle: string | null;
+  avatar_url: string | null;
+  tracks: TrackRow[];
+}
+
+// Профиль настоящего артиста для RealArtistSheet — публичные поля profiles
+// (profiles_select_public) + все его опубликованные треки
+export async function fetchArtistProfile(userId: string) {
+  if (!supabaseEnabled || !supabase) return { data: null as ArtistProfileData | null, error: null };
+  const [profileRes, tracksRes] = await Promise.all([
+    supabase.from("profiles").select("id, username, handle, avatar_url").eq("id", userId).single(),
+    supabase.from("tracks").select("id, owner_id, title, genre, lyrics, cover_url, audio_url, created_at").eq("owner_id", userId).order("created_at", { ascending: false }),
+  ]);
+  if (profileRes.error || !profileRes.data) return { data: null, error: profileRes.error };
+  return {
+    data: { ...profileRes.data, tracks: (tracksRes.data as TrackRow[] | null) ?? [] } as ArtistProfileData,
+    error: tracksRes.error,
+  };
+}
+
+// Сколько реально задонатили этому артисту — сумма считается на клиенте,
+// строк донатов на одного артиста не настолько много, чтобы это было
+// проблемой, а отдельная Postgres-функция ради одного sum() избыточна
+export async function fetchReceivedDonationsTotal(userId: string): Promise<number> {
+  if (!supabaseEnabled || !supabase) return 0;
+  const { data, error } = await supabase.from("donations").select("amount").eq("to_user_id", userId);
+  if (error || !data) return 0;
+  return data.reduce((sum, row) => sum + Number(row.amount), 0);
 }
 
 // ─── Комментарии на волне трека ─────────────────────────────────────────────

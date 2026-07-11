@@ -71,6 +71,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "cr.fans":       { ru: "Фанатов", en: "Fans" },
   "cr.donations":  { ru: "Донаты", en: "Donations" },
   "cr.releases":   { ru: "Релиза", en: "Releases" },
+  "cr.realDonations": { ru: "Настоящих донатов получено: {0}₽", en: "Real donations received: {0}₽" },
   "cr.analytics":  { ru: "{0}: детальная аналитика — скоро", en: "{0}: detailed analytics — soon" },
   "cr.newRelease": { ru: "Новый релиз", en: "New release" },
   "cr.published":  { ru: "«{0}» опубликован", en: "“{0}” published" },
@@ -251,6 +252,13 @@ const STR: Record<string, { ru: string; en: string }> = {
   "ar.popular":    { ru: "Популярное", en: "Popular" },
   "ar.similarTr":  { ru: "Похожее звучание", en: "Similar sound" },
   "ar.similar":    { ru: "Похожие артисты", en: "Similar artists" },
+
+  // Профиль настоящего артиста (реальный пользователь, не демо-каталог)
+  "ra.empty":      { ru: "Пока нет опубликованных треков", en: "No published tracks yet" },
+  "ra.loading":    { ru: "Загружаем профиль…", en: "Loading profile…" },
+
+  // Лента «Релизы сообщества» на главной
+  "home.community": { ru: "Релизы сообщества", en: "Community releases" },
   "don.title":     { ru: "Поддержать {0}", en: "Support {0}" },
   "don.sub":       { ru: "Комиссия MYRA — всего 5%, остальное сразу артисту", en: "MYRA takes just a 5% fee — the rest goes straight to the artist" },
   "don.custom":    { ru: "Своя сумма", en: "Custom" },
