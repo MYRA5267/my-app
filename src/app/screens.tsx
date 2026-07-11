@@ -8,13 +8,13 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
+import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, Waveform, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
 import type { UserRole } from "./auth";
-import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow } from "./supabase";
+import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -167,16 +167,86 @@ function relTimeParts(ts: number): [number, string] {
   return [Math.round(hours / 24), "time.d"];
 }
 
-export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, onOpenRealArtist, avatar, activity, uid }: {
+// Простой превью-плеер для ленты подписок — независимая пара <audio> + id
+// текущего трека, отдельная от главного плеера приложения (useAudio в lib.tsx):
+// эти треки чужие, не часть очереди/"Моей волны" и не должны трогать currentTrack
+function useTrackPreview() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio();
+    audioRef.current = audio;
+    const onEnded = () => setPlayingId(null);
+    audio.addEventListener("ended", onEnded);
+    return () => {
+      audio.removeEventListener("ended", onEnded);
+      audio.pause();
+    };
+  }, []);
+
+  const toggle = useCallback((id: string, url: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setPlayingId(prev => {
+      if (prev === id) { audio.pause(); return null; }
+      audio.src = url;
+      audio.play().catch(() => {});
+      return id;
+    });
+  }, []);
+
+  return { playingId, toggle };
+}
+
+/** Одна карточка ленты подписок: реальный трек реального человека, на которого подписан пользователь */
+function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
+  item: FriendFeedItem; playingId: string | null; onToggle: (id: string, url: string) => void; onOpenProfile: (p: PublicProfile) => void;
+}) {
+  const { t } = useLang();
+  const owner = item.owner;
+  const isPlaying = playingId === item.id;
+  const [val, unitKey] = relTimeParts(new Date(item.created_at).getTime());
+
+  return (
+    <div className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-white/5 transition-colors">
+      <button
+        onClick={() => owner && onOpenProfile({ id: item.owner_id, username: owner.username, handle: owner.handle, avatar_url: owner.avatar_url, role: owner.role })}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+      >
+        <img src={owner?.avatar_url || item.cover_url || AVATARS[0]} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{item.title}</div>
+          <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
+            {owner?.username ?? "?"} · {t("notif.ago", `${val} ${t(unitKey)}`)}
+          </div>
+        </div>
+      </button>
+      <motion.button
+        whileTap={{ scale: 0.88 }}
+        onClick={() => onToggle(item.id, item.audio_url)}
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)" }}
+      >
+        {isPlaying ? <Pause size={13} fill="white" stroke="none" /> : <Play size={13} fill="white" stroke="none" className="ml-0.5" />}
+      </motion.button>
+    </div>
+  );
+}
+
+export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; progress: number; onNavigate: (tab: string) => void;
   onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void;
   onOpenRealArtist: (id: string) => void; avatar: string;
-  activity: ActivityItem[]; uid: string | null;
+  activity: ActivityItem[];
+  friendsFeed: FriendFeedItem[]; onOpenPeopleSearch: () => void; onOpenRealProfile: (p: PublicProfile) => void;
+  uid: string | null;
 }) {
   const { t, lang } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const waveActive = playing;
+  const { playingId: previewPlayingId, toggle: togglePreview } = useTrackPreview();
 
   // Лента «Релизы сообщества» — последние по-настоящему опубликованные треки
   // ДРУГИХ пользователей. Без Supabase этой секции просто нет (а не пустышка
@@ -366,6 +436,37 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Лента подписок — реальные аккаунты Supabase, полностью скрыта без бэкенда
+          (см. supabaseEnabled в src/app/supabase.ts), в отличие от "Друзья слушают"
+          ниже, которая всегда на месте (просто пуста без бэкенда/приглашённых) */}
+      {supabaseEnabled && (
+        <div className="px-5 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("soc.feedTitle")}</h2>
+            <button onClick={onOpenPeopleSearch} className="text-xs flex items-center gap-1" style={{ color: currentTrack.c2, fontFamily: F.b }}>
+              <Search size={12} /> {t("soc.findPeople")}
+            </button>
+          </div>
+          {friendsFeed.length === 0 ? (
+            <button onClick={onOpenPeopleSearch} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
+                <UserPlus size={15} style={{ color: currentTrack.c2 }} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("soc.feedEmpty")}</div>
+                <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("soc.feedEmptySub")}</div>
+              </div>
+            </button>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {friendsFeed.map(item => (
+                <FriendFeedRow key={item.id} item={item} playingId={previewPlayingId} onToggle={togglePreview} onOpenProfile={onOpenRealProfile} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

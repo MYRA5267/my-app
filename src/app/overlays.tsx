@@ -3,7 +3,7 @@ import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
-  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine,
+  Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADE
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays } from "./stats";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, type SupportMessageRow, type ArtistProfileData } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -425,6 +425,125 @@ export function PeerProfileSheet({ peer, onClose }: {
             ))}
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Профиль реального человека (настоящий аккаунт Supabase) ─────────────────
+// В отличие от ArtistSheet (демо-каталог, ARTISTS в data.ts) и PeerProfileSheet
+// (тоже демо — LEADERBOARD_PEERS), здесь показан по-настоящему существующий
+// аккаунт: то, на кого можно по-настоящему подписаться. Минимально, но честно —
+// аватар, имя, хендл и кнопка подписки, без выдуманной статистики.
+
+export function RealProfileSheet({ profile, onClose, isFollowing, onToggleFollow }: {
+  profile: PublicProfile | null; onClose: () => void; isFollowing: boolean; onToggleFollow: (id: string) => void;
+}) {
+  const { t } = useLang();
+  if (!profile) return <Sheet open={false} onClose={onClose} z={69} center><div /></Sheet>;
+
+  return (
+    <Sheet open={!!profile} onClose={onClose} z={69} center>
+      <div className="p-7 text-center">
+        <img src={profile.avatar_url || AVATARS[0]} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" style={{ border: "2px solid #8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" }} />
+        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{profile.username}</div>
+        <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>@{profile.handle || profile.username}</div>
+        {profile.role === "artist" && (
+          <div className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-1 rounded-full text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.14)", color: "#a78bfa", fontFamily: F.m }}>
+            <BadgeCheck size={11} /> {t("soc.artistBadge")}
+          </div>
+        )}
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onToggleFollow(profile.id)}
+          className="w-full mt-6 py-3.5 rounded-full text-sm font-semibold"
+          style={isFollowing ? { ...GLASS, fontFamily: F.b } : { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}
+        >
+          {isFollowing ? t("ar.following") : t("ar.follow")}
+        </motion.button>
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Поиск реальных людей по username ─────────────────────────────────────────
+// Пока единственный способ найти реальный профиль, на который можно
+// подписаться (нет ни инвайт-ссылок на конкретный аккаунт, ни QR)
+
+export function PeopleSearchSheet({ open, onClose, followingIds, onToggleFollow, onOpenProfile }: {
+  open: boolean; onClose: () => void; followingIds: Set<string>;
+  onToggleFollow: (id: string) => void; onOpenProfile: (p: PublicProfile) => void;
+}) {
+  const { t } = useLang();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PublicProfile[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setQuery(""); setResults([]); }
+  }, [open]);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); setLoading(false); return; }
+    setLoading(true);
+    const h = setTimeout(() => {
+      searchProfiles(query).then(r => { setResults(r); setLoading(false); });
+    }, 300);
+    return () => clearTimeout(h);
+  }, [query]);
+
+  return (
+    <Sheet open={open} onClose={onClose} z={68}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-5">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em" }}>{t("soc.searchTitle")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 px-4 py-3.5 rounded-[18px] mb-5" style={GLASS}>
+          <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t("soc.searchPh")}
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: "var(--fg)", fontFamily: F.b }}
+          />
+          {query && <button onClick={() => setQuery("")}><X size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></button>}
+        </div>
+
+        {loading && (
+          <div className="text-xs text-center py-6" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("soc.searching")}</div>
+        )}
+        {!loading && query.trim() !== "" && results.length === 0 && (
+          <div className="text-xs text-center py-6" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("soc.noResults")}</div>
+        )}
+
+        {results.map(p => {
+          const isFollowing = followingIds.has(p.id);
+          return (
+            <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-2xl mb-1 hover:bg-white/5 transition-colors">
+              <button onClick={() => onOpenProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                <img src={p.avatar_url || AVATARS[0]} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{p.username}</div>
+                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>@{p.handle || p.username}</div>
+                </div>
+              </button>
+              <motion.button
+                whileTap={{ scale: 0.94 }}
+                onClick={() => onToggleFollow(p.id)}
+                className="px-4 py-2 rounded-full text-xs font-semibold flex-shrink-0"
+                style={isFollowing ? { ...GLASS, fontFamily: F.b } : { background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}
+              >
+                {isFollowing ? t("ar.following") : t("ar.follow")}
+              </motion.button>
+            </div>
+          );
+        })}
       </div>
     </Sheet>
   );

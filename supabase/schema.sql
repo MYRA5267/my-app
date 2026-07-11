@@ -462,3 +462,57 @@ create index donations_to_user_id_idx on public.donations (to_user_id);
 create policy "donations_select_received"
   on public.donations for select
   using (auth.uid() = to_user_id);
+
+
+-- ============================================================================
+-- 11. user_follows — реальные подписки между аккаунтами (соцслой в духе
+--    "Сигнала": лента активности настоящих людей, а не демо-каталога)
+-- ============================================================================
+-- Не путать с follows (секция 6 выше): там artist_name — text с именем
+-- демо-артиста статичного каталога (ARTISTS в data.ts), реального аккаунта
+-- за этой строкой принципиально нет. Подписка человека на человека — другая
+-- по смыслу сущность с другим ключом (followee_id uuid -> profiles.id),
+-- поэтому это отдельная новая таблица, а не столбец в старой и не изменение
+-- уже существующей секции 6.
+create table public.user_follows (
+  id          uuid primary key default gen_random_uuid(),
+  follower_id uuid not null references public.profiles(id) on delete cascade,
+  followee_id uuid not null references public.profiles(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  unique (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+
+-- Ускоряет и "на кого я подписан" (лента друзей на клиенте), и возможный
+-- будущий публичный счётчик подписчиков
+create index user_follows_follower_id_idx on public.user_follows (follower_id);
+create index user_follows_followee_id_idx on public.user_follows (followee_id);
+
+alter table public.user_follows enable row level security;
+
+-- В отличие от follows_select_public (секция 6) — здесь select только СВОИХ
+-- подписок: в этом MVP список того, на кого подписан конкретный живой
+-- человек, не показывается публично (нет ни счётчика подписчиков, ни списка
+-- "кто подписан на меня" в интерфейсе). Ужесточать/открывать можно позже,
+-- если понадобится публичный счётчик на профиле артиста.
+create policy "user_follows_select_own"
+  on public.user_follows for select
+  using (auth.uid() = follower_id);
+
+-- Подписаться можно только от своего имени
+create policy "user_follows_insert_own"
+  on public.user_follows for insert
+  with check (auth.uid() = follower_id);
+
+-- Отписаться можно только от своего имени
+create policy "user_follows_delete_own"
+  on public.user_follows for delete
+  using (auth.uid() = follower_id);
+
+
+-- ============================================================================
+-- GRANT для таблицы из секции 11 выше (см. пояснение про grant в начале файла)
+-- ============================================================================
+-- Только authenticated, без anon — как и у donations (секция 4): это не
+-- публичные данные, а собственный список подписок живого человека.
+grant select, insert, delete on public.user_follows to authenticated;

@@ -227,6 +227,21 @@ const STR: Record<string, { ru: string; en: string }> = {
   "acc.deleteSub": { ru: "Плейлисты, лайки и Blend будут стёрты навсегда", en: "Playlists, likes and Blends will be erased forever" },
   "acc.deleteYes": { ru: "Да, удалить", en: "Yes, delete" },
 
+  // Соцслой: реальные подписки между аккаунтами (не путать с "ar." ниже —
+  // те строки про демо-артистов каталога)
+  "soc.feedTitle":     { ru: "Лента подписок", en: "Following feed" },
+  "soc.findPeople":    { ru: "Найти людей", en: "Find people" },
+  "soc.feedEmpty":     { ru: "Ты пока ни на кого не подписан(а)", en: "You're not following anyone yet" },
+  "soc.feedEmptySub":  { ru: "Найди реальных людей и подпишись — здесь появятся их новые треки", en: "Find real people and follow them — their new tracks will show up here" },
+  "soc.searchTitle":   { ru: "Поиск людей", en: "Search people" },
+  "soc.searchPh":      { ru: "Введи имя пользователя…", en: "Enter a username…" },
+  "soc.searching":     { ru: "Ищем…", en: "Searching…" },
+  "soc.noResults":     { ru: "Никого не найдено", en: "No one found" },
+  "soc.followError":   { ru: "Не получилось — попробуй ещё раз", en: "Couldn't do that — try again" },
+  "soc.followedToast": { ru: "Подписка оформлена", en: "Followed" },
+  "soc.unfollowedToast": { ru: "Подписка отменена", en: "Unfollowed" },
+  "soc.artistBadge":   { ru: "Артист", en: "Artist" },
+
   // Артист
   "ar.listeners":  { ru: "слушателей в месяц", en: "monthly listeners" },
   "ar.follow":     { ru: "Подписаться", en: "Follow" },

@@ -363,3 +363,83 @@ export async function postComment(userId: string, trackId: string, pct: number, 
   const { error } = await supabase.from("comments").insert({ user_id: userId, track_id: trackId, pct, text });
   return { error };
 }
+
+// ─── Соцслой: реальные подписки между аккаунтами ────────────────────────────
+// Отдельно от локального (localStorage) toggleFollow в App.tsx, который
+// работает только с 8 фиксированными демо-артистами каталога (ARTISTS в
+// data.ts), и отдельно от таблицы follows в schema.sql (та тоже про демо-
+// каталог — follows.artist_name это текст с именем артиста, не uuid реального
+// аккаунта). Здесь — настоящие подписки человек-на-человека, единственный
+// первый кирпичик социального слоя (см. таблицу user_follows в schema.sql).
+
+export interface PublicProfile {
+  id: string;
+  username: string;
+  handle: string | null;
+  avatar_url: string | null;
+  role: UserRole;
+}
+
+// Список id тех, на кого подписан пользователь — источник правды для кнопки
+// "подписаться/отписаться" на любом профиле и для ленты друзей ниже
+export async function fetchFollowingIds(userId: string): Promise<string[]> {
+  if (!supabaseEnabled || !supabase) return [];
+  const { data, error } = await supabase.from("user_follows").select("followee_id").eq("follower_id", userId);
+  if (error || !data) return [];
+  return data.map(row => row.followee_id as string);
+}
+
+export async function followUser(followerId: string, followeeId: string) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase.from("user_follows").insert({ follower_id: followerId, followee_id: followeeId });
+  return { error };
+}
+
+export async function unfollowUser(followerId: string, followeeId: string) {
+  if (!supabaseEnabled || !supabase) return { error: null };
+  const { error } = await supabase
+    .from("user_follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("followee_id", followeeId);
+  return { error };
+}
+
+// Поиск реальных людей по username — пока единственный способ вообще найти
+// реальный профиль, на который можно подписаться (нет ни инвайт-ссылок на
+// конкретный аккаунт, ни QR)
+export async function searchProfiles(query: string): Promise<PublicProfile[]> {
+  const q = query.trim();
+  if (!supabaseEnabled || !supabase || !q) return [];
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, handle, avatar_url, role")
+    .ilike("username", `%${q}%`)
+    .limit(20);
+  if (error || !data) return [];
+  return data as PublicProfile[];
+}
+
+export interface FriendFeedItem extends TrackRow {
+  // Подтягивается через embed по FK tracks.owner_id -> profiles.id — профиль
+  // публично читаем (profiles_select_public), лишнего запроса на клиенте не нужно
+  owner: { username: string; handle: string | null; avatar_url: string | null; role: UserRole } | null;
+}
+
+// Лента друзей: недавние реальные релизы людей, на которых подписан
+// пользователь — единственный вид активности, который реально можно достать
+// из базы в этом MVP, без выдуманных типов событий сверх того, что произошло
+export async function fetchFriendsFeed(followingIds: string[], limit = 30): Promise<FriendFeedItem[]> {
+  if (!supabaseEnabled || !supabase || !followingIds.length) return [];
+  const { data, error } = await supabase
+    .from("tracks")
+    .select("id, owner_id, title, genre, lyrics, cover_url, audio_url, created_at, profiles(username, handle, avatar_url, role)")
+    .in("owner_id", followingIds)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as unknown as (TrackRow & { profiles: FriendFeedItem["owner"] })[]).map(row => {
+    const { profiles, ...track } = row;
+    return { ...track, owner: profiles };
+  });
+}

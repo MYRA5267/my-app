@@ -18,10 +18,13 @@ import { DevPanelSheet, AdminSupportSheet } from "./dev";
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import { OnboardingFlow, type UserRole } from "./auth";
-import { supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote, type SubStatus } from "./supabase";
+import {
+  supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote,
+  fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type SubStatus, type PublicProfile, type FriendFeedItem,
+} from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet } from "./overlays";
+import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 import { LiveSessionSheet } from "./live";
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -108,6 +111,45 @@ function AppInner() {
     const { data } = onAuthStateChange(s => setUid(s?.user?.id ?? null));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // ─── Соцслой: реальные подписки между аккаунтами (не путать с toggleFollow
+  // ниже — тем локальным (localStorage), который работает только с 8 демо-
+  // артистами каталога) ───────────────────────────────────────────────────
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
+  const [friendsFeed, setFriendsFeed] = useState<FriendFeedItem[]>([]);
+  const [realProfile, setRealProfile] = useState<PublicProfile | null>(null);
+  const [peopleSearchOpen, setPeopleSearchOpen] = useState(false);
+
+  // Подтягиваем список реальных подписок один раз, когда есть сессия
+  // (аналогично статусу подписки Pro/Plus ниже)
+  useEffect(() => {
+    if (!supabaseEnabled || !uid) { setFollowingIds([]); return; }
+    fetchFollowingIds(uid).then(setFollowingIds);
+  }, [uid]);
+
+  // Лента подписок — недавние реальные релизы людей, на которых подписан
+  // пользователь; перезагружается при каждом изменении списка подписок
+  useEffect(() => {
+    if (!supabaseEnabled || !followingIds.length) { setFriendsFeed([]); return; }
+    fetchFriendsFeed(followingIds).then(setFriendsFeed);
+  }, [followingIds]);
+
+  // Реальная подписка/отписка между аккаунтами — обновление оптимистичное:
+  // если сервер откажет, откатываем список обратно и сообщаем об этом
+  const toggleRealFollow = useCallback(async (targetId: string) => {
+    const myId = uidRef.current;
+    if (!myId) return;
+    const isFollowing = followingIds.includes(targetId);
+    setFollowingIds(prev => (isFollowing ? prev.filter(id => id !== targetId) : [...prev, targetId]));
+    const { error } = isFollowing ? await unfollowUser(myId, targetId) : await followUser(myId, targetId);
+    if (error) {
+      setFollowingIds(prev => (isFollowing ? [...prev, targetId] : prev.filter(id => id !== targetId)));
+      toast.error(t("soc.followError"));
+      return;
+    }
+    toast(isFollowing ? t("soc.unfollowedToast") : t("soc.followedToast"));
+  }, [followingIds, t]);
 
   // Подписка: none → active → grace (отменена, но действует до конца периода).
   // RLS специально не даёт клиенту самому ставить 'active' напрямую — это
@@ -734,6 +776,12 @@ function AppInner() {
     setTotalPlays(0);
     setBalance(0);
     prevLevelRef.current = null;
+    // Соцслой — тоже полностью сброшен, иначе подписки предыдущего аккаунта
+    // этого устройства всплыли бы у следующего, вошедшего на нём же
+    setFollowingIds([]);
+    setFriendsFeed([]);
+    setRealProfile(null);
+    setPeopleSearchOpen(false);
     toast(t("pr.loggedOut"));
   }, [audio, t, myTracks, downloads]);
 
@@ -826,6 +874,9 @@ function AppInner() {
         onOpenRealArtist={openRealArtist}
         avatar={avatar}
         activity={activity}
+        friendsFeed={friendsFeed}
+        onOpenPeopleSearch={() => setPeopleSearchOpen(true)}
+        onOpenRealProfile={setRealProfile}
         uid={uid}
       />
     ),
@@ -1192,6 +1243,21 @@ function AppInner() {
       />
 
       <PeerProfileSheet peer={peerProfile} onClose={() => setPeerProfile(null)} />
+
+      <RealProfileSheet
+        profile={realProfile}
+        onClose={() => setRealProfile(null)}
+        isFollowing={realProfile ? followingSet.has(realProfile.id) : false}
+        onToggleFollow={toggleRealFollow}
+      />
+
+      <PeopleSearchSheet
+        open={peopleSearchOpen}
+        onClose={() => setPeopleSearchOpen(false)}
+        followingIds={followingSet}
+        onToggleFollow={toggleRealFollow}
+        onOpenProfile={p => { setPeopleSearchOpen(false); setRealProfile(p); }}
+      />
 
     </div>,
   );
