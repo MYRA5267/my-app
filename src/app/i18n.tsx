@@ -301,6 +301,8 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pl.repeatOff": { ru: "Повтор выключен", en: "Repeat off" },
   "pl.translate": { ru: "Перевод включён", en: "Original lyrics" },
   "pl.comment":   { ru: "Комментарий на {0}…", en: "Comment at {0}…" },
+  "pl.hotCount":  { ru: "{0} чел.", en: "{0} ppl" },
+  "pl.hotHint":   { ru: "Этот момент независимо отметили {0} человек — тап перемотает туда", en: "{0} people marked this moment independently — tap to seek there" },
   "pl.commented": { ru: "Комментарий закреплён на {0}", en: "Comment pinned at {0}" },
   "pl.sleep":     { ru: "Таймер сна", en: "Sleep timer" },
   "pl.sleepOff":  { ru: "Выключен", en: "Off" },
