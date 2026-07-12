@@ -99,7 +99,15 @@ function AppInner() {
 
   // Упрощённая графика: слабые Android-устройства роняют слои композитора
   // (мигающие/пропадающие элементы) под грузом backdrop-filter и блюров
-  const [simpleFx, setSimpleFxState] = useState(() => ls.get("simpleFx", false));
+  const [simpleFx, setSimpleFxState] = useState(() => {
+    // Явный выбор пользователя всегда важнее автоэвристики
+    try { if (localStorage.getItem("myra.simpleFx") !== null) return ls.get("simpleFx", false); } catch { /* приватный режим */ }
+    // Автовключение на слабом железе и при системном "убрать анимации"
+    // (энергосбережение Android часто включает prefers-reduced-motion)
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    return (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4
+      || (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+  });
   const toggleSimpleFx = useCallback(() => {
     setSimpleFxState((s: boolean) => { ls.set("simpleFx", !s); return !s; });
   }, []);
@@ -746,7 +754,7 @@ function AppInner() {
   }, [currentTrack.id, audio.playing, playTrack]);
 
   // Автопереход = умная волна (без повторов), ручной next — по очереди
-  useEffect(() => { nextRef.current = () => playWave(true); }, [playWave]);
+  useEffect(() => { nextRef.current = () => playWave(true); playWaveRef.current = () => playWave(); }, [playWave]);
 
   // Управление с локскрина/шторки (Android/десктоп)
   useEffect(() => {
@@ -804,6 +812,13 @@ function AppInner() {
       return next;
     });
   }, []);
+
+  // Стабильные обёртки: playWave пересоздаётся при смене зависимостей, а
+  // мемоизации HomeScreen нужен неизменный проп — иначе React.memo бесполезен
+  const playWaveRef = useRef<() => void>(() => {});
+  const navigateTab = useCallback((id: string) => setTab(id as Tab), [setTab]);
+  const openPeopleSearch = useCallback(() => setPeopleSearchOpen(true), []);
+  const startWave = useCallback(() => playWaveRef.current(), []);
 
   const openArtist = useCallback((name: string) => {
     setAlbumName(null);
@@ -985,17 +1000,17 @@ function AppInner() {
         onPlay={playTrack}
         currentTrack={currentTrack}
         playing={audio.playing}
-        progress={audio.progress}
-        onNavigate={id => setTab(id as Tab)}
+        progress={Math.round(audio.progress)}
+        onNavigate={navigateTab}
         onOpenBlend={setBlendFriend}
         onOpenLive={openLive}
-        onPlayWave={() => playWave()}
+        onPlayWave={startWave}
         onOpenArtist={openArtist}
         onOpenRealArtist={openRealArtist}
         avatar={avatar}
         activity={activity}
         friendsFeed={friendsFeed}
-        onOpenPeopleSearch={() => setPeopleSearchOpen(true)}
+        onOpenPeopleSearch={openPeopleSearch}
         onOpenRealProfile={setRealProfile}
         uid={uid}
       />
