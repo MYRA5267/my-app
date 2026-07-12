@@ -2,11 +2,12 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe,
-  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2,
+  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
+import { commentHotMoments } from "./smart";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
@@ -52,6 +53,8 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
     () => (remoteTrackId ? remoteComments : commentsFor(track.id, myComments)),
     [remoteTrackId, remoteComments, track.id, myComments],
   );
+  // Коллективные хайлайты: места, где комментарии нескольких людей легли рядом
+  const hotMoments = useMemo(() => commentHotMoments(comments), [comments]);
   const [commentText, setCommentText] = useState("");
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
@@ -290,8 +293,31 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   <div className="w-2 h-2 rounded-full" style={{ background: c.avatar, boxShadow: `0 0 8px ${c.avatar}` }} />
                 </div>
               ))}
+              {hotMoments.map(m => (
+                <div key={`hot-${m.pct}`} className="absolute bottom-full mb-3.5 -translate-x-1/2 pointer-events-none" style={{ left: `${m.pct}%` }}>
+                  <Flame size={13} fill={track.c2} style={{ color: track.c2, filter: `drop-shadow(0 0 7px ${track.c2})` }} />
+                </div>
+              ))}
               <TrackStructureBar sections={structure} height={16} compact />
             </div>
+
+            {/* Горячие моменты: несколько человек отметили одно и то же место — тап перематывает туда */}
+            {hotMoments.length > 0 && (
+              <div className="flex gap-2 mb-4 flex-wrap flex-shrink-0">
+                {hotMoments.map(m => (
+                  <motion.button
+                    key={`chip-${m.pct}`}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => onSeek(m.pct)}
+                    title={t("pl.hotHint", m.count)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                    style={{ background: `${track.c2}1c`, border: `1px solid ${track.c2}44`, color: track.c2, fontFamily: F.m }}
+                  >
+                    <Flame size={11} /> {fmtSec((m.pct / 100) * (duration || 372))} · {t("pl.hotCount", m.count)}
+                  </motion.button>
+                ))}
+              </div>
+            )}
 
             <div className="flex flex-col gap-3 overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
               {comments.length === 0 && (

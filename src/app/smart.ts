@@ -50,3 +50,30 @@ export function smartNext(all: Track[], likedIds: Set<number>, followed: Set<str
 
   return { track: pick, reason: lang === "ru" ? ru : en };
 }
+
+// ─── Коллективные хайлайты на волне ──────────────────────────────────────────
+// Эвристика, не ML (в духе smartNext выше): если несколько человек НЕЗАВИСИМО
+// оставили комментарии в одном и том же месте трека — момент зацепил не одного
+// слушателя. Порог в 3 комментария сознательный: «хайлайт» из двух совпадений —
+// случайность, и на треке без живого обсуждения ничего подсвечиваться не будет.
+
+export interface HotMoment { pct: number; count: number }
+
+export function commentHotMoments(comments: { pct: number }[], windowPct = 5, minCount = 3): HotMoment[] {
+  if (comments.length < minCount) return [];
+  const sorted = [...comments].map(c => c.pct).sort((a, b) => a - b);
+  const moments: HotMoment[] = [];
+  let cluster: number[] = [];
+  const flush = () => {
+    if (cluster.length >= minCount) {
+      moments.push({ pct: cluster.reduce((a, b) => a + b, 0) / cluster.length, count: cluster.length });
+    }
+    cluster = [];
+  };
+  for (const pct of sorted) {
+    if (!cluster.length || pct - cluster[0] <= windowPct) cluster.push(pct);
+    else { flush(); cluster = [pct]; }
+  }
+  flush();
+  return moments;
+}
