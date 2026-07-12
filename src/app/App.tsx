@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { SkipBack, SkipForward, Play, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
@@ -15,10 +15,16 @@ import {
 } from "./stats";
 import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
 import { MyraWordmark } from "./logo";
-import { DevPanelSheet, AdminSupportSheet } from "./dev";
+// Ленивые чанки: дев-панель с админ-инбоксом нужна двум создателям, live-сессии
+// недостижимы без реальных друзей, онбординг после входа — мёртвый груз.
+// Маунт «после первого открытия» (см. useEverOpened) гарантирует, что чанк не
+// скачивается, пока фича ни разу не понадобилась, но exit-анимации сохраняются
+const DevPanelSheet = lazy(() => import("./dev").then(m => ({ default: m.DevPanelSheet })));
+const AdminSupportSheet = lazy(() => import("./dev").then(m => ({ default: m.AdminSupportSheet })));
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
-import { OnboardingFlow, type UserRole } from "./auth";
+import type { UserRole } from "./auth";
+const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
   supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote,
   fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type SubStatus, type PublicProfile, type FriendFeedItem,
@@ -26,7 +32,7 @@ import {
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
-import { LiveSessionSheet } from "./live";
+const LiveSessionSheet = lazy(() => import("./live").then(m => ({ default: m.LiveSessionSheet })));
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
 // Вынесено на уровень модуля — статичная строка, незачем пересобирать на каждый рендер
@@ -61,6 +67,15 @@ const LOCAL_PALETTE: [string, string][] = [
 const FREE_DOWNLOAD_LIMIT = 20;
 
 type Tab = "home" | "rating" | "library" | "creator" | "profile";
+
+// Ленивый маунт шторки: чанк не грузится, пока шторку ни разу не открыли,
+// а после первого открытия остаётся смонтированной — размонтирование по
+// закрытию лишило бы AnimatePresence exit-анимации
+function useEverOpened(open: boolean) {
+  const [ever, setEver] = useState(open);
+  useEffect(() => { if (open) setEver(true); }, [open]);
+  return ever;
+}
 
 function AppInner() {
   const { t, lang } = useLang();
@@ -902,8 +917,13 @@ function AppInner() {
     </ThemeCtx.Provider>
   );
 
+  // Хуки ленивого маунта — строго до раннего return (правила хуков)
+  const devEver = useEverOpened(devPanelOpen);
+  const adminEver = useEverOpened(adminSupportOpen);
+  const liveEver = useEverOpened(liveFriend !== null);
+
   if (!onboarded) {
-    return themedRoot(<OnboardingFlow onDone={finishOnboarding} />);
+    return themedRoot(<Suspense fallback={null}><OnboardingFlow onDone={finishOnboarding} /></Suspense>);
   }
 
   // Производные значения реальной статистики — общий источник для рейтинга/профиля/аккаунта
@@ -1250,24 +1270,32 @@ function AppInner() {
         onDeactivate={deactivatePlus}
       />
 
-      <DevPanelSheet
-        open={devPanelOpen}
-        onClose={() => setDevPanelOpen(false)}
-        level={lvl.level}
-        counters={achCounters}
-        userRole={userRole}
-        onSetRole={setRole}
-        cpStatus={cpStatus}
-        onSetCp={setCp}
-        plusActive={plusActive}
-        onSetPlus={setPlusActive}
-        balance={balance}
-        onAddBalance={addBalance}
-        onGrantXp={handleGrantXp}
-        onOpenAdminSupport={openAdminSupport}
-      />
+      {devEver && (
+        <Suspense fallback={null}>
+          <DevPanelSheet
+            open={devPanelOpen}
+            onClose={() => setDevPanelOpen(false)}
+            level={lvl.level}
+            counters={achCounters}
+            userRole={userRole}
+            onSetRole={setRole}
+            cpStatus={cpStatus}
+            onSetCp={setCp}
+            plusActive={plusActive}
+            onSetPlus={setPlusActive}
+            balance={balance}
+            onAddBalance={addBalance}
+            onGrantXp={handleGrantXp}
+            onOpenAdminSupport={openAdminSupport}
+          />
+        </Suspense>
+      )}
 
-      <AdminSupportSheet open={adminSupportOpen} onClose={() => setAdminSupportOpen(false)} uid={uid} />
+      {adminEver && (
+        <Suspense fallback={null}>
+          <AdminSupportSheet open={adminSupportOpen} onClose={() => setAdminSupportOpen(false)} uid={uid} />
+        </Suspense>
+      )}
 
       <StudioStatsSheet
         open={statsOpen}
@@ -1287,16 +1315,20 @@ function AppInner() {
         onPublish={publishRelease}
       />
 
-      <LiveSessionSheet
-        friend={liveFriend}
-        onClose={() => setLiveFriend(null)}
-        currentTrack={currentTrack}
-        playing={audio.playing}
-        progress={audio.progress}
-        onToggle={togglePlay}
-        onPlay={playTrack}
-        avatar={avatar}
-      />
+      {liveEver && (
+        <Suspense fallback={null}>
+          <LiveSessionSheet
+            friend={liveFriend}
+            onClose={() => setLiveFriend(null)}
+            currentTrack={currentTrack}
+            playing={audio.playing}
+            progress={audio.progress}
+            onToggle={togglePlay}
+            onPlay={playTrack}
+            avatar={avatar}
+          />
+        </Suspense>
+      )}
 
       <WrappedModal
         open={wrappedOpen}
