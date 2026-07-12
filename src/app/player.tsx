@@ -11,6 +11,7 @@ import { commentHotMoments } from "./smart";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
+import { enqueueSyncOp, isNetworkError } from "./syncQueue";
 import { useTrackStructure, sectionForPct } from "./structure";
 
 const SLEEP_OPTIONS = [15, 30, 60];
@@ -93,10 +94,13 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
     if (!text) return;
     const pct = Math.round(progress);
     if (remoteTrackId && uid) {
-      // Пишем сразу и оптимистично добавляем в список — не ждём рефетча,
-      // а неудачная синхронизация (см. остальные recordDonation-подобные
-      // хелперы) не должна ломать локальный опыт пользователя
-      postComment(uid, remoteTrackId, pct, text).catch(err => console.warn("postComment:", err));
+      // Пишем сразу и оптимистично добавляем в список — не ждём рефетча.
+      // Сетевой сбой не теряет комментарий: он встаёт в офлайн-очередь и
+      // доотправится при возвращении сети (см. syncQueue.ts)
+      const enqueue = () => enqueueSyncOp("comment", { trackId: remoteTrackId, pct, text });
+      postComment(uid, remoteTrackId, pct, text)
+        .then(({ error }) => { if (error && isNetworkError(error)) enqueue(); })
+        .catch(err => { if (isNetworkError(err)) enqueue(); else console.warn("postComment:", err); });
       setRemoteComments(prev => [...prev, { pct, user: handle, text, likes: 0, avatar: track.c2 }].sort((a, b) => a.pct - b.pct));
     } else {
       setMyComments(addMyComment(track.id, { pct, user: handle, text, likes: 0, avatar: track.c2 }));

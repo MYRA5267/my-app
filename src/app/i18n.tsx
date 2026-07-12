@@ -333,6 +333,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "cp.resume":    { ru: "Возобновить подписку", en: "Resume subscription" },
   "cp.resumed":   { ru: "Подписка возобновлена", en: "Subscription resumed" },
   "acc.photoSet": { ru: "Аватар обновлён", en: "Avatar updated" },
+  "sync.flushed":  { ru: "Сеть вернулась — досинхронизировано операций: {0}", en: "Back online — {0} operations synced" },
 
   // Реальная лента событий (уведомления)
   "act.levelUp":      { ru: "Ты достиг {0} уровня!", en: "You've reached level {0}!" },

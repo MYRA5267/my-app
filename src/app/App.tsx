@@ -24,6 +24,7 @@ const AdminSupportSheet = lazy(() => import("./dev").then(m => ({ default: m.Adm
 import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import type { UserRole } from "./auth";
+import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
   supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote,
@@ -259,11 +260,30 @@ function AppInner() {
 
   // Единый путь любого доната: лента событий, локальная бухгалтерия месяца
   // и (когда есть бэкенд) запись в Supabase — чтобы ArtistSheet, RealArtistSheet
-  // и донат по сплиту не расходились в учёте
+  // и донат по сплиту не расходились в учёте. Сетевой сбой больше не теряет
+  // операцию навсегда — она встаёт в офлайн-очередь (см. syncQueue.ts)
   const sendDonation = useCallback((name: string, amt: number, toUserId?: string) => {
     setDonationLedger(logDonationSent(name, amt));
-    if (supabaseEnabled && uidRef.current) recordDonation(uidRef.current, name, amt, toUserId).catch(err => console.warn("recordDonation:", err));
+    if (supabaseEnabled && uidRef.current) {
+      recordDonation(uidRef.current, name, amt, toUserId)
+        .then(({ error }) => { if (error && isNetworkError(error)) enqueueSyncOp("donation", { artist: name, amount: amt, toUserId }); })
+        .catch(err => {
+          if (isNetworkError(err)) enqueueSyncOp("donation", { artist: name, amount: amt, toUserId });
+          else console.warn("recordDonation:", err);
+        });
+    }
   }, []);
+
+  // Доотправка очереди: при появлении uid (старт/логин) и при возвращении сети
+  useEffect(() => {
+    if (!supabaseEnabled || !uid) return;
+    const flush = () => {
+      flushSyncQueue(uid).then(sent => { if (sent > 0) toast(t("sync.flushed", sent)); });
+    };
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, [uid, t]);
 
   const handleSplitDonate = useCallback((parts: { artist: string; amount: number }[]) => {
     const total = parts.reduce((sum, p) => sum + p.amount, 0);
