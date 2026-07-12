@@ -56,6 +56,13 @@ const GLOBAL_STYLE = `
   /* ТВ и большие экраны: крупнее база, видимый фокус для пульта/клавиатуры */
   @media (min-width: 1920px) { html { font-size: 19px; } }
   :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 2px; border-radius: 12px; }
+  /* Упрощённая графика для слабых устройств: главный убийца композитора на
+     Android WebView — десятки backdrop-filter одновременно + полноэкранные
+     размытые обложки. Отключаем их одним классом на корне; полупрозрачные
+     фоны стеклянных панелей остаются читабельными и без блюра */
+  .fx-simple *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .fx-simple .fx-heavy{display:none!important}
+  .fx-simple .fx-aurora div{animation:none!important;filter:none!important;opacity:0.55}
 `;
 
 const LOCAL_PALETTE: [string, string][] = [
@@ -88,6 +95,13 @@ function AppInner() {
       ls.set("theme", next);
       return next;
     });
+  }, []);
+
+  // Упрощённая графика: слабые Android-устройства роняют слои композитора
+  // (мигающие/пропадающие элементы) под грузом backdrop-filter и блюров
+  const [simpleFx, setSimpleFxState] = useState(() => ls.get("simpleFx", false));
+  const toggleSimpleFx = useCallback(() => {
+    setSimpleFxState((s: boolean) => { ls.set("simpleFx", !s); return !s; });
   }, []);
 
   const [crossfade, setCrossfade] = useState(() => ls.get("crossfade", true));
@@ -907,7 +921,7 @@ function AppInner() {
   // Тема оборачивает и онбординг, и приложение; Toaster общий
   const themedRoot = (children: React.ReactNode) => (
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
-      <div className="h-screen w-full" style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
+      <div className={`h-screen w-full${simpleFx ? " fx-simple" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
         <style>{GLOBAL_STYLE}</style>
         {children}
         <Toaster
@@ -1048,6 +1062,8 @@ function AppInner() {
         onLogout={handleLogout}
         crossfade={crossfade}
         onToggleCrossfade={toggleCrossfade}
+        simpleFx={simpleFx}
+        onToggleSimpleFx={toggleSimpleFx}
         quality={qualityIdx}
         onSetQuality={setQualityIdx}
         userRole={userRole}

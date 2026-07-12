@@ -333,6 +333,15 @@ const STR: Record<string, { ru: string; en: string }> = {
   "cp.resume":    { ru: "Возобновить подписку", en: "Resume subscription" },
   "cp.resumed":   { ru: "Подписка возобновлена", en: "Subscription resumed" },
   "acc.photoSet": { ru: "Аватар обновлён", en: "Avatar updated" },
+
+  // Упрощённая графика (слабые устройства)
+  "pr.simpleFx":    { ru: "Упрощённая графика", en: "Simplified graphics" },
+  "pr.simpleFxSub": { ru: "для слабых устройств: без блюра и тяжёлых эффектов", en: "for low-end devices: no blur or heavy effects" },
+  "pr.simpleFxOn":  { ru: "Упрощённая графика включена", en: "Simplified graphics on" },
+  "pr.simpleFxOff": { ru: "Полная графика возвращена", en: "Full graphics restored" },
+  "dev.console":    { ru: "Консоль отладки (на устройстве)", en: "Debug console (on device)" },
+  "dev.consoleOn":  { ru: "Консоль включена — кнопка в углу экрана", en: "Console on — see the corner button" },
+  "dev.consoleOff": { ru: "Консоль выключена", en: "Console off" },
   "sync.flushed":  { ru: "Сеть вернулась — досинхронизировано операций: {0}", en: "Back online — {0} operations synced" },
 
   // Реальная лента событий (уведомления)

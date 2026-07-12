@@ -405,7 +405,7 @@ export function TiltCard({ children, className, style, max = 9, onClick }: {
 /** Живой aurora-фон */
 export const Aurora = React.memo(function Aurora({ c2, opacity = 1 }: { c2: string; opacity?: number }) {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity }}>
+    <div className="fx-aurora absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity }}>
       <div className="absolute rounded-full" style={{ width: "70%", height: "70%", left: "-10%", top: "-20%", background: `radial-gradient(circle, ${c2}30 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift1 14s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "60%", height: "60%", right: "-15%", top: "10%", background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 65%)", filter: "blur(40px)", animation: "drift2 18s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "55%", height: "55%", left: "20%", bottom: "-25%", background: `radial-gradient(circle, ${c2}22 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift3 16s ease-in-out infinite" }} />
@@ -422,7 +422,7 @@ export const DynamicBg = React.memo(function DynamicBg({ track }: { track: Track
           key={track.id}
           src={track.img}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="fx-heavy absolute inset-0 w-full h-full object-cover"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
