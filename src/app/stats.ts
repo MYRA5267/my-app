@@ -71,15 +71,27 @@ export function addListenSeconds(s: ProfileStats, seconds: number, genre: string
 
 export interface ArtistShare { artist: string; seconds: number; pct: number }
 
-/** Реальные доли слушания по артистам за текущий месяц, по убыванию */
-export function artistSharesOfMonth(s: ProfileStats): ArtistShare[] {
-  const month = s.artistSecondsByMonth[currentMonthKey()] ?? {};
+/** Реальные доли слушания по артистам за месяц (по умолчанию — текущий), по убыванию */
+export function artistSharesOfMonth(s: ProfileStats, monthKey = currentMonthKey()): ArtistShare[] {
+  const month = s.artistSecondsByMonth[monthKey] ?? {};
   const entries = Object.entries(month).filter(([, v]) => v > 0);
   const total = entries.reduce((sum, [, v]) => sum + v, 0);
   if (!total) return [];
   return entries
     .map(([artist, seconds]) => ({ artist, seconds, pct: (seconds / total) * 100 }))
     .sort((a, b) => b.seconds - a.seconds);
+}
+
+/** Последний месяц, за который реально есть данные слушания (текущий в приоритете).
+    В первые дни нового месяца сплит текущего пуст и бесполезен — честнее показать
+    закрытый прошлый месяц с явной пометкой, чем пустой экран */
+export function latestSharesMonth(s: ProfileStats): { monthKey: string; shares: ArtistShare[] } {
+  const mk = currentMonthKey();
+  const cur = artistSharesOfMonth(s, mk);
+  if (cur.length) return { monthKey: mk, shares: cur };
+  const prev = Object.keys(s.artistSecondsByMonth).filter(k => k < mk).sort().pop();
+  if (!prev) return { monthKey: mk, shares: [] };
+  return { monthKey: prev, shares: artistSharesOfMonth(s, prev) };
 }
 
 /** Раскладывает сумму доната по долям слушания (largest remainder, целые ₽).
@@ -117,8 +129,8 @@ export function logDonationSent(artist: string, amount: number): DonationLedger 
   return next;
 }
 
-export function donationsOfMonth(ledger: DonationLedger): { total: number; byArtist: Record<string, number> } {
-  const byArtist = ledger[currentMonthKey()] ?? {};
+export function donationsOfMonth(ledger: DonationLedger, monthKey = currentMonthKey()): { total: number; byArtist: Record<string, number> } {
+  const byArtist = ledger[monthKey] ?? {};
   return { total: Object.values(byArtist).reduce((a, b) => a + b, 0), byArtist };
 }
 

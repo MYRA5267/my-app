@@ -149,7 +149,7 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
 const ACTIVITY_ICONS: Record<string, typeof Music2> = {
   "act.levelUp": Trophy, "act.streak": Flame,
   "act.cpActivated": Crown, "act.cpCancelled": Crown, "act.cpResumed": Crown,
-  "act.donateSent": Gift, "act.splitDonate": Gift, "act.withdrawDone": Wallet,
+  "act.donateSent": Gift, "act.splitDonate": Gift, "act.splitReady": Gift, "act.withdrawDone": Wallet,
   "act.plCreated": Music2, "act.plDeleted": Music2,
   "cr.added": Upload, "dl.done": Download,
   "ach.unlocked": Trophy, "act.plusActivated": Sparkles,

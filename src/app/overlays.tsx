@@ -8,9 +8,9 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
+import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
-import { monthDays, splitAmountByShares, minutesOf, type ArtistShare } from "./stats";
+import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
@@ -1402,13 +1402,21 @@ export function WrappedModal({ open, onClose, minutes, topArtistName, topArtistI
 
 const SPLIT_BAR_COLORS = ["#facc15", "#8b5cf6", "#34d399", "#38bdf8", "#f472b6", "#fb923c", "#22d3ee", "#a78bfa"];
 
-export function SplitSheet({ open, onClose, shares, donatedTotal, donatedByArtist, onSplitDonate }: {
+export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, donatedByArtist, onSplitDonate, ritualOn, onToggleRitual }: {
   open: boolean; onClose: () => void;
-  shares: ArtistShare[];
+  shares: ArtistShare[]; monthKey: string;
   donatedTotal: number; donatedByArtist: Record<string, number>;
   onSplitDonate: (parts: { artist: string; amount: number }[]) => void;
+  ritualOn: boolean; onToggleRitual: () => void;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  // Пометка месяца нужна, только когда показан закрытый прошлый месяц
+  // (в первые дни нового, пока текущий пуст) — в обычные дни она лишняя
+  const isPastMonth = monthKey !== currentMonthKey();
+  const monthLabel = useMemo(() => {
+    const [y, m] = monthKey.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "long", year: "numeric" });
+  }, [monthKey, lang]);
   const [stage, setStage] = useState<"view" | "pay" | "sent">("view");
   const [amount, setAmount] = useState<number | null>(300);
   const [custom, setCustom] = useState("");
@@ -1514,7 +1522,9 @@ export function SplitSheet({ open, onClose, shares, donatedTotal, donatedByArtis
             {/* Реальные доли слушания за месяц */}
             <div className="rounded-[20px] p-5 mb-4" style={GLASS}>
               <div className="flex justify-between items-baseline mb-4">
-                <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sp.shares")}</div>
+                <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: isPastMonth ? "#facc15" : "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
+                  {isPastMonth ? t("sp.sharesOf", monthLabel) : t("sp.shares")}
+                </div>
                 <div className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("sp.minutes", minutesOf(totalSec))}</div>
               </div>
               {shares.slice(0, 8).map((sh, i) => {
@@ -1578,6 +1588,15 @@ export function SplitSheet({ open, onClose, shares, donatedTotal, donatedByArtis
               >
                 {t("don.next")} <ArrowRight size={13} />
               </motion.button>
+            </div>
+
+            {/* Месячный ритуал — строго opt-in, по умолчанию выключен */}
+            <div className="flex items-center gap-3 rounded-[20px] p-4 mt-4" style={GLASS}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("sp.ritual")}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("sp.ritualSub")}</div>
+              </div>
+              <Toggle on={ritualOn} onChange={onToggleRitual} color="#facc15" />
             </div>
           </>
         )}

@@ -10,7 +10,7 @@ import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
   loadActivity, pushActivity, loadMyPlays, logMyTrackPlay, loadTotalPlays, bumpTotalPlays,
-  artistSharesOfMonth, loadDonationLedger, logDonationSent, donationsOfMonth,
+  latestSharesMonth, loadDonationLedger, logDonationSent, donationsOfMonth, currentMonthKey,
   type ProfileStats, type ActivityItem, type MyPlays, type DonationLedger,
 } from "./stats";
 import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
@@ -258,8 +258,43 @@ function AppInner() {
     setActivity(pushActivity("act.splitDonate", total, parts.length));
   }, [sendDonation]);
 
-  const monthShares = useMemo(() => artistSharesOfMonth(stats), [stats]);
-  const monthDonations = useMemo(() => donationsOfMonth(donationLedger), [donationLedger]);
+  // Показываем последний месяц с данными: в первые дни нового месяца сплит
+  // текущего пуст, и честнее показать закрытый прошлый месяц с пометкой
+  const { monthKey: splitMonthKey, shares: monthShares } = useMemo(() => latestSharesMonth(stats), [stats]);
+  const monthDonations = useMemo(() => donationsOfMonth(donationLedger, splitMonthKey), [donationLedger, splitMonthKey]);
+
+  // Месячный сплит-ритуал: строго opt-in. При первом открытии приложения в
+  // новом месяце (и только если прошлый месяц реально слушался) — одно
+  // напоминание тостом и записью в ленте, не чаще раза в месяц
+  const [splitRitual, setSplitRitualState] = useState(() => ls.get("splitRitual", false));
+  const toggleSplitRitual = useCallback(() => {
+    setSplitRitualState(prev => {
+      const next = !prev;
+      ls.set("splitRitual", next);
+      // При включении помечаем текущий месяц просмотренным — иначе тумблер
+      // сработал бы немедленно, а не при реальной смене месяца
+      if (next) ls.set("splitRitualSeen", currentMonthKey());
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (!onboarded || !ls.get("splitRitual", false)) return;
+    const mk = currentMonthKey();
+    const seen = ls.get("splitRitualSeen", "");
+    if (seen === mk) return;
+    ls.set("splitRitualSeen", mk);
+    const prev = Object.keys(stats.artistSecondsByMonth).filter(k => k < mk).sort().pop();
+    if (!prev || !Object.values(stats.artistSecondsByMonth[prev] ?? {}).some(v => v > 0)) return;
+    // Тост — с задержкой и без cleanup: эффект срабатывает в момент маунта,
+    // когда Toaster ещё не готов, а очистка таймера при любом повторном
+    // прогоне эффекта молча убивала бы уведомление. Гвард по splitRitualSeen
+    // выше гарантирует не больше одного срабатывания в месяц и так
+    setTimeout(() => toast(t("sp.ritualToast")), 1200);
+    setActivity(pushActivity("act.splitReady"));
+    // stats в зависимостях не нужен: проверка осмысленна ровно один раз за
+    // запуск — момент «наступил новый месяц» не повторяется внутри сессии
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboarded, t]);
 
   const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
   const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
@@ -1295,9 +1330,12 @@ function AppInner() {
         open={splitOpen}
         onClose={() => setSplitOpen(false)}
         shares={monthShares}
+        monthKey={splitMonthKey}
         donatedTotal={monthDonations.total}
         donatedByArtist={monthDonations.byArtist}
         onSplitDonate={handleSplitDonate}
+        ritualOn={splitRitual}
+        onToggleRitual={toggleSplitRitual}
       />
 
     </div>,
