@@ -873,8 +873,8 @@ export function Sheet({ open, onClose, children, z = 60, center = false }: {
           onClick={onClose}
         >
           <motion.div
-            initial={center ? { scale: 0.9, opacity: 0, y: 14 } : { y: "12%", opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
+            initial={center ? { scale: 0.9, opacity: 0, y: 14, rotateX: 5, transformPerspective: 900 } : { y: "12%", opacity: 0, scale: 0.98, rotateX: 4, transformPerspective: 1100 }}
+            animate={{ y: 0, opacity: 1, scale: 1, rotateX: 0 }}
             exit={center ? { scale: 0.94, opacity: 0, y: 8 } : { y: "10%", opacity: 0, scale: 0.98 }}
             transition={SPRING}
             onClick={e => e.stopPropagation()}

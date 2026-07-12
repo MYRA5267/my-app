@@ -234,7 +234,7 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
   );
 }
 
-export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
+export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate, onOpenBlend, onOpenLive, onPlayWave, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; progress: number; onNavigate: (tab: string) => void;
   onOpenBlend: (f: Friend) => void; onOpenLive: (f: Friend) => void; onPlayWave: () => void; onOpenArtist: (name: string) => void;
   onOpenRealArtist: (id: string) => void; avatar: string;
@@ -533,7 +533,7 @@ export function HomeScreen({ onPlay, currentTrack, playing, progress, onNavigate
       </div>
     </Page>
   );
-}
+});
 
 // ─── Обзор ────────────────────────────────────────────────────────────────────
 
