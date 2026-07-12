@@ -121,7 +121,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
       <div className="absolute inset-0 overflow-hidden">
-        <img src={track.img} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(80px) saturate(1.7) brightness(0.25)", transform: "scale(1.25)" }} />
+        <img src={track.img} alt="" className="fx-heavy absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(80px) saturate(1.7) brightness(0.25)", transform: "scale(1.25)" }} />
         <Aurora c2={track.c2} />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center 30%, transparent 0%, var(--bg) 85%)" }} />
       </div>

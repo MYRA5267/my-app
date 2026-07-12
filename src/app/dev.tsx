@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert } from "lucide-react";
+import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert , Bug } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ls } from "./data";
@@ -35,6 +35,12 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
   const achievements = useMemo(() => buildAchievements(counters), [counters]);
   const unlocked = useMemo(() => new Set(ls.get<string[]>("achUnlocked", [])), [achievements, achVersion, open]);
 
+  const toggleEruda = async () => {
+    const eruda = (await import("eruda")).default;
+    if ((window as any).__erudaOn) { eruda.destroy(); (window as any).__erudaOn = false; toast(t("dev.consoleOff")); }
+    else { eruda.init(); (window as any).__erudaOn = true; toast(t("dev.consoleOn")); }
+  };
+
   const label = (text: string) => (
     <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5 mt-6" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{text}</div>
   );
@@ -68,6 +74,17 @@ export function DevPanelSheet({ open, onClose, level, counters, userRole, onSetR
             <Inbox size={15} style={{ color: "#22d3ee" }} />
           </div>
           <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.supportRow")}</div>
+          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.button>
+
+        {/* Консоль отладки прямо на устройстве (eruda): единственный способ
+            увидеть реальные ошибки на телефоне без подключения к компьютеру.
+            Пакет грузится лениво отдельным чанком только при первом включении */}
+        <motion.button whileTap={{ scale: 0.98 }} onClick={toggleEruda} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-2" style={{ ...GLASS, border: "1px solid rgba(250,204,21,0.3)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.14)" }}>
+            <Bug size={15} style={{ color: "#facc15" }} />
+          </div>
+          <div className="flex-1 text-left text-sm font-semibold" style={{ fontFamily: F.b }}>{t("dev.console")}</div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.button>
 

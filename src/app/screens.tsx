@@ -1075,10 +1075,10 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onLogout, crossfade, onToggleCrossfade, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onLogout, crossfade, onToggleCrossfade, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void; onLogout: () => void;
-  crossfade: boolean; onToggleCrossfade: () => void; quality: number; onSetQuality: (idx: number) => void;
+  crossfade: boolean; onToggleCrossfade: () => void; simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
   userRole: UserRole; plusActive: boolean; donationCount: number;
   devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
 }) {
@@ -1215,6 +1215,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         <SettingRow icon={<Download size={15} />} label={t("pr.autoDl")} sub="4.2 GB / 10 GB">
           <Toggle on={autoDl} onChange={() => { setAutoDl(a => !a); toast(autoDl ? t("pr.autoDlOff") : t("pr.autoDlOn")); }} color={c2} />
+        </SettingRow>
+
+        <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
+          <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
         </SettingRow>
 
         <SettingRow icon={<Bot size={15} />} label={t("pr.aiFilter")} sub={t("pr.aiSub")}>
