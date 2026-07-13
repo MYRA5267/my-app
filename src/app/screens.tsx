@@ -105,9 +105,11 @@ function DiscoveryDeck({ onPlay }: { onPlay: (t: Track) => void }) {
         className="absolute inset-x-0 mx-auto rounded-[26px] overflow-hidden cursor-grab active:cursor-grabbing"
         style={{
           width: "100%", height: 300, top: 20, zIndex: 10,
+          // 3D-наклон при свайпе: перспектива + rotateY/rotateX от смещения —
+          // чистые композитные трансформы, GPU-дешёвые на любом устройстве
           transform: exiting
-            ? `translateX(${exitX}px) rotate(${exitRot}deg)`
-            : `translateX(${drag.x}px) translateY(${drag.y * 0.3}px) rotate(${rot}deg)`,
+            ? `perspective(1000px) translateX(${exitX}px) rotate(${exitRot}deg) rotateY(${exiting === "right" ? 18 : -18}deg)`
+            : `perspective(1000px) translateX(${drag.x}px) translateY(${drag.y * 0.3}px) rotate(${rot}deg) rotateY(${drag.x * 0.06}deg) rotateX(${-drag.y * 0.05}deg)`,
           transition: dragging ? "none" : "transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)",
           boxShadow: `0 30px 80px ${current.c2}38`,
         }}

@@ -60,6 +60,39 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const volRef = useRef<HTMLDivElement>(null);
   const volDragging = useRef(false);
 
+  // Параллакс орба: наклон телефона (гироскоп) или указатель на десктопе.
+  // Прямая мутация transform через rAF — БЕЗ setState: 60 Гц событий
+  // deviceorientation через React-состояние вернули бы ту самую лавину
+  // ре-рендеров, с которой боролись. В fx-simple гасится CSS-правилом
+  const parallaxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0, tx = 0, ty = 0;
+    const apply = () => {
+      raf = 0;
+      if (parallaxRef.current) parallaxRef.current.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0)`;
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
+    const onOri = (e: DeviceOrientationEvent) => {
+      if (e.gamma == null || e.beta == null) return;
+      tx = clamp(e.gamma * 0.35, 11);
+      ty = clamp((e.beta - 45) * 0.25, 11);
+      schedule();
+    };
+    const onPointer = (e: PointerEvent) => {
+      tx = clamp((e.clientX / window.innerWidth - 0.5) * 22, 11);
+      ty = clamp((e.clientY / window.innerHeight - 0.5) * 22, 11);
+      schedule();
+    };
+    window.addEventListener("deviceorientation", onOri);
+    window.addEventListener("pointermove", onPointer);
+    return () => {
+      window.removeEventListener("deviceorientation", onOri);
+      window.removeEventListener("pointermove", onPointer);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   // Эвристическая структура трека (интро/куплет/припев/...) — см. structure.ts.
   // Не блокирует ничего: пока анализ не готов или не удался (сеть/CORS/формат),
   // просто null, и волна выглядит как раньше.
@@ -148,7 +181,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
         {tab === "player" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 pt-2 overflow-y-auto w-full max-w-xl mx-auto" style={{ scrollbarWidth: "none" }}>
             <div className="flex justify-center items-center mb-6 mt-1">
-              <FrequencyOrb track={track} playing={playing} progress={progressRounded} />
+              <div ref={parallaxRef} className="fx-parallax" style={{ willChange: "transform" }}>
+                <FrequencyOrb track={track} playing={playing} progress={progressRounded} />
+              </div>
             </div>
 
             <div className="flex items-start justify-between mb-5">

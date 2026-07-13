@@ -63,6 +63,7 @@ const GLOBAL_STYLE = `
   .fx-simple *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
   .fx-simple .fx-heavy{display:none!important}
   .fx-simple .fx-aurora div{animation:none!important;filter:none!important;opacity:0.55}
+  .fx-simple .fx-parallax{transform:none!important}
 `;
 
 const LOCAL_PALETTE: [string, string][] = [
