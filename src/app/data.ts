@@ -320,7 +320,7 @@ export interface Playlist {
 
 export const PLAYLISTS: Playlist[] = [
   { id: "focus", name: "Deep Focus",    img: svgCover("#071218", "#38bdf8", 31), trackIds: [4, 3, 1, 7, 5] },
-  { id: "blend", name: "Blend",         img: svgCover("#12083a", "#f472b6", 32), trackIds: [3, 1, 6, 2, 5, 8] },
+  { id: "blend", name: "Созвук",        img: svgCover("#12083a", "#f472b6", 32), trackIds: [3, 1, 6, 2, 5, 8] },
   { id: "chill", name: "Chill Evening", img: svgCover("#071018", "#22d3ee", 33), trackIds: [5, 4, 8, 3] },
   { id: "wave",  name: "Morning Wave",  img: svgCover("#181200", "#facc15", 34), trackIds: [1, 2, 6, 3, 4] },
 ];

@@ -319,7 +319,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </div>
       </div>
 
-      {/* Hero: Моя волна */}
+      {/* Hero: Прилив */}
       <div className="px-5 mb-7">
         <TiltCard
           max={5}
@@ -331,8 +331,8 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <div className="relative z-10 flex items-center justify-between p-6">
             <div>
               <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("home.flow")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1, color: ON_DARK }}>
-                {t("home.my")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 600, background: "linear-gradient(90deg, #c4b5fd, #f0abfc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{t("home.wave")}</span>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em", lineHeight: 1, color: ON_DARK }}>
+                <span style={{ background: "var(--brand-grad)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{t("home.wave")}</span>
               </div>
               <div className="text-xs mt-2.5" style={{ color: onDark(55), fontFamily: F.b }}>{t("home.aiSub")}</div>
             </div>
@@ -1077,11 +1077,11 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, crossfade, onToggleCrossfade, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
   onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void;
   onOpenAchievements: () => void; achDone: number; achTotal: number; onLogout: () => void;
-  crossfade: boolean; onToggleCrossfade: () => void; simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
+  simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
   userRole: UserRole; plusActive: boolean; donationCount: number;
   devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
 }) {
@@ -1236,9 +1236,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
                   <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
                     <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
                   </SettingRow>
-                  <SettingRow icon={<BlendIcon size={15} />} label={t("pr.crossfade")}>
-                    <Toggle on={crossfade} onChange={() => { onToggleCrossfade(); toast(crossfade ? t("pr.crossOff") : t("pr.crossOn")); }} color={c2} />
-                  </SettingRow>
+                  {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения */}
                   <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
                     <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
                   </SettingRow>

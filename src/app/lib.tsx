@@ -52,20 +52,26 @@ export function YandexIcon({ size = 18 }: { size?: number }) {
 
 export type ThemeName = "dark" | "light";
 
+// Фирменный стиль «глубина + витраж + перламутр»: тёмный сине-фиолетовый фон
+// с авророй, молочное стекло с яркой верхней кромкой (--glass-edge) и один
+// узнаваемый градиент-«перелив» (--brand-grad: фиолет → небо → жемчужная роза)
+// для логотипа и брендовых акцентов
 export const THEMES: Record<ThemeName, Record<string, string>> = {
   dark: {
     "--fg": "#f2f2f8",
     "--wash": "#ffffff",
-    "--bg": "#05050b",
-    "--bg2": "#0a0a16",
-    "--sheet": "rgba(13,13,26,0.92)",
-    "--island": "rgba(14,14,26,0.78)",
-    "--panel": "rgba(18,18,32,0.72)",
-    "--glass-bg": "rgba(255,255,255,0.055)",
-    "--glass-border": "rgba(255,255,255,0.09)",
+    "--bg": "#050510",
+    "--bg2": "#0a0a1c",
+    "--sheet": "rgba(13,13,28,0.92)",
+    "--island": "rgba(14,14,28,0.78)",
+    "--panel": "rgba(18,18,34,0.72)",
+    "--glass-bg": "rgba(255,255,255,0.07)",
+    "--glass-border": "rgba(255,255,255,0.12)",
+    "--glass-edge": "rgba(255,255,255,0.26)",
     "--glass-shadow": "0 10px 30px rgba(0,0,0,0.35)",
+    "--brand-grad": "linear-gradient(105deg, #a78bfa 0%, #7dd3fc 48%, #f6b8c8 100%)",
     "--cover-filter": "blur(90px) saturate(1.6) brightness(0.22)",
-    "--dim": "rgba(5,5,12,0.55)",
+    "--dim": "rgba(5,5,14,0.55)",
     "--aurora-fade": "78%",
   },
   light: {
@@ -80,7 +86,9 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     "--panel": "rgba(255,255,255,0.92)",
     "--glass-bg": "rgba(255,255,255,0.62)",
     "--glass-border": "rgba(30,20,60,0.12)",
+    "--glass-edge": "rgba(255,255,255,0.95)",
     "--glass-shadow": "0 1px 2px rgba(30,20,60,0.05), 0 12px 28px rgba(30,20,60,0.09)",
+    "--brand-grad": "linear-gradient(105deg, #7c3aed 0%, #0284c7 48%, #d3728f 100%)",
     "--cover-filter": "blur(70px) saturate(1.55) brightness(1.08) opacity(0.32)",
     "--dim": "rgba(30,20,55,0.38)",
     "--aurora-fade": "56%",
@@ -95,6 +103,9 @@ export const GLASS: React.CSSProperties = {
   backdropFilter: "blur(24px) saturate(1.6)",
   WebkitBackdropFilter: "blur(24px) saturate(1.6)",
   border: "1px solid var(--glass-border)",
+  // Яркая верхняя кромка — «витринное» стекло: свет как будто падает сверху.
+  // Компоненты, переопределяющие border целиком, гасят и её — это ожидаемо
+  borderTop: "1px solid var(--glass-edge)",
   boxShadow: "var(--glass-shadow)",
 };
 
@@ -409,6 +420,8 @@ export const Aurora = React.memo(function Aurora({ c2, opacity = 1 }: { c2: stri
       <div className="absolute rounded-full" style={{ width: "70%", height: "70%", left: "-10%", top: "-20%", background: `radial-gradient(circle, ${c2}30 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift1 14s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "60%", height: "60%", right: "-15%", top: "10%", background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 65%)", filter: "blur(40px)", animation: "drift2 18s ease-in-out infinite" }} />
       <div className="absolute rounded-full" style={{ width: "55%", height: "55%", left: "20%", bottom: "-25%", background: `radial-gradient(circle, ${c2}22 0%, transparent 65%)`, filter: "blur(40px)", animation: "drift3 16s ease-in-out infinite" }} />
+      {/* Жемчужно-розовый отсвет — тёплая нота фирменного «перелива» в остальном холодной авроре */}
+      <div className="absolute rounded-full" style={{ width: "40%", height: "40%", right: "5%", bottom: "-10%", background: "radial-gradient(circle, rgba(246,184,200,0.14) 0%, transparent 65%)", filter: "blur(40px)", animation: "drift1 20s ease-in-out infinite" }} />
     </div>
   );
 });
