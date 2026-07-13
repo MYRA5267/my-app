@@ -63,6 +63,7 @@ const GLOBAL_STYLE = `
   .fx-simple *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
   .fx-simple .fx-heavy{display:none!important}
   .fx-simple .fx-aurora div{animation:none!important;filter:none!important;opacity:0.55}
+  .fx-simple .fx-parallax{transform:none!important}
 `;
 
 const LOCAL_PALETTE: [string, string][] = [
@@ -614,6 +615,46 @@ function AppInner() {
 
   const handleNext = useCallback(() => step(1), [step]);
   const handlePrev = useCallback(() => step(-1), [step]);
+
+  // ─── Media Session: управление из шторки уведомлений и с локскрина ─────────
+  // Телефон показывает "сейчас играет" с обложкой и кнопками системно — без
+  // этого музыка из MYRA жила только внутри открытого приложения. Обработчики
+  // через ref: сами колбэки пересоздаются, а системе нужны живые ссылки
+  const mediaCtlRef = useRef({ toggle: () => {}, next: () => {}, prev: () => {} });
+  useEffect(() => {
+    mediaCtlRef.current = { toggle: togglePlay, next: handleNext, prev: handlePrev };
+  }, [togglePlay, handleNext, handlePrev]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return; // старые WebView — просто без системной карточки
+    const ms = navigator.mediaSession;
+    ms.setActionHandler("play", () => mediaCtlRef.current.toggle());
+    ms.setActionHandler("pause", () => mediaCtlRef.current.toggle());
+    ms.setActionHandler("nexttrack", () => mediaCtlRef.current.next());
+    ms.setActionHandler("previoustrack", () => mediaCtlRef.current.prev());
+    return () => {
+      ms.setActionHandler("play", null);
+      ms.setActionHandler("pause", null);
+      ms.setActionHandler("nexttrack", null);
+      ms.setActionHandler("previoustrack", null);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: currentTrack.album,
+      // Обложки — data-URI (svg/png), системная карточка Android их понимает
+      artwork: [{ src: currentTrack.img, sizes: "500x500" }],
+    });
+  }, [currentTrack]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = audio.playing ? "playing" : "paused";
+  }, [audio.playing]);
 
   // «Моя волна»: умный подбор без повторов + причина выбора
   const likedRef = useRef(likedIds); likedRef.current = likedIds;
