@@ -11,6 +11,7 @@ import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADE
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
+import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
 import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, type SupportMessageRow, type ArtistProfileData, type PublicProfile } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
@@ -1600,6 +1601,63 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
             </div>
           </>
         )}
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Достижения (вкладка Профиль) ────────────────────────────────────────────
+// Открытые показываются полностью, закрытые — честные «???» без подсказок:
+// механика скрытых достижений сохраняется, но прогресс теперь видно из профиля
+
+export function AchievementsSheet({ open, onClose, counters, c2 }: {
+  open: boolean; onClose: () => void; counters: AchievementCounters; c2: string;
+}) {
+  const { t } = useLang();
+  const items = useMemo(() => buildAchievements(counters), [counters]);
+  // Открытость берём из того же ls-ключа, что и тосты открытия — единый источник
+  const unlocked = useMemo(() => new Set(ls.get<string[]>("achUnlocked", [])), [open]);
+  const doneCount = items.filter(a => unlocked.has(a.id)).length;
+
+  return (
+    <Sheet open={open} onClose={onClose} z={64}>
+      <div className="px-6 pt-7 pb-8">
+        <div className="flex items-center justify-between mb-1">
+          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{t("ach.title")}</div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="text-xs mb-6" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("ach.progress", doneCount, ACHIEVEMENTS.length)}</div>
+
+        <div className="flex flex-col gap-2">
+          {items.map(a => {
+            const isOpen = unlocked.has(a.id);
+            const Icon = a.icon;
+            return isOpen ? (
+              <div key={a.id} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={{ ...GLASS, border: `1px solid ${c2}33` }}>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}>
+                  <Icon size={16} style={{ color: c2 }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t(a.key)}</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: c2, fontFamily: F.m }}>{t("ach.unlockedTag")}</div>
+                </div>
+                <Check size={15} style={{ color: c2 }} />
+              </div>
+            ) : (
+              <div key={a.id} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={{ ...GLASS, opacity: 0.55 }}>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+                  <Lock size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>{t("ach.hidden")}</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.b }}>{t("ach.hiddenSub")}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </Sheet>
   );

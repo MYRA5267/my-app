@@ -339,6 +339,15 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pr.simpleFxSub": { ru: "для слабых устройств: без блюра и тяжёлых эффектов", en: "for low-end devices: no blur or heavy effects" },
   "pr.simpleFxOn":  { ru: "Упрощённая графика включена", en: "Simplified graphics on" },
   "pr.simpleFxOff": { ru: "Полная графика возвращена", en: "Full graphics restored" },
+
+  // Достижения в профиле
+  "pr.achievements": { ru: "Достижения", en: "Achievements" },
+  "pr.settingsGroup":{ ru: "Настройки", en: "Settings" },
+  "ach.title":       { ru: "Достижения", en: "Achievements" },
+  "ach.progress":    { ru: "Открыто {0} из {1}", en: "{0} of {1} unlocked" },
+  "ach.hidden":      { ru: "Скрытое достижение", en: "Hidden achievement" },
+  "ach.hiddenSub":   { ru: "Продолжай слушать — оно откроется само", en: "Keep listening — it will unlock itself" },
+  "ach.unlockedTag": { ru: "Открыто", en: "Unlocked" },
   "dev.console":    { ru: "Консоль отладки (на устройстве)", en: "Debug console (on device)" },
   "dev.consoleOn":  { ru: "Консоль включена — кнопка в углу экрана", en: "Console on — see the corner button" },
   "dev.consoleOff": { ru: "Консоль выключена", en: "Console off" },

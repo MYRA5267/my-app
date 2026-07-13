@@ -1077,19 +1077,18 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
 // ─── Профиль ──────────────────────────────────────────────────────────────────
 
-export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onLogout, crossfade, onToggleCrossfade, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
+export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, handle, avatar, creatorPlus, follows, totalPlays, onOpenBlend, onOpenAccount, onOpenWrapped, onOpenSplit, onOpenAchievements, achDone, achTotal, onLogout, crossfade, onToggleCrossfade, simpleFx, onToggleSimpleFx, quality, onSetQuality, userRole, plusActive, donationCount, devMode, onToggleDevMode, onOpenDevPanel, onOpenPlus }: {
   c2: string; userName: string; handle: string; avatar: string; creatorPlus: boolean; follows: number; totalPlays: number;
-  onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void; onLogout: () => void;
+  onOpenBlend: (f: Friend) => void; onOpenAccount: () => void; onOpenWrapped: () => void; onOpenSplit: () => void;
+  onOpenAchievements: () => void; achDone: number; achTotal: number; onLogout: () => void;
   crossfade: boolean; onToggleCrossfade: () => void; simpleFx: boolean; onToggleSimpleFx: () => void; quality: number; onSetQuality: (idx: number) => void;
   userRole: UserRole; plusActive: boolean; donationCount: number;
   devMode: boolean; onToggleDevMode: () => void; onOpenDevPanel: () => void; onOpenPlus: () => void;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
-  const [notifs, setNotifs] = useState(true);
-  const [autoDl, setAutoDl] = useState(false);
-  const [aiFilter, setAiFilter] = useState(true);
   const [blendOpen, setBlendOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [logoutQ, setLogoutQ] = useState(false);
 
   // Тот же апгрейд, что и на стороне App.tsx: Pro у артиста, Plus у слушателя.
@@ -1209,31 +1208,45 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
       )}
 
-      {/* Настройки */}
+      {/* Настройки: декоративные тумблеры (уведомления, автозагрузка с фейковыми
+          цифрами, AI-фильтр) убраны совсем — они ничего реального не делали, а
+          настоящие настройки спрятаны в аккордеон, чтобы профиль не был простынёй */}
       <div className="px-5 flex flex-col gap-1.5">
-        <SettingRow icon={<Bell size={15} />} label={t("pr.notifs")}>
-          <Toggle on={notifs} onChange={() => { setNotifs(n => !n); toast(notifs ? t("pr.notifsOff") : t("pr.notifsOn")); }} color={c2} />
-        </SettingRow>
+        {/* Достижения — вернулись из дев-панели в профиль */}
+        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}><Trophy size={15} style={{ color: c2 }} /></div>
+          <div className="flex-1">
+            <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.achievements")}</div>
+            <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("ach.progress", achDone, achTotal)}</div>
+          </div>
+          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.div>
 
-        <SettingRow icon={<Download size={15} />} label={t("pr.autoDl")} sub="4.2 GB / 10 GB">
-          <Toggle on={autoDl} onChange={() => { setAutoDl(a => !a); toast(autoDl ? t("pr.autoDlOff") : t("pr.autoDlOn")); }} color={c2} />
-        </SettingRow>
-
-        <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
-          <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
-        </SettingRow>
-
-        <SettingRow icon={<Bot size={15} />} label={t("pr.aiFilter")} sub={t("pr.aiSub")}>
-          <Toggle on={aiFilter} onChange={() => { setAiFilter(a => !a); toast(aiFilter ? t("pr.aiOff") : t("pr.aiOn")); }} color={c2} />
-        </SettingRow>
-
-        <SettingRow icon={<BlendIcon size={15} />} label={t("pr.crossfade")}>
-          <Toggle on={crossfade} onChange={() => { onToggleCrossfade(); toast(crossfade ? t("pr.crossOff") : t("pr.crossOn")); }} color={c2} />
-        </SettingRow>
-
-        <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
-          <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
-        </SettingRow>
+        {/* Аккордеон реальных настроек */}
+        <div className="rounded-2xl overflow-hidden" style={GLASS}>
+          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 cursor-pointer" onClick={() => setSettingsOpen(o => !o)}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Settings size={15} /></div>
+            <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.settingsGroup")}</div>
+            <motion.div animate={{ rotate: settingsOpen ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
+          </motion.div>
+          <AnimatePresence>
+            {settingsOpen && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+                <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
+                  <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
+                    <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
+                  </SettingRow>
+                  <SettingRow icon={<BlendIcon size={15} />} label={t("pr.crossfade")}>
+                    <Toggle on={crossfade} onChange={() => { onToggleCrossfade(); toast(crossfade ? t("pr.crossOff") : t("pr.crossOn")); }} color={c2} />
+                  </SettingRow>
+                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : <Sun size={15} />} label={t("pr.theme")} sub={theme === "dark" ? t("pr.themeDark") : t("pr.themeLight")}>
+                    <Toggle on={theme === "light"} onChange={toggleTheme} color={c2} />
+                  </SettingRow>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <motion.div
           whileTap={{ scale: 0.99 }}

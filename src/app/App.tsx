@@ -32,7 +32,7 @@ import {
 } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
-import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
+import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 const LiveSessionSheet = lazy(() => import("./live").then(m => ({ default: m.LiveSessionSheet })));
 import { saveLocalTrack, loadLocalTracks, deleteLocalTrack } from "./idb";
 
@@ -279,6 +279,8 @@ function AppInner() {
   // Прозрачный сплит: локальная бухгалтерия отправленных донатов + шторка
   const [donationLedger, setDonationLedger] = useState<DonationLedger>(() => loadDonationLedger());
   const [splitOpen, setSplitOpen] = useState(false);
+  const [achOpen, setAchOpen] = useState(false);
+  const openAchievements = useCallback(() => setAchOpen(true), []);
   const openSplit = useCallback(() => setSplitOpen(true), []);
 
   // Единый путь любого доната: лента событий, локальная бухгалтерия месяца
@@ -318,6 +320,14 @@ function AppInner() {
 
   // Показываем последний месяц с данными: в первые дни нового месяца сплит
   // текущего пуст, и честнее показать закрытый прошлый месяц с пометкой
+  // Открытые достижения: activity пополняется в момент открытия нового —
+  // правильный триггер для пересчёта из ls
+  const achDone = useMemo(() => {
+    const u = new Set(ls.get<string[]>("achUnlocked", []));
+    return ACHIEVEMENTS.filter(a => u.has(a.id)).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity]);
+
   const { monthKey: splitMonthKey, shares: monthShares } = useMemo(() => latestSharesMonth(stats), [stats]);
   const monthDonations = useMemo(() => donationsOfMonth(donationLedger, splitMonthKey), [donationLedger, splitMonthKey]);
 
@@ -1115,6 +1125,9 @@ function AppInner() {
         onOpenAccount={openAccount}
         onOpenWrapped={openWrapped}
         onOpenSplit={openSplit}
+        onOpenAchievements={openAchievements}
+        achDone={achDone}
+        achTotal={ACHIEVEMENTS.length}
         onLogout={handleLogout}
         crossfade={crossfade}
         onToggleCrossfade={toggleCrossfade}
@@ -1449,6 +1462,8 @@ function AppInner() {
         onToggleFollow={toggleRealFollow}
         onOpenProfile={p => { setPeopleSearchOpen(false); setRealProfile(p); }}
       />
+
+      <AchievementsSheet open={achOpen} onClose={() => setAchOpen(false)} counters={achCounters} c2={currentTrack.c2} />
 
       <SplitSheet
         open={splitOpen}
