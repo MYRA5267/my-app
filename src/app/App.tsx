@@ -671,7 +671,7 @@ function AppInner() {
     navigator.mediaSession.playbackState = audio.playing ? "playing" : "paused";
   }, [audio.playing]);
 
-  // «Моя волна»: умный подбор без повторов + причина выбора
+  // «Прилив» (личный поток): умный подбор без повторов + причина выбора
   const likedRef = useRef(likedIds); likedRef.current = likedIds;
   const followedRef = useRef(followed); followedRef.current = followed;
   const langRef = useRef(lang); langRef.current = lang;
@@ -1144,8 +1144,6 @@ function AppInner() {
         achDone={achDone}
         achTotal={ACHIEVEMENTS.length}
         onLogout={handleLogout}
-        crossfade={crossfade}
-        onToggleCrossfade={toggleCrossfade}
         simpleFx={simpleFx}
         onToggleSimpleFx={toggleSimpleFx}
         quality={qualityIdx}
@@ -1271,6 +1269,8 @@ function AppInner() {
               onOpenAlbum={openAlbum}
               sleepLeft={sleepLeft}
               onSleep={handleSleep}
+              crossfade={crossfade}
+              onToggleCrossfade={toggleCrossfade}
               downloaded={downloads.has(currentTrack.id)}
               onDownload={() => downloadTrack(currentTrack)}
               handle={handle}

@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe,
-  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame,
+  MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -16,13 +16,14 @@ import { useTrackStructure, sectionForPct } from "./structure";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
   downloaded: boolean; onDownload: () => void; handle: string; uid: string | null;
+  crossfade: boolean; onToggleCrossfade: () => void;
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
@@ -253,6 +254,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   </div>
                 </div>
               </div>
+
+              {/* Перелив (кроссфейд) живёт в плеере — настройка воспроизведения должна быть под рукой, а не в профиле */}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { onToggleCrossfade(); toast(crossfade ? t("pl.fadeOff") : t("pl.fadeOn")); }} title={t("pl.fade")} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: crossfade ? `${track.c2}26` : GLASS.background }}>
+                <Blend size={14} style={{ color: crossfade ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
+              </motion.button>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setSleepOpen(o => !o)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: sleepLeft !== null ? `${track.c2}26` : GLASS.background }}>
                 <Timer size={14} style={{ color: sleepLeft !== null ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
