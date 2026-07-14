@@ -32,11 +32,15 @@ export function saveStats(s: ProfileStats) {
   ls.set("stats", s);
 }
 
-export const todayIso = () => new Date().toISOString().slice(0, 10);
+// Дата — ЛОКАЛЬНАЯ, не UTC: с toISOString() в UTC+3 всё, что слушалось до
+// 03:00, записывалось на «вчера», стрик обновлялся только к трём ночи, а на
+// границе месяца «Эхо месяца» теряло первые часы
+const localIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const todayIso = () => localIso(new Date());
 const isoDaysAgo = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return localIso(d);
 };
 
 /** Раз в сессию (при заходе в приложение) — считает серию дней подряд */

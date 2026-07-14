@@ -62,9 +62,10 @@ function DonateWidget({ open, artistLabel, c2, onDonate }: {
   const [cardCvc, setCardCvc] = useState("");
   const [processing, setProcessing] = useState(false);
 
+  // Комиссии нет: онбординг обещает «донаты без комиссии», и это правда —
+  // вся сумма уходит артисту (и в ledger, и в donations.amount пишется она же,
+  // так что «получено» у артиста совпадает с тем, что отправил слушатель)
   const finalAmount = custom ? parseInt(custom) || 0 : amount ?? 0;
-  const fee = Math.round(finalAmount * 0.05);
-  const net = finalAmount - fee;
 
   return (
     <AnimatePresence>
@@ -86,11 +87,8 @@ function DonateWidget({ open, artistLabel, c2, onDonate }: {
                   <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 55%, transparent)" }}>
                     <span>{t("don.amount")}</span><span>{finalAmount}₽</span>
                   </div>
-                  <div className="flex justify-between text-xs mb-1.5" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
-                    <span>{t("don.fee")}</span><span>−{fee}₽</span>
-                  </div>
                   <div className="flex justify-between text-sm font-bold pt-1.5" style={{ fontFamily: F.b, borderTop: "1px solid color-mix(in srgb, var(--wash) 10%, transparent)" }}>
-                    <span>{t("don.net")}</span><span style={{ color: c2 }}>{net}₽</span>
+                    <span>{t("don.net")}</span><span style={{ color: c2 }}>{finalAmount}₽</span>
                   </div>
                 </div>
 
@@ -142,6 +140,8 @@ function DonateWidget({ open, artistLabel, c2, onDonate }: {
                     {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
                   </motion.button>
                 </div>
+                {/* Честная подпись, как у Plus: реального процессинга до подключения провайдера нет */}
+                <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
               </>
             ) : (
               <>
@@ -341,7 +341,7 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
           <img src={avatar} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" style={{ border: "2px solid rgba(255,255,255,0.2)" }} />
           <div className="min-w-0 pb-0.5">
             <div style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", color: ON_DARK }} className="truncate">{name || "…"}</div>
-            {profile?.handle && <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>@{profile.handle}</div>}
+            {profile?.handle && <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>@{profile.handle.replace(/^@/, "")}</div>}
           </div>
         </div>
       </div>
@@ -448,7 +448,7 @@ export function RealProfileSheet({ profile, onClose, isFollowing, onToggleFollow
       <div className="p-7 text-center">
         <img src={profile.avatar_url || AVATARS[0]} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" style={{ border: "2px solid #8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" }} />
         <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>{profile.username}</div>
-        <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>@{profile.handle || profile.username}</div>
+        <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>@{(profile.handle || profile.username).replace(/^@/, "")}</div>
         {profile.role === "artist" && (
           <div className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-1 rounded-full text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.14)", color: "#a78bfa", fontFamily: F.m }}>
             <BadgeCheck size={11} /> {t("soc.artistBadge")}
@@ -531,7 +531,7 @@ export function PeopleSearchSheet({ open, onClose, followingIds, onToggleFollow,
                 <img src={p.avatar_url || AVATARS[0]} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{p.username}</div>
-                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>@{p.handle || p.username}</div>
+                  <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>@{(p.handle || p.username).replace(/^@/, "")}</div>
                 </div>
               </button>
               <motion.button
@@ -584,7 +584,8 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => tracks[0] && onPlay(tracks[0])} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
             <Play size={16} fill="white" stroke="none" className="ml-0.5" /> {t("al.play")}
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => toast(t("al.shuffled"))} className="px-5 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+          {/* Шафл честный: реально запускает случайный трек альбома */}
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const tr = tracks[Math.floor(Math.random() * tracks.length)]; if (tr) { onPlay(tr); toast(t("al.shuffled")); } }} className="px-5 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
             <Shuffle size={15} />
           </motion.button>
         </div>
@@ -910,6 +911,7 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
                   cx.drawImage(img, (s - img.width * k) / 2, (s - img.height * k) / 2, img.width * k, img.height * k);
                   onAvatarFile(cv.toDataURL("image/jpeg", 0.85));
                   toast(t("acc.photoSet"));
+                  URL.revokeObjectURL(img.src);
                 };
                 img.src = URL.createObjectURL(f);
               }} />
@@ -1022,29 +1024,9 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
             <div className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b, lineHeight: 1.55 }}>{t("acc.xpHowBody")}</div>
           </div>
 
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.xpRewardsTitle")}</div>
-          <div className="flex flex-col gap-2">
-            {[
-              [5, t("acc.xpReward5"), Star],
-              [10, t("acc.xpReward10"), Sparkles],
-              [25, t("acc.xpReward25"), Zap],
-              [50, t("acc.xpReward50"), Crown],
-              [100, t("acc.xpReward100"), Gift],
-            ].map(([milestone, desc, Icon]: any) => {
-              const unlocked = level >= milestone;
-              return (
-                <div key={milestone} className="flex items-center gap-3 p-3.5 rounded-2xl" style={{ ...GLASS, opacity: unlocked ? 1 : 0.55 }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: unlocked ? "rgba(139,92,246,0.18)" : "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
-                    {unlocked ? <Icon size={15} style={{ color: "#a78bfa" }} /> : <Lock size={13} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold mb-0.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("acc.xpRewardLocked", milestone)}</div>
-                    <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 65%, transparent)", fontFamily: F.b, lineHeight: 1.4 }}>{desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Списка «наград за уровни» больше нет: значки, рамки и скидки из него
+              не существовали в коде — обещания без реализации нарушают принцип
+              честности. Вернём, когда награды станут настоящими */}
         </div>
       </Sheet>
     </>
@@ -1113,11 +1095,8 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 27, letterSpacing: "-0.03em", lineHeight: 1.1 }} className="mb-2">{t("cr.earn")}</div>
               <div className="text-sm mb-4" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)", fontFamily: F.b }}>{t("cp.sub")}</div>
 
-              <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl mb-5" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.28)" }}>
-                <TrendingUp size={15} style={{ color: "#34d399", flexShrink: 0 }} />
-                <span className="text-xs font-semibold" style={{ color: "#34d399", fontFamily: F.b }}>{t("cp.stat")}</span>
-              </div>
-
+              {/* Плашка «зарабатывают в 2.4 раза больше» удалена: статистика была
+                  выдумана — у MYRA пока нет данных, чтобы такое утверждать */}
               <div className="flex flex-col gap-2.5 mb-7">
                 {BENEFITS.map((b, i) => (
                   <motion.div key={b.title} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl" style={GLASS}>
@@ -1141,6 +1120,8 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
               >
                 {state === "paying" ? (<><Loader2 size={16} className="animate-spin" /> {t("cp.paying")}</>) : t("cp.pay")}
               </motion.button>
+              {/* Та же честная подпись, что у Plus и донатов */}
+              <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
             </>
           )}
         </div>
@@ -1389,7 +1370,12 @@ export function WrappedModal({ open, onClose, minutes, topArtistName, topArtistI
                 {S.share && (
                   <motion.button
                     whileTap={{ scale: 0.95 }}
-                    onClick={e => { e.stopPropagation(); toast(t("wr.shared")); }}
+                    onClick={async e => {
+                      e.stopPropagation();
+                      // Реальное копирование сводки — раньше тост врал «скопирована», ничего не копируя
+                      const ok = await copyText(`MYRA · ${t("pr.wrapped")}${t("pr.month")}: ${t("wr.minutes", minutes)} · ${topArtistName} · ${topGenreName}`);
+                      toast(ok ? t("wr.shared") : t("soc.followError"));
+                    }}
                     className="relative z-30 mt-7 px-8 py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-2 mx-auto"
                     style={{ background: `linear-gradient(135deg, ${S.c2}, ${S.c2}99)`, color: "#fff", fontFamily: F.b, boxShadow: `0 12px 44px ${S.c2}55` }}
                   >
@@ -1532,6 +1518,8 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
                 {processing ? (<><Loader2 size={14} className="animate-spin" /> {t("don.paying")}</>) : t("don.send", finalAmount)}
               </motion.button>
             </div>
+            {/* Честная подпись симуляции — как в DonateWidget и Plus */}
+            <div className="text-[10px] text-center mt-2.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("don.simNote")}</div>
           </div>
         ) : (
           <>
@@ -1789,6 +1777,7 @@ export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish 
       const k = Math.max(s / img.width, s / img.height);
       cx.drawImage(img, (s - img.width * k) / 2, (s - img.height * k) / 2, img.width * k, img.height * k);
       setCover(cv.toDataURL("image/jpeg", 0.85));
+      URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(f);
   };
@@ -1982,9 +1971,6 @@ export function ImportSheet({ open, onClose, onImported }: {
 interface SupportMsg { id: string; from: "me" | "support"; text: string; time: number; topicLabel?: string }
 
 const SUPPORT_TOPICS = ["sup.tBug", "sup.tBilling", "sup.tIdea", "sup.tOther"] as const;
-const REPLY_KEY: Record<typeof SUPPORT_TOPICS[number], string> = {
-  "sup.tBug": "sup.replyBug", "sup.tBilling": "sup.replyBilling", "sup.tIdea": "sup.replyIdea", "sup.tOther": "sup.replyOther",
-};
 
 const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -2063,11 +2049,14 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
 
     clearTimeout(replyTimer.current);
     replyTimer.current = setTimeout(() => {
-      const reply: SupportMsg = { id: String(Date.now() + 1), from: "support", text: t(REPLY_KEY[topic]), time: Date.now() };
+      // Без сервера — честное системное сообщение, что обращение осталось на
+      // устройстве. Раньше приходил заготовленный фейковый «ответ поддержки»
+      // («передали разработчикам», «ответим в течение часа»), который никто
+      // не передавал и на который никто бы не ответил
+      const reply: SupportMsg = { id: String(Date.now() + 1), from: "support", text: t("sup.offlineNote"), time: Date.now() };
       setThread(prev => { const next = [...prev, reply]; ls.set("supportChat", next); return next; });
       setTyping(false);
-      toast(t("sup.newReply"));
-    }, 1400);
+    }, 600);
   };
 
   return (

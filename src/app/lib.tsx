@@ -117,6 +117,12 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
 export const ThemeCtx = createContext<{ theme: ThemeName; toggleTheme: () => void }>({ theme: "dark", toggleTheme: () => {} });
 export const useTheme = () => useContext(ThemeCtx);
 
+// Прогресс воспроизведения (целый %) отдельным контекстом: его потребляют
+// только точечные виджеты (hero-волна Прилива, волна сайдбара), а экраны
+// не получают progress пропом — и не перерисовываются целиком каждый тик
+export const ProgressCtx = createContext(0);
+export const useProgress = () => useContext(ProgressCtx);
+
 export const GLASS: React.CSSProperties = {
   background: "var(--glass-bg)",
   backdropFilter: "blur(24px) saturate(1.6)",
@@ -391,7 +397,12 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     qualityGainsRef.current?.forEach(g => g.gain.setTargetAtTime(preset.gain, now, 0.08));
   }, []);
 
-  return { playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality };
+  // Стабильная ссылка: без useMemo новый объект на каждый рендер обесценивал
+  // React.memo всех экранов (проп onPlay пересоздавался на каждый тик прогресса)
+  return useMemo(
+    () => ({ playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality }),
+    [playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality],
+  );
 }
 
 export type AudioApi = ReturnType<typeof useAudio>;
@@ -403,14 +414,33 @@ export function TiltCard({ children, className, style, max = 9, onClick }: {
   children: React.ReactNode; className?: string; style?: React.CSSProperties; max?: number; onClick?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [t, setT] = useState({ rx: 0, ry: 0, active: false });
+  const raf = useRef(0);
+  const pos = useRef({ rx: 0, ry: 0, active: false });
+
+  // Наклон — прямой rAF-мутацией style, без setState на каждый pointermove
+  // (ре-рендер поддерева на 60-120 Гц) и без постоянного willChange: каждый
+  // «вечный» willChange — это принудительный слой GPU-композитора WebView,
+  // а их память и есть причина мигающих элементов на слабых телефонах
+  const apply = () => {
+    raf.current = 0;
+    const el = ref.current;
+    if (!el) return;
+    const { rx, ry, active } = pos.current;
+    el.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)${active ? " scale3d(1.015,1.015,1.015)" : ""}`;
+    el.style.transition = active ? "transform 0.08s ease-out" : "transform 0.5s cubic-bezier(0.22,1,0.36,1)";
+    el.style.willChange = active ? "transform" : "auto";
+  };
+  const schedule = () => { if (!raf.current) raf.current = requestAnimationFrame(apply); };
 
   const onMove = (e: React.PointerEvent) => {
     const el = ref.current;
     if (!el || e.pointerType === "touch") return;
     const r = el.getBoundingClientRect();
-    setT({ rx: -((e.clientY - r.top) / r.height - 0.5) * max, ry: ((e.clientX - r.left) / r.width - 0.5) * max, active: true });
+    pos.current = { rx: -((e.clientY - r.top) / r.height - 0.5) * max, ry: ((e.clientX - r.left) / r.width - 0.5) * max, active: true };
+    schedule();
   };
+
+  useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); }, []);
 
   return (
     <div
@@ -418,14 +448,8 @@ export function TiltCard({ children, className, style, max = 9, onClick }: {
       className={className}
       onClick={onClick}
       onPointerMove={onMove}
-      onPointerLeave={() => setT({ rx: 0, ry: 0, active: false })}
-      style={{
-        ...style,
-        transform: `perspective(900px) rotateX(${t.rx}deg) rotateY(${t.ry}deg)${t.active ? " scale3d(1.015,1.015,1.015)" : ""}`,
-        transition: t.active ? "transform 0.08s ease-out" : "transform 0.5s cubic-bezier(0.22,1,0.36,1)",
-        transformStyle: "preserve-3d",
-        willChange: "transform",
-      }}
+      onPointerLeave={() => { pos.current = { rx: 0, ry: 0, active: false }; schedule(); }}
+      style={{ ...style, transformStyle: "preserve-3d" }}
     >
       {children}
     </div>
@@ -476,7 +500,10 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
-  // Плавное перетекание: показываемый прогресс догоняет реальный через rAF
+  // Плавное перетекание: показываемый прогресс догоняет реальный через rAF.
+  // Цикл ОСТАНАВЛИВАЕТСЯ, когда догнал (раньше крутился вечно — каждый
+  // смонтированный Waveform был пожизненным 60 Гц-пробуждателем главного
+  // потока, даже на паузе); эффект перезапустится по следующему progress
   const [disp, setDisp] = useState(progress);
   const dispRef = useRef(progress);
   useEffect(() => {
@@ -486,10 +513,10 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
       const d = dispRef.current;
       const nd = Math.abs(target - d) < 0.08 ? target : d + (target - d) * 0.14;
       if (nd !== d) { dispRef.current = nd; setDisp(nd); }
-      raf = requestAnimationFrame(tick);
+      raf = nd === target ? 0 : requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => { if (raf) cancelAnimationFrame(raf); };
   }, [progress]);
 
   const heights = useMemo(
@@ -783,30 +810,33 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
           transition: "transform 0.35s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
+        {/* Декоративные слои носят fx-orb: в режиме упрощённой графики они
+            гасятся CSS-ом — blur-ореол, вращающиеся кольца и частицы были
+            единственной «тяжестью», которую fx-simple раньше не выключал */}
         {/* Дальний ореол */}
         <motion.div
           animate={{ opacity: playing ? 0.8 : 0.3, scale: playing ? 1 : 0.9 }}
           transition={{ duration: 0.6 }}
-          className="absolute rounded-full"
+          className="fx-orb absolute rounded-full"
           style={{ width: 272, height: 272, background: `radial-gradient(circle, ${track.c2}40 0%, transparent 66%)`, filter: "blur(28px)", animation: playing ? "orbPulse 3s ease-in-out infinite" : "none" }}
         />
         {/* Внешнее кольцо — по часовой */}
         <motion.div
           animate={{ rotate: playing ? 360 : 0 }}
           transition={{ duration: 26, repeat: playing ? Infinity : 0, ease: "linear" }}
-          className="absolute rounded-full"
+          className="fx-orb absolute rounded-full"
           style={{ width: 236, height: 236, border: `1px dashed ${track.c2}30` }}
         />
         {/* Внутреннее кольцо — против часовой */}
         <motion.div
           animate={{ rotate: playing ? -360 : 0 }}
           transition={{ duration: 18, repeat: playing ? Infinity : 0, ease: "linear" }}
-          className="absolute rounded-full"
+          className="fx-orb absolute rounded-full"
           style={{ width: 212, height: 212, border: `1px solid ${track.c2}1c` }}
         />
         {/* Частицы на орбитах */}
         {playing && particles.map((p, i) => (
-          <div key={i} className="absolute" style={{ width: p.r * 2, height: p.r * 2, animation: `orbSpin ${p.dur}s linear infinite`, animationDirection: i % 2 ? "reverse" : "normal" }}>
+          <div key={i} className="fx-orb absolute" style={{ width: p.r * 2, height: p.r * 2, animation: `orbSpin ${p.dur}s linear infinite`, animationDirection: i % 2 ? "reverse" : "normal" }}>
             <div
               className="absolute rounded-full"
               style={{
@@ -848,7 +878,7 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
             );
           })}
           {/* Блик сверху — стеклянный объём */}
-          <div className="absolute rounded-full pointer-events-none" style={{ width: 150, height: 70, top: 14, background: "linear-gradient(to bottom, color-mix(in srgb, var(--wash) 10%, transparent), transparent)", filter: "blur(6px)", borderRadius: "50%" }} />
+          <div className="fx-orb absolute rounded-full pointer-events-none" style={{ width: 150, height: 70, top: 14, background: "linear-gradient(to bottom, color-mix(in srgb, var(--wash) 10%, transparent), transparent)", filter: "blur(6px)", borderRadius: "50%" }} />
           <motion.div
             animate={{ scale: playing ? [1, 1.04, 1] : 1 }}
             transition={{ duration: 2, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
@@ -862,7 +892,7 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
       {/* Тень-подиум под сферой */}
       <motion.div
         animate={{ opacity: playing ? 0.55 : 0.3, scaleX: playing ? 1 : 0.8 }}
-        className="absolute rounded-full"
+        className="fx-orb absolute rounded-full"
         style={{ width: 170, height: 26, bottom: -6, background: `radial-gradient(ellipse, ${track.c2}55 0%, transparent 70%)`, filter: "blur(10px)" }}
       />
     </div>

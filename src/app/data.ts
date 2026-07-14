@@ -162,12 +162,14 @@ export const FRIENDS: Friend[] = [];
 export interface Peer { name: string; en: string; avatar: string; level: number; minutesWeek: number; streak: number; c2: string; topGenre: string }
 export const LEADERBOARD_PEERS: Peer[] = [];
 
+// Чарт — из вымышленных артистов демо-каталога: под именами реальных звёзд
+// играло бы чужое демо-аудио, а это прямой обман
 export const CHARTS = [
-  { pos: 1, title: "Espresso",           artist: "Sabrina Carpenter",      delta: +2, img: svgCover("#3a0a12", "#fb7185", 21) },
-  { pos: 2, title: "Die With A Smile",   artist: "Lady Gaga & Bruno Mars", delta: +5, img: svgCover("#12083a", "#a78bfa", 22) },
-  { pos: 3, title: "Birds of a Feather", artist: "Billie Eilish",          delta: -1, img: svgCover("#07181a", "#4ade80", 23) },
-  { pos: 4, title: "Good Luck, Babe!",   artist: "Chappell Roan",          delta: +3, img: svgCover("#181207", "#facc15", 24) },
-  { pos: 5, title: "Feather",            artist: "Sabrina Carpenter",      delta:  0, img: svgCover("#071226", "#60a5fa", 25) },
+  { pos: 1, title: "Neon Drift",      artist: "Solstice",    delta: +2, img: svgCover("#1a0a08", "#fb923c", 21) },
+  { pos: 2, title: "Midnight Echo",   artist: "Luna Wave",   delta: +5, img: svgCover("#12083a", "#a78bfa", 22) },
+  { pos: 3, title: "Carbon Skies",    artist: "Axel Rune",   delta: -1, img: svgCover("#0f0818", "#f472b6", 23) },
+  { pos: 4, title: "Ivory Keys",      artist: "Mara Dell",   delta: +3, img: svgCover("#071218", "#38bdf8", 24) },
+  { pos: 5, title: "Glass City",      artist: "KRVT",        delta:  0, img: svgCover("#071a10", "#34d399", 25) },
 ];
 
 // У каждого трека каталога — свой текст со своим переводом
