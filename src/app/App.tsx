@@ -3,8 +3,8 @@ import { SkipBack, SkipForward, Play, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
-import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ON_DARK, onDark, deriveHandle, type ThemeName } from "./lib";
+import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, LOCAL_PALETTE, type Track, type Friend, type Playlist } from "./data";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle, type ThemeName } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -28,7 +28,7 @@ import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
   supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote,
-  fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type SubStatus, type PublicProfile, type FriendFeedItem,
+  fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type PublicProfile, type FriendFeedItem,
 } from "./supabase";
 import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
@@ -64,12 +64,10 @@ const GLOBAL_STYLE = `
   .fx-simple .fx-heavy{display:none!important}
   .fx-simple .fx-aurora div{animation:none!important;filter:none!important;opacity:0.55}
   .fx-simple .fx-parallax{transform:none!important}
+  /* Декор орба (blur-ореол, кольца, частицы, подиум) — раньше был единственной
+     тяжестью, которую упрощённая графика не гасила */
+  .fx-simple .fx-orb{display:none!important}
 `;
-
-const LOCAL_PALETTE: [string, string][] = [
-  ["#12083a", "#8b5cf6"], ["#071a10", "#34d399"], ["#1a0a08", "#fb923c"],
-  ["#0f0818", "#f472b6"], ["#071218", "#38bdf8"], ["#181200", "#facc15"],
-];
 
 // Без MYRA Pro/Plus офлайн-загрузки ограничены — иначе "безлимит" на апгрейде
 // ничем не отличался бы от того, что и так доступно всем
@@ -118,6 +116,17 @@ function AppInner() {
   });
   const toggleSimpleFx = useCallback(() => {
     setSimpleFxState((s: boolean) => { ls.set("simpleFx", !s); return !s; });
+  }, []);
+
+  // Десктопный сайдбар маунтится только на широких экранах: hidden lg:flex
+  // прятал его CSS-ом, но React-поддерево (со своей волной и rAF-циклом)
+  // продолжало жить и работать вхолостую на каждом телефоне
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setIsDesktop(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
   }, []);
 
   const [crossfade, setCrossfade] = useState(() => ls.get("crossfade", true));
@@ -605,21 +614,37 @@ function AppInner() {
       loadedRef.current = true;
       audio.load(resolveUrl(currentTrack));
       pushHistory(currentTrack.id);
+      // Первый запуск через кнопку play — такое же прослушивание, как тап по
+      // треку: без registerPlay терялись статистика и ачивка «Первые ноты»
+      registerPlay(currentTrack);
     } else {
       audio.toggle();
     }
-  }, [audio, currentTrack, resolveUrl]);
+  }, [audio, currentTrack, resolveUrl, registerPlay]);
 
   // Очередь = локальные файлы + каталог — пересобираем, только когда реально меняются свои треки
   const queue = useMemo(() => (myTracks.length ? [...myTracks, ...TRACKS] : TRACKS), [myTracks]);
   const queueRef = useRef<Track[]>(queue);
   queueRef.current = queue;
 
+  // Перемешивание и повтор — настоящие, а не декоративные тумблеры: shuffle
+  // меняет и ручной next, и автопереход; repeat заново запускает текущий трек
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const shuffleRef = useRef(shuffle); shuffleRef.current = shuffle;
+  const repeatRef = useRef(repeat); repeatRef.current = repeat;
+
   const step = useCallback((dir: 1 | -1) => {
     setCurrentTrack(prev => {
       const q = queueRef.current;
-      const idx = q.findIndex(tr => tr.id === prev.id);
-      const next = q[(idx + dir + q.length) % q.length] ?? q[0];
+      let next: Track;
+      if (shuffleRef.current && q.length > 1) {
+        const pool = q.filter(tr => tr.id !== prev.id);
+        next = pool[Math.floor(Math.random() * pool.length)];
+      } else {
+        const idx = q.findIndex(tr => tr.id === prev.id);
+        next = q[(idx + dir + q.length) % q.length] ?? q[0];
+      }
       loadedRef.current = true;
       audio.load(resolveUrl(next));
       pushHistory(next.id);
@@ -687,6 +712,23 @@ function AppInner() {
     });
   }, [audio, resolveUrl, registerPlay]);
 
+  // «Течение» — радио от текущего трека: случайный трек того же жанра.
+  // Раньше кнопка молча дублировала «Прилив», хотя называлась иначе
+  const playRadio = useCallback(() => {
+    setCurrentTrack(prev => {
+      const sameGenre = queueRef.current.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
+      const pool = sameGenre.length ? sameGenre : queueRef.current.filter(tr => tr.id !== prev.id);
+      if (!pool.length) return prev;
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      loadedRef.current = true;
+      audio.load(resolveUrl(next));
+      pushHistory(next.id);
+      registerPlay(next);
+      toast(t("home.radioToast", next.title, next.artist));
+      return next;
+    });
+  }, [audio, resolveUrl, registerPlay, t]);
+
   // Загрузка трека для офлайна — без апгрейда лимит FREE_DOWNLOAD_LIMIT треков,
   // иначе "безлимит на Plus/Pro" ничем не отличался бы от того, что уже есть у всех
   const downloadTrack = useCallback(async (tr: Track) => {
@@ -733,6 +775,14 @@ function AppInner() {
       return next;
     });
     setPlaylistId(cur => (cur === id ? null : cur));
+    // Порядок треков удалённого плейлиста больше не нужен — иначе ключи
+    // копились бы в myra.plOrders бесконечно
+    setPlOrders(prev => {
+      if (!(id in prev)) return prev;
+      const { [id]: _gone, ...rest } = prev;
+      ls.set("plOrders", rest);
+      return rest;
+    });
     toast(t("lib.plDeleted"));
   }, [t, logActivity]);
 
@@ -809,7 +859,12 @@ function AppInner() {
   }, [pendingRelease, userName, t, logActivity, uid]);
 
   const removeLocal = useCallback((id: number) => {
-    setMyTracks(prev => prev.filter(tr => tr.id !== id));
+    setMyTracks(prev => {
+      // blob-URL без revoke держит аудиофайл в памяти до перезагрузки страницы
+      const gone = prev.find(tr => tr.id === id);
+      if (gone?.url.startsWith("blob:")) URL.revokeObjectURL(gone.url);
+      return prev.filter(tr => tr.id !== id);
+    });
     deleteLocalTrack(id).catch(() => {});
     toast(t("cr.deleted"));
   }, [t]);
@@ -819,23 +874,20 @@ function AppInner() {
     if (!(currentTrack.id === f.track.id && audio.playing)) playTrack(f.track);
   }, [currentTrack.id, audio.playing, playTrack]);
 
-  // Автопереход = умная волна (без повторов), ручной next — по очереди
-  useEffect(() => { nextRef.current = () => playWave(true); playWaveRef.current = () => playWave(); }, [playWave]);
-
-  // Управление с локскрина/шторки (Android/десктоп)
+  // Автопереход: повтор → тот же трек заново, перемешивание → случайный,
+  // иначе умная волна без повторов. Ручной next — по очереди (или случайно)
   useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title,
-      artist: currentTrack.artist,
-      album: currentTrack.album,
-      artwork: [{ src: currentTrack.img, sizes: "500x500", type: "image/svg+xml" }],
-    });
-    navigator.mediaSession.setActionHandler("play", () => togglePlay());
-    navigator.mediaSession.setActionHandler("pause", () => togglePlay());
-    navigator.mediaSession.setActionHandler("nexttrack", () => handleNext());
-    navigator.mediaSession.setActionHandler("previoustrack", () => handlePrev());
-  }, [currentTrack, togglePlay, handleNext, handlePrev]);
+    nextRef.current = () => {
+      if (repeatRef.current) {
+        // после ended элемент на паузе — заново load запускает воспроизведение
+        setCurrentTrack(prev => { audio.load(resolveUrl(prev)); registerPlay(prev); return prev; });
+        return;
+      }
+      if (shuffleRef.current) { step(1); return; }
+      playWave(true);
+    };
+    playWaveRef.current = () => playWave();
+  }, [playWave, step, audio, resolveUrl, registerPlay]);
 
   // Пауза фоновых анимаций, когда приложение свёрнуто — экономия батареи
   useEffect(() => {
@@ -844,20 +896,24 @@ function AppInner() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
+  // Тик раз в 30 с, а не каждую секунду: UI показывает только минуты, а
+  // посекундный setState перерисовывал всё дерево (и пересоздавал интервал)
+  const sleepActive = sleepLeft !== null;
   useEffect(() => {
-    if (sleepLeft === null) return;
+    if (!sleepActive) return;
     const iv = setInterval(() => {
       setSleepLeft(s => {
-        if (s === null || s <= 1) {
+        if (s === null) return null;
+        if (s <= 30) {
           audio.pause();
           toast(t("pl.sleepDone"));
           return null;
         }
-        return s - 1;
+        return s - 30;
       });
-    }, 1000);
+    }, 30_000);
     return () => clearInterval(iv);
-  }, [sleepLeft, audio, t]);
+  }, [sleepActive, audio, t]);
 
   const toggleLike = useCallback((id: number) => {
     setLikedIds(prev => {
@@ -885,6 +941,11 @@ function AppInner() {
   const navigateTab = useCallback((id: string) => setTab(id as Tab), [setTab]);
   const openPeopleSearch = useCallback(() => setPeopleSearchOpen(true), []);
   const startWave = useCallback(() => playWaveRef.current(), []);
+  // Стабильные колбэки для BottomIsland: инлайновые пересоздавались каждый
+  // рендер и полностью обесценивали его React.memo
+  const openPlayer = useCallback(() => setPlayerOpen(true), []);
+  const currentIdRef = useRef(currentTrack.id); currentIdRef.current = currentTrack.id;
+  const likeCurrent = useCallback(() => toggleLike(currentIdRef.current), [toggleLike]);
 
   const openArtist = useCallback((name: string) => {
     setAlbumName(null);
@@ -935,8 +996,14 @@ function AppInner() {
     if (supabaseEnabled) signOutRemote().catch(() => {});
     // Чистим и офлайн-хранилище (IndexedDB), не только localStorage —
     // иначе после входа в новый аккаунт старые файлы всё ещё будут тут
-    myTracks.forEach(tr => deleteLocalTrack(tr.id).catch(() => {}));
-    downloads.forEach((_url, id) => deleteDownload(id).catch(() => {}));
+    myTracks.forEach(tr => {
+      if (tr.url.startsWith("blob:")) URL.revokeObjectURL(tr.url);
+      deleteLocalTrack(tr.id).catch(() => {});
+    });
+    downloads.forEach((url, id) => {
+      URL.revokeObjectURL(url);
+      deleteDownload(id).catch(() => {});
+    });
     ls.clear();
     setOnboarded(false);
     setTab("home");
@@ -1004,7 +1071,7 @@ function AppInner() {
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
       <div className={`h-screen w-full${simpleFx ? " fx-simple" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
         <style>{GLOBAL_STYLE}</style>
-        {children}
+        <ProgressCtx.Provider value={Math.round(audio.progress)}>{children}</ProgressCtx.Provider>
         <Toaster
           position="top-center"
           gap={10}
@@ -1016,7 +1083,9 @@ function AppInner() {
               maxWidth: "90vw",
               margin: "0 auto",
               padding: "12px 22px",
-              background: theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.75)",
+              // По светлой ветке — только светлая тема: неон тоже тёмный, и белый
+              // фон делал его тосты нечитаемыми (белое по белому)
+              background: theme === "light" ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.12)",
               backdropFilter: "blur(40px) saturate(1.9)",
               WebkitBackdropFilter: "blur(40px) saturate(1.9)",
               border: "1px solid var(--glass-border)",
@@ -1036,6 +1105,20 @@ function AppInner() {
   const devEver = useEverOpened(devPanelOpen);
   const adminEver = useEverOpened(adminSupportOpen);
   const liveEver = useEverOpened(liveFriend !== null);
+
+  // Данные «Эха месяца» считаются только при изменении статистики, а не на
+  // каждый рендер AppInner (topArtist звался дважды + два прохода по queue)
+  const wrappedData = useMemo(() => {
+    const artist = topArtist(stats);
+    return {
+      minutes: minutesOf(currentMonthSeconds(stats)),
+      artist,
+      artistImg: queue.find(tr => tr.artist === artist)?.img,
+      genre: topGenre(stats),
+      tracks: distinctTracksPlayed(stats),
+      genres: distinctGenresPlayed(stats),
+    };
+  }, [stats, queue]);
 
   if (!onboarded) {
     return themedRoot(<Suspense fallback={null}><OnboardingFlow onDone={finishOnboarding} /></Suspense>);
@@ -1066,11 +1149,13 @@ function AppInner() {
         onPlay={playTrack}
         currentTrack={currentTrack}
         playing={audio.playing}
-        progress={Math.round(audio.progress)}
         onNavigate={navigateTab}
         onOpenBlend={setBlendFriend}
         onOpenLive={openLive}
         onPlayWave={startWave}
+        onPlayRadio={playRadio}
+        onLikeTrack={toggleLike}
+        onPauseMain={audio.pause}
         onOpenArtist={openArtist}
         onOpenRealArtist={openRealArtist}
         avatar={avatar}
@@ -1164,6 +1249,7 @@ function AppInner() {
       <DynamicBg track={currentTrack} />
 
       {/* Desktop sidebar */}
+      {isDesktop && (
       <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid color-mix(in srgb, var(--wash) 05%, transparent)", background: "var(--island)", backdropFilter: "blur(32px)" }}>
         <div className="px-6 mb-9 flex items-center gap-2">
           <MyraWordmark height={20} style={{ color: "var(--fg)" }} />
@@ -1205,6 +1291,7 @@ function AppInner() {
           </div>
         </div>
       </aside>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <div className="flex-1 overflow-hidden relative">
@@ -1228,13 +1315,13 @@ function AppInner() {
           <BottomIsland
             track={currentTrack}
             playing={audio.playing}
-            progress={audio.progress}
+            progress={Math.round(audio.progress)}
             onToggle={togglePlay}
-            onOpen={() => setPlayerOpen(true)}
+            onOpen={openPlayer}
             activeTab={tab}
-            onTab={id => setTab(id as Tab)}
+            onTab={navigateTab}
             liked={likedIds.has(currentTrack.id)}
-            onLike={() => toggleLike(currentTrack.id)}
+            onLike={likeCurrent}
             onSeek={audio.seek}
             showStudio={showStudio}
           />
@@ -1271,6 +1358,11 @@ function AppInner() {
               onSleep={handleSleep}
               crossfade={crossfade}
               onToggleCrossfade={toggleCrossfade}
+              shuffle={shuffle}
+              onToggleShuffle={() => setShuffle(s => !s)}
+              repeat={repeat}
+              onToggleRepeat={() => setRepeat(r => !r)}
+              queue={queue}
               downloaded={downloads.has(currentTrack.id)}
               onDownload={() => downloadTrack(currentTrack)}
               handle={handle}
@@ -1453,12 +1545,12 @@ function AppInner() {
       <WrappedModal
         open={wrappedOpen}
         onClose={() => setWrappedOpen(false)}
-        minutes={minutesOf(currentMonthSeconds(stats))}
-        topArtistName={topArtist(stats)}
-        topArtistImg={queue.find(tr => tr.artist === topArtist(stats))?.img}
-        topGenreName={topGenre(stats)}
-        tracksCount={distinctTracksPlayed(stats)}
-        genresCount={distinctGenresPlayed(stats)}
+        minutes={wrappedData.minutes}
+        topArtistName={wrappedData.artist}
+        topArtistImg={wrappedData.artistImg}
+        topGenreName={wrappedData.genre}
+        tracksCount={wrappedData.tracks}
+        genresCount={wrappedData.genres}
       />
 
       <PeerProfileSheet peer={peerProfile} onClose={() => setPeerProfile(null)} />

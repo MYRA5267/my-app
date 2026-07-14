@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe,
@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { TRACKS, LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
+import { LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
 import { commentHotMoments } from "./smart";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { useLang } from "./i18n";
@@ -16,7 +16,7 @@ import { useTrackStructure, sectionForPct } from "./structure";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
   progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
@@ -24,11 +24,12 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
   downloaded: boolean; onDownload: () => void; handle: string; uid: string | null;
   crossfade: boolean; onToggleCrossfade: () => void;
+  // Перемешивание/повтор живут в App и реально управляют переходами треков
+  shuffle: boolean; onToggleShuffle: () => void; repeat: boolean; onToggleRepeat: () => void;
+  queue: Track[];
 }) {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"player" | "lyrics" | "comments" | "queue">("player");
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   // Реальные комментарии — свои для каждого трека, плюс то, что написал сам пользователь
   const [myComments, setMyComments] = useState(() => loadMyComments());
@@ -67,6 +68,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   // ре-рендеров, с которой боролись. В fx-simple гасится CSS-правилом
   const parallaxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // В упрощённой графике CSS всё равно занулит transform — не вешаем
+    // слушатели 60 Гц-событий впустую
+    if (document.querySelector(".fx-simple")) return;
     let raf = 0, tx = 0, ty = 0;
     const apply = () => {
       raf = 0;
@@ -109,10 +113,12 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const progressRounded = Math.round(progress);
   const verified = artistByName(track.artist)?.verified;
 
-  const queueIdx = TRACKS.findIndex(q => q.id === track.id);
+  // «Дальше» — от НАСТОЯЩЕЙ очереди (локальные файлы + каталог), той же,
+  // по которой ходит handleNext; раньше вкладка показывала только каталог
+  const queueIdx = queue.findIndex(q => q.id === track.id);
   const upNext = queueIdx >= 0
-    ? [...TRACKS.slice(queueIdx + 1), ...TRACKS.slice(0, queueIdx)]
-    : TRACKS;
+    ? [...queue.slice(queueIdx + 1), ...queue.slice(0, queueIdx)]
+    : queue;
 
   const shareTrack = async () => {
     const link = `https://myra.app/track/${track.id}`;
@@ -215,7 +221,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
             {/* Управление */}
             <div className="flex items-center justify-between mb-6">
-              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { setShuffle(s => !s); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }}>
+              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { onToggleShuffle(); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }}>
                 <Shuffle size={20} style={{ color: shuffle ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
               </motion.button>
               <motion.button whileTap={{ scale: 0.85 }} onClick={onPrev} className="w-12 h-12 rounded-full flex items-center justify-center" style={GLASS}>
@@ -230,7 +236,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               <motion.button whileTap={{ scale: 0.8 }} onClick={onDownload} title="offline">
                 {downloaded ? <CheckCircle2 size={20} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={20} style={{ color: "color-mix(in srgb, var(--wash) 35%, transparent)" }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { setRepeat(r => !r); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }}>
+              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { onToggleRepeat(); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }}>
                 <Repeat size={20} style={{ color: repeat ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
               </motion.button>
             </div>
@@ -374,7 +380,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               {comments.map((c, i) => (
                 <motion.div key={`${c.user}-${c.pct}-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="flex gap-3 p-3.5 rounded-2xl" style={GLASS}>
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white" style={{ background: c.avatar }}>
-                    {c.user[1].toUpperCase()}
+                    {(c.user.replace(/^@/, "")[0] ?? "?").toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -459,7 +465,10 @@ export const NAV = [
 /** Студия видна только артистам (или тем, кто оформил MYRA Pro) */
 export const navItems = (showStudio: boolean) => showStudio ? NAV : NAV.filter(n => n.id !== "creator");
 
-export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSeek, activeTab, onTab, liked, onLike, showStudio = true }: {
+// memo обязателен: остров — единственный вечно видимый крупный компонент на
+// мобильных, и без memo он перерисовывался (~50 узлов поверх blur-стекла)
+// на каждый тик прогресса и любой чих AppInner
+export const BottomIsland = React.memo(function BottomIsland({ track, playing, onToggle, onOpen, progress, onSeek, activeTab, onTab, liked, onLike, showStudio = true }: {
   track: Track; playing: boolean; onToggle: () => void; onOpen: () => void;
   progress: number; onSeek: (p: number) => void; activeTab: string; onTab: (t: string) => void;
   liked: boolean; onLike: () => void; showStudio?: boolean;
@@ -507,8 +516,11 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
             onSeek(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)));
           }}
         >
-          <div style={{ height: 3, background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
-            <div className="h-full rounded-r-full" style={{ width: `${progress}%`, background: track.c2, transition: "width 0.3s linear" }} />
+          <div className="overflow-hidden" style={{ height: 3, background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            {/* scaleX вместо width: анимация width — это layout+paint внутри
+                стеклянного острова, инвалидирующие blur-слой композитора на
+                каждый тик; transform обходится одним композитом */}
+            <div className="h-full w-full rounded-r-full" style={{ transform: `scaleX(${progress / 100})`, transformOrigin: "left", background: track.c2, transition: "transform 0.3s linear" }} />
           </div>
         </div>
       </motion.div>
@@ -532,4 +544,4 @@ export function BottomIsland({ track, playing, onToggle, onOpen, progress, onSee
       </div>
     </div>
   );
-}
+});

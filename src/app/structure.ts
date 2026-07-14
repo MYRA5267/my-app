@@ -157,9 +157,21 @@ function labelSections(bp: number[], energy: number[]): SectionKind[] {
  * любой проблеме (сеть, CORS, неподдерживаемый формат, слишком короткий трек) —
  * вызывающий код должен просто не показывать секции, никогда не бросать исключение.
  */
+/** Та же эвристика слабого железа, что у автовключения упрощённой графики:
+    декод целого трека в PCM — пиковые десятки мегабайт памяти, на дешёвом
+    Android-телефоне это способно уронить WebView целиком */
+function isWeakDevice(): boolean {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  return (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4
+    || (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+}
+
 export async function analyzeTrackStructure(url: string): Promise<TrackSection[] | null> {
   try {
     if (!url) return null;
+    // На слабом железе честно пропускаем анализ: трек и так стримится в
+    // <audio>, а параллельное второе скачивание + полный PCM-декод — нет
+    if (isWeakDevice()) return null;
     const res = await fetch(url);
     if (!res.ok) return null;
     const arrayBuffer = await res.arrayBuffer();
@@ -167,9 +179,11 @@ export async function analyzeTrackStructure(url: string): Promise<TrackSection[]
     const OfflineCtxCls: typeof OfflineAudioContext | undefined =
       (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext;
     if (!OfflineCtxCls) return null;
-    // Размеры офлайн-контекста тут не важны — рендерить его мы не будем,
-    // используем только decodeAudioData как чистую функцию декодирования
-    const ctx = new OfflineCtxCls(1, 1, 44100);
+    // Рендерить контекст не будем — используем только decodeAudioData.
+    // Частота 8 кГц (минимум спецификации): decodeAudioData ресемплирует к
+    // частоте контекста, и пиковая память декода падает в ~5.5 раза против
+    // 44.1 кГц; для огибающей RMS-энергии такой точности более чем достаточно
+    const ctx = new OfflineCtxCls(1, 1, 8000);
     const buffer = await ctx.decodeAudioData(arrayBuffer);
     const data = buffer.getChannelData(0);
 
@@ -194,8 +208,10 @@ export async function analyzeTrackStructure(url: string): Promise<TrackSection[]
 }
 
 /** Отдаёт закэшированную структуру сразу (если есть) и досчитывает в фоне, если нет */
-export function useTrackStructure(track: Pick<Track, "url" | "remoteId">): TrackSection[] | null {
-  const key = track.remoteId ?? track.url;
+export function useTrackStructure(track: Pick<Track, "id" | "url" | "remoteId">): TrackSection[] | null {
+  // blob-URL уникален на каждую сессию — кэш по нему копил бы в localStorage
+  // мёртвые ключи для каждого локального файла; числовой id стабилен
+  const key = track.remoteId ?? (track.url.startsWith("blob:") ? `local:${track.id}` : track.url);
   const [sections, setSections] = useState<TrackSection[] | null>(() => loadCachedStructure(key));
 
   useEffect(() => {

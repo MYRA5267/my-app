@@ -3,19 +3,13 @@ import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
-import { F, GLASS, SPRING, Aurora, Waveform, useTheme, GoogleIcon, VKIcon, YandexIcon } from "./lib";
+import { F, GLASS, SPRING, Aurora, Waveform, useTheme } from "./lib";
 import { MyraWordmark } from "./logo";
 import { useLang } from "./i18n";
 import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
 
 type Step = "slides" | "auth" | "taste" | "role" | "confirm";
 export type UserRole = "artist" | "listener";
-
-const SOCIALS: [string, (p: { size?: number }) => React.JSX.Element][] = [
-  ["Google", GoogleIcon],
-  ["VK", VKIcon],
-  ["Яндекс", YandexIcon],
-];
 
 export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRole, email: string, handle?: string | null) => void }) {
   const { t, lang, setLang } = useLang();
@@ -74,11 +68,6 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
       toast(t("au.created"));
       setStep("taste");
     }
-  };
-
-  const social = (service: string) => {
-    toast(t("au.social", service));
-    setTimeout(() => setStep("taste"), 900);
   };
 
   const finishRole = async (r: UserRole) => {
@@ -238,19 +227,9 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                 {mode === "signup" ? t("au.doSignup") : t("au.doLogin")}
               </motion.button>
 
-              <div className="flex items-center gap-3 mb-5">
-                <div className="flex-1 h-px" style={{ background: "color-mix(in srgb, var(--wash) 09%, transparent)" }} />
-                <span className="text-[11px]" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("au.or")}</span>
-                <div className="flex-1 h-px" style={{ background: "color-mix(in srgb, var(--wash) 09%, transparent)" }} />
-              </div>
-
-              <div className="flex gap-2.5">
-                {SOCIALS.map(([s, Icon]) => (
-                  <motion.button key={s} whileTap={{ scale: 0.95 }} onClick={() => social(s)} className="flex-1 py-3.5 rounded-2xl flex items-center justify-center" style={{ ...GLASS }}>
-                    <Icon size={20} />
-                  </motion.button>
-                ))}
-              </div>
+              {/* Соц-кнопки убраны до реализации OAuth: они изображали вход
+                  (тост «Входим через Google…» + переход дальше), которого не
+                  было, а с Supabase заводили в тупик подтверждения пустой почты */}
             </motion.div>
           )}
 
