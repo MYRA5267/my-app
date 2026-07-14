@@ -8,7 +8,7 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
 import { commentHotMoments } from "./smart";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, ParticleWave, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
@@ -209,9 +209,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               </motion.button>
             </div>
 
-            {/* Волна */}
+            {/* Волна — поток частиц вместо баров, тот же приём, что на главной */}
             <div className="mb-5">
-              <Waveform progress={progressRounded} color={track.c2} onSeek={onSeek} height={56} seed={track.id + 3} playing={playing} />
+              <ParticleWave progress={progressRounded} color={track.c2} onSeek={onSeek} height={56} playing={playing} />
               <TrackStructureBar sections={structure} />
               <div className="flex justify-between mt-2 text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>
                 <span>{fmtSec(curSec)}</span>
@@ -219,11 +219,17 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               </div>
             </div>
 
-            {/* Управление */}
+            {/* Управление — единый вес у всех кнопок (стеклянные объёмные чипы),
+                Перелив стоит парой с shuffle: обе — модификаторы воспроизведения */}
             <div className="flex items-center justify-between mb-6">
-              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { onToggleShuffle(); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }}>
-                <Shuffle size={20} style={{ color: shuffle ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
-              </motion.button>
+              <div className="flex items-center gap-1.5">
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => { onToggleCrossfade(); toast(crossfade ? t("pl.fadeOff") : t("pl.fadeOn")); }} title={t("pl.fade")} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ ...GLASS, background: crossfade ? `${track.c2}26` : GLASS.background }}>
+                  <Blend size={16} style={{ color: crossfade ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => { onToggleShuffle(); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ ...GLASS, background: shuffle ? `${track.c2}26` : GLASS.background }}>
+                  <Shuffle size={17} style={{ color: shuffle ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
+                </motion.button>
+              </div>
               <motion.button whileTap={{ scale: 0.85 }} onClick={onPrev} className="w-12 h-12 rounded-full flex items-center justify-center" style={GLASS}>
                 <SkipBack size={20} fill="currentColor" />
               </motion.button>
@@ -233,11 +239,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               <motion.button whileTap={{ scale: 0.85 }} onClick={onNext} className="w-12 h-12 rounded-full flex items-center justify-center" style={GLASS}>
                 <SkipForward size={20} fill="currentColor" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.8 }} onClick={onDownload} title="offline">
-                {downloaded ? <CheckCircle2 size={20} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={20} style={{ color: "color-mix(in srgb, var(--wash) 35%, transparent)" }} />}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={onDownload} title="offline" className="w-10 h-10 rounded-full flex items-center justify-center" style={GLASS}>
+                {downloaded ? <CheckCircle2 size={18} style={{ color: "#34d399" }} /> : <ArrowDownToLine size={18} style={{ color: "color-mix(in srgb, var(--wash) 40%, transparent)" }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.8 }} onClick={() => { onToggleRepeat(); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }}>
-                <Repeat size={20} style={{ color: repeat ? track.c2 : "color-mix(in srgb, var(--wash) 35%, transparent)" }} />
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { onToggleRepeat(); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ ...GLASS, background: repeat ? `${track.c2}26` : GLASS.background }}>
+                <Repeat size={17} style={{ color: repeat ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
               </motion.button>
             </div>
 
@@ -260,11 +266,6 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
                   </div>
                 </div>
               </div>
-
-              {/* Перелив (кроссфейд) живёт в плеере — настройка воспроизведения должна быть под рукой, а не в профиле */}
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { onToggleCrossfade(); toast(crossfade ? t("pl.fadeOff") : t("pl.fadeOn")); }} title={t("pl.fade")} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: crossfade ? `${track.c2}26` : GLASS.background }}>
-                <Blend size={14} style={{ color: crossfade ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
-              </motion.button>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setSleepOpen(o => !o)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: sleepLeft !== null ? `${track.c2}26` : GLASS.background }}>
                 <Timer size={14} style={{ color: sleepLeft !== null ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />

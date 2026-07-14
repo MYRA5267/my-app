@@ -178,6 +178,9 @@ const STR: Record<string, { ru: string; en: string }> = {
   "room.leave":       { ru: "Покинуть комнату", en: "Leave the room" },
   "room.left":        { ru: "Ты вышел из комнаты", en: "You left the room" },
   "room.unavailable": { ru: "Совместные комнаты требуют подключения к серверу", en: "Listening rooms require a server connection" },
+  "room.reconnecting": { ru: "Переподключение…", en: "Reconnecting…" },
+  "room.closed":      { ru: "Связь потеряна", en: "Connection lost" },
+  "room.trackMissing": { ru: "У хозяина играет трек, которого нет в твоей библиотеке", en: "The host is playing a track that's not in your library" },
 
   // Wrapped
   "wr.tap":       { ru: "жми справа, чтобы дальше", en: "tap right to continue" },

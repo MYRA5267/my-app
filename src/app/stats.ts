@@ -43,6 +43,14 @@ const isoDaysAgo = (n: number) => {
   return localIso(d);
 };
 
+/** «Эхо месяца» осмысленно смотреть только ближе к концу месяца — раньше карточка
+    висела в профиле весь месяц напоказ, хотя показывает текущий (неполный) месяц */
+export function isMonthEndWindow(days = 3): boolean {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return now.getDate() > daysInMonth - days;
+}
+
 /** Раз в сессию (при заходе в приложение) — считает серию дней подряд */
 export function touchDailyStreak(s: ProfileStats): ProfileStats {
   const today = todayIso();

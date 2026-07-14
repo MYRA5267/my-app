@@ -12,7 +12,10 @@ export function makeRoomCode(): string {
   for (let i = 0; i < 5; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   return s;
 }
-export const isValidRoomCode = (code: string) => /^[A-Z2-9]{5}$/.test(code);
+// Валидация — по тому же алфавиту, что и генерация (не [A-Z2-9] целиком):
+// иначе код с I/O проходит проверку формата и просто зависает в пустом канале
+const CODE_RE = new RegExp(`^[${CODE_CHARS}]{5}$`);
+export const isValidRoomCode = (code: string) => CODE_RE.test(code);
 
 /**
  * Настоящая комната на Supabase Realtime: код — это имя канала, поэтому он
@@ -24,6 +27,7 @@ export const isValidRoomCode = (code: string) => /^[A-Z2-9]{5}$/.test(code);
 export function connectRoom(code: string, handlers: {
   onState: (s: RoomState) => void;
   onCount: (n: number) => void;
+  onStatus: (s: "connected" | "reconnecting" | "closed") => void;
 }): RoomHandle | null {
   if (!supabaseEnabled || !supabase) return null;
   const memberKey = Math.random().toString(36).slice(2);
@@ -32,7 +36,11 @@ export function connectRoom(code: string, handlers: {
     .on("broadcast", { event: "state" }, ({ payload }) => handlers.onState(payload as RoomState))
     .on("presence", { event: "sync" }, () => handlers.onCount(Object.keys(channel.presenceState()).length))
     .subscribe(status => {
-      if (status === "SUBSCRIBED") channel.track({ at: Date.now() });
+      // LIVE-бейдж в UI не должен молча врать при обрыве связи — статусы
+      // разрыва (TIMED_OUT/CHANNEL_ERROR/CLOSED) реально приходят от библиотеки
+      if (status === "SUBSCRIBED") { channel.track({ at: Date.now() }); handlers.onStatus("connected"); }
+      else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") handlers.onStatus("reconnecting");
+      else if (status === "CLOSED") handlers.onStatus("closed");
     });
   return { channel, code };
 }
@@ -42,5 +50,10 @@ export function broadcastRoomState(handle: RoomHandle, state: RoomState) {
 }
 
 export function disconnectRoom(handle: RoomHandle) {
-  handle.channel.unsubscribe();
+  // unsubscribe() закрывает подписку, но НЕ убирает канал из внутреннего
+  // списка клиента (supabase.channel(topic) с тем же именем вернул бы этот
+  // же мёртвый объект при следующем входе в комнату) — removeChannel() зовёт
+  // unsubscribe() и делает teardown(), реально освобождая канал
+  if (supabase) supabase.removeChannel(handle.channel);
+  else handle.channel.unsubscribe();
 }

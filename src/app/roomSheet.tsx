@@ -29,7 +29,9 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
   const [isHost, setIsHost] = useState(false);
   const [memberCount, setMemberCount] = useState(1);
   const [remote, setRemote] = useState<RoomState | null>(null);
+  const [connStatus, setConnStatus] = useState<"connected" | "reconnecting" | "closed">("reconnecting");
   const handleRef = useRef<RoomHandle | null>(null);
+  const missingTrackToastRef = useRef<number | null>(null);
 
   const leave = () => {
     if (handleRef.current) disconnectRoom(handleRef.current);
@@ -39,6 +41,8 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
     setMemberCount(1);
     setStage("menu");
     setCodeInput("");
+    setConnStatus("reconnecting");
+    missingTrackToastRef.current = null;
   };
 
   useEffect(() => {
@@ -47,9 +51,11 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
   }, [open]);
 
   const enterRoom = (code: string, host: boolean) => {
+    setConnStatus("reconnecting");
     const handle = connectRoom(code, {
       onState: s => setRemote(s),
       onCount: n => setMemberCount(n),
+      onStatus: s => setConnStatus(s),
     });
     if (!handle) { toast(t("room.unavailable")); return; }
     handleRef.current = handle;
@@ -70,16 +76,18 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
   const liveRef = useRef({ trackId: currentTrack.id, playing, progress });
   liveRef.current = { trackId: currentTrack.id, playing, progress };
   useEffect(() => {
-    if (!isHost || !handleRef.current) return;
+    // Не шлём, пока канал реально не в SUBSCRIBED — иначе send() тихо уходит
+    // в REST-фолбэк библиотеки (и в консоль летит deprecation-warning)
+    if (!isHost || !handleRef.current || connStatus !== "connected") return;
     broadcastRoomState(handleRef.current, { trackId: currentTrack.id, playing, progress: Math.round(progress) });
-  }, [isHost, currentTrack.id, playing]);
+  }, [isHost, currentTrack.id, playing, connStatus]);
   useEffect(() => {
     if (!isHost || stage !== "room") return;
     const iv = setInterval(() => {
-      if (handleRef.current) broadcastRoomState(handleRef.current, { trackId: liveRef.current.trackId, playing: liveRef.current.playing, progress: Math.round(liveRef.current.progress) });
+      if (handleRef.current && connStatus === "connected") broadcastRoomState(handleRef.current, { trackId: liveRef.current.trackId, playing: liveRef.current.playing, progress: Math.round(liveRef.current.progress) });
     }, 4000);
     return () => clearInterval(iv);
-  }, [isHost, stage]);
+  }, [isHost, stage, connStatus]);
 
   // ГОСТЬ: подстраивает свой плеер под полученное состояние хозяина —
   // переключает трек, синхронизирует паузу/воспроизведение и досекундный дрейф
@@ -88,6 +96,12 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
     if (remote.trackId !== currentTrack.id) {
       const tr = queue.find(q => q.id === remote.trackId);
       if (tr) onPlayTrack(tr);
+      else if (missingTrackToastRef.current !== remote.trackId) {
+        // Хозяин шлёт своё состояние раз в 4с — без дедупа тост сыпался бы
+        // на каждый повтор, пока трек так и не появится в библиотеке гостя
+        missingTrackToastRef.current = remote.trackId;
+        toast(t("room.trackMissing"));
+      }
       return;
     }
     if (remote.playing !== playing) onToggle();
@@ -145,10 +159,17 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
         {stage === "room" && roomCode && (
           <>
             <div className="relative z-10 flex items-center gap-2.5 mb-5">
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em]" style={{ background: "rgba(248,113,113,0.14)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", fontFamily: F.m }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f87171", animation: "orbPulse 1.6s ease-in-out infinite" }} />
-                LIVE
-              </span>
+              {connStatus === "connected" ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em]" style={{ background: "rgba(248,113,113,0.14)", border: "1px solid rgba(248,113,113,0.35)", color: "#f87171", fontFamily: F.m }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f87171", animation: "orbPulse 1.6s ease-in-out infinite" }} />
+                  LIVE
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em]" style={{ background: "color-mix(in srgb, var(--wash) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--fg) 20%, transparent)", color: "color-mix(in srgb, var(--fg) 55%, transparent)", fontFamily: F.m }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "currentColor", animation: connStatus === "reconnecting" ? "orbPulse 1.6s ease-in-out infinite" : undefined }} />
+                  {connStatus === "reconnecting" ? t("room.reconnecting") : t("room.closed")}
+                </span>
+              )}
               <span className="text-[10px] flex items-center gap-1" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}><Users size={11} /> {t("room.listeners", memberCount)}</span>
             </div>
 

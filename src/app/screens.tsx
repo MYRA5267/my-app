@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, ParticleWave, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { useLang, type Lang } from "./i18n";
-import { lastNDays, type ActivityItem } from "./stats";
+import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
@@ -1211,38 +1211,6 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
       </div>
 
-      {/* Wrapped */}
-      <div className="px-5 mb-6">
-        <TiltCard max={6} onClick={onOpenWrapped} className="rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(18,8,58,0.9), rgba(124,58,237,0.55))", border: "1px solid rgba(139,92,246,0.3)" }}>
-          <Aurora c2="#8b5cf6" opacity={0.7} />
-          <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#a78bfa", fontFamily: F.m }}>{monthLabel}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
-                {t("pr.wrapped")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#c4b5fd" }}>{t("pr.month")}</span>
-              </div>
-            </div>
-            <ChevronRight size={20} style={{ color: onDark(50) }} />
-          </div>
-        </TiltCard>
-      </div>
-
-      {/* Прозрачный сплит — куда реально уходит поддержка, по долям слушания месяца */}
-      <div className="px-5 mb-6">
-        <TiltCard max={6} onClick={onOpenSplit} className="rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(58,42,5,0.9), rgba(202,138,4,0.45))", border: "1px solid rgba(250,204,21,0.3)" }}>
-          <Aurora c2="#facc15" opacity={0.55} />
-          <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#fde047", fontFamily: F.m }}>{t("pr.splitSub")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: ON_DARK }}>
-                {t("pr.split")}<span style={{ fontFamily: F.s, fontStyle: "italic", fontWeight: 500, fontSize: 18, color: "#fde047" }}>{t("pr.splitAccent")}</span>
-              </div>
-            </div>
-            <ChevronRight size={20} style={{ color: onDark(50) }} />
-          </div>
-        </TiltCard>
-      </div>
-
       {/* MYRA Plus — бесплатный уровень, виден только слушателям (Pro — у артистов в Студии) */}
       {userRole === "listener" && (
         <div className="px-5 mb-6">
@@ -1274,6 +1242,31 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           </div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
         </motion.div>
+
+        {/* Прозрачный сплит — компактной строкой вместо полноширинного баннера,
+            чтобы профиль не был двумя одинаковыми по весу плашками подряд */}
+        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.16)" }}><Gift size={15} style={{ color: "#facc15" }} /></div>
+          <div className="flex-1">
+            <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.split")}{t("pr.splitAccent")}</div>
+            <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("pr.splitSub")}</div>
+          </div>
+          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+        </motion.div>
+
+        {/* Эхо месяца — раньше висело в профиле весь месяц напоказ, хотя месяц ещё
+            не закончился; теперь появляется только в последние 3 дня месяца, когда
+            recap реально имеет смысл смотреть */}
+        {isMonthEndWindow() && (
+          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.16)" }}><Sparkles size={15} style={{ color: "#a78bfa" }} /></div>
+            <div className="flex-1">
+              <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.wrapped")}{t("pr.month")}</div>
+              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{monthLabel}</div>
+            </div>
+            <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+          </motion.div>
+        )}
 
         {/* Аккордеон реальных настроек */}
         <div className="rounded-2xl overflow-hidden" style={GLASS}>

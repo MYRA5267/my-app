@@ -582,83 +582,112 @@ export const Waveform = React.memo(function Waveform({ progress, color, onSeek, 
 });
 
 /**
- * Декоративный поток частиц — canvas вместо DOM-баров: один слой рисования
- * дешевле для WebView-композитора, чем десятки div'ов, и позволяет живую
- * органическую волну без backdrop-filter/blur-элементов. Только визуал —
- * не скраббер (для перемотки остаётся обычный Waveform).
+ * Поток частиц на canvas — вместо DOM-баров: один слой рисования дешевле для
+ * WebView-композитора, чем десятки div'ов, и даёт живую органическую волну
+ * без backdrop-filter/blur-элементов. onSeek опционален: без него — чисто
+ * декоративный (как на главной), с ним — полноценный скраббер (как в плеере).
  */
-export const ParticleWave = React.memo(function ParticleWave({ progress, playing, color, height = 40 }: {
-  progress: number; playing: boolean; color: string; height?: number;
+export const ParticleWave = React.memo(function ParticleWave({ progress, playing, color, height = 40, onSeek }: {
+  progress: number; playing: boolean; color: string; height?: number; onSeek?: (p: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dragging = useRef(false);
+  const pctFromEvent = (e: React.PointerEvent) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100));
+  };
   const liveRef = useRef({ progress, playing });
   liveRef.current = { progress, playing };
+  const particlesRef = useRef<{ x: number; phase: number; speed: number; size: number }[]>([]);
+  const dprRef = useRef(1);
+  const tRef = useRef(0);
 
+  // Настройка канваса и частиц — на смену трека/цвета (пересоздаёт узор,
+  // это ожидаемо: новый трек — новый рисунок волны)
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-
-    // В упрощённой графике — редкие частицы и один статичный кадр без rAF-цикла,
-    // тот же принцип гейтинга, что у параллакса орба (player.tsx)
+    if (!canvas) return;
     const simple = !!document.querySelector(".fx-simple");
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dprRef.current = dpr;
     const resize = () => {
       const r = canvas.getBoundingClientRect();
       canvas.width = Math.max(1, r.width * dpr);
       canvas.height = Math.max(1, r.height * dpr);
     };
     resize();
-
     const N = simple ? 34 : 110;
-    const particles = Array.from({ length: N }, (_, i) => ({
+    particlesRef.current = Array.from({ length: N }, (_, i) => ({
       x: i / N,
       phase: Math.random() * Math.PI * 2,
       speed: 0.5 + Math.random() * 0.7,
       size: 0.8 + Math.random() * 1.6,
     }));
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [color]);
 
-    let t = 0;
-    const draw = () => {
-      const { progress: prog, playing: isPlaying } = liveRef.current;
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      ctx.shadowBlur = 5 * dpr;
-      ctx.shadowColor = color;
-      for (const p of particles) {
-        const wobble = Math.sin(p.x * 11 + t * p.speed) * 0.32 + Math.sin(p.x * 3.2 - t * 0.6) * 0.24;
-        const y = h / 2 + wobble * (h * 0.4);
-        const x = p.x * w;
-        const ahead = p.x * 100 > prog;
-        const shimmer = 0.55 + 0.45 * Math.sin(p.phase + t * p.speed * 2.2);
-        let alpha = (ahead ? 0.28 : 1) * shimmer;
-        if (!isPlaying) alpha *= 0.5;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(x, y, p.size * dpr, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
-    };
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const { progress: prog, playing: isPlaying } = liveRef.current;
+    const dpr = dprRef.current;
+    const w = canvas.width, h = canvas.height;
+    const t = tRef.current;
+    ctx.clearRect(0, 0, w, h);
+    ctx.shadowBlur = 5 * dpr;
+    ctx.shadowColor = color;
+    for (const p of particlesRef.current) {
+      const wobble = Math.sin(p.x * 11 + t * p.speed) * 0.32 + Math.sin(p.x * 3.2 - t * 0.6) * 0.24;
+      const y = h / 2 + wobble * (h * 0.4);
+      const x = p.x * w;
+      const ahead = p.x * 100 > prog;
+      const shimmer = 0.55 + 0.45 * Math.sin(p.phase + t * p.speed * 2.2);
+      let alpha = (ahead ? 0.28 : 1) * shimmer;
+      if (!isPlaying) alpha *= 0.5;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x, y, p.size * dpr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }, [color]);
 
-    if (simple) { draw(); return; }
-
+  // Цикл анимации — работает ТОЛЬКО пока играет музыка; на паузе/в fx-simple
+  // рисуем один статичный кадр и не планируем rAF вообще (раньше цикл крутился
+  // вечно даже на паузе — тот самый пожизненный 60 Гц-пробуждатель, который уже
+  // однажды лечили у обычного Waveform)
+  useEffect(() => {
+    const simple = !!document.querySelector(".fx-simple");
+    if (simple || !playing) { draw(); return; }
     let raf = 0;
     const loop = () => {
-      if (!document.hidden) { t += 0.016; draw(); }
+      if (!document.hidden) { tRef.current += 0.016; draw(); }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    window.addEventListener("resize", resize);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-    };
-  }, [color]);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, draw]);
 
-  return <canvas ref={canvasRef} className="w-full block" style={{ height }} />;
+  // На паузе прогресс всё равно может меняться (перетаскивание скраббера) —
+  // без rAF-цикла перерисовываем кадр вручную на каждое такое изменение
+  useEffect(() => {
+    if (!playing) draw();
+  }, [progress, playing, draw]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="w-full block"
+      style={{ height, cursor: onSeek ? "pointer" : "default", touchAction: onSeek ? "none" : undefined }}
+      onPointerDown={onSeek && (e => { dragging.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); onSeek(pctFromEvent(e)); })}
+      onPointerMove={onSeek && (e => { if (dragging.current) onSeek(pctFromEvent(e)); })}
+      onPointerUp={() => { dragging.current = false; }}
+    />
+  );
 });
 
 // ─── Структура трека на волне (эвристика, см. structure.ts) ────────────────
@@ -855,10 +884,12 @@ export function InteractiveChart({ data, labels, color, height = 84, markIndex, 
   );
 }
 
-/** Живая частотная сфера — объёмная: параллакс, двойные кольца, частицы, тень-подиум.
+/** Живая частотная сфера — объёмная: параллакс, стеклянная сфера с эквалайзером,
+    тень-подиум. Кольца-декорации и орбитальные частицы убраны — читались как
+    случайный шум поверх основной сферы, а не как часть неё.
     React.memo + округление progress до целого % на вызывающей стороне: без этого
-    компонент (48 баров + 7 частиц под backdrop-filter) переотрисовывался бы на
-    каждый тик прогресса и ощутимо подвешивал слабые устройства. */
+    компонент (48 баров под backdrop-filter) переотрисовывался бы на каждый тик
+    прогресса и ощутимо подвешивал слабые устройства. */
 export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, progress }: { track: Track; playing: boolean; progress: number }) {
   const bars = 48;
   const ref = useRef<HTMLDivElement>(null);
@@ -872,16 +903,6 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
     [bars, track.id],
   );
   const headIdx = (progress / 100) * bars;
-
-  const particles = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => ({
-      angle: (i / 7) * 360 + track.id * 31,
-      r: 116 + (i % 3) * 12,
-      size: 3 + (i % 3),
-      dur: 9 + i * 2.4,
-    })),
-    [track.id],
-  );
 
   const onMove = (e: React.PointerEvent) => {
     const el = ref.current;
@@ -908,47 +929,14 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
           transition: "transform 0.35s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
-        {/* Декоративные слои носят fx-orb: в режиме упрощённой графики они
-            гасятся CSS-ом — blur-ореол, вращающиеся кольца и частицы были
-            единственной «тяжестью», которую fx-simple раньше не выключал */}
-        {/* Дальний ореол */}
+        {/* Дальний ореол — единственная декорация вокруг сферы, носит fx-orb:
+            в режиме упрощённой графики гасится CSS-ом */}
         <motion.div
           animate={{ opacity: playing ? 0.8 : 0.3, scale: playing ? 1 : 0.9 }}
           transition={{ duration: 0.6 }}
           className="fx-orb absolute rounded-full"
           style={{ width: 272, height: 272, background: `radial-gradient(circle, ${track.c2}40 0%, transparent 66%)`, filter: "blur(28px)", animation: playing ? "orbPulse 3s ease-in-out infinite" : "none" }}
         />
-        {/* Внешнее кольцо — по часовой */}
-        <motion.div
-          animate={{ rotate: playing ? 360 : 0 }}
-          transition={{ duration: 26, repeat: playing ? Infinity : 0, ease: "linear" }}
-          className="fx-orb absolute rounded-full"
-          style={{ width: 236, height: 236, border: `1px dashed ${track.c2}30` }}
-        />
-        {/* Внутреннее кольцо — против часовой */}
-        <motion.div
-          animate={{ rotate: playing ? -360 : 0 }}
-          transition={{ duration: 18, repeat: playing ? Infinity : 0, ease: "linear" }}
-          className="fx-orb absolute rounded-full"
-          style={{ width: 212, height: 212, border: `1px solid ${track.c2}1c` }}
-        />
-        {/* Частицы на орбитах */}
-        {playing && particles.map((p, i) => (
-          <div key={i} className="fx-orb absolute" style={{ width: p.r * 2, height: p.r * 2, animation: `orbSpin ${p.dur}s linear infinite`, animationDirection: i % 2 ? "reverse" : "normal" }}>
-            <div
-              className="absolute rounded-full"
-              style={{
-                width: p.size, height: p.size,
-                left: "50%", top: 0,
-                marginLeft: -p.size / 2,
-                transform: `rotate(${p.angle}deg)`,
-                background: track.c2,
-                boxShadow: `0 0 8px ${track.c2}`,
-                opacity: 0.8,
-              }}
-            />
-          </div>
-        ))}
         {/* Стеклянная сфера с эквалайзером */}
         <div className="absolute rounded-full flex items-center justify-center" style={{ width: 200, height: 200, background: "var(--glass-bg)", backdropFilter: "blur(20px)", border: `1px solid ${track.c2}30`, boxShadow: `0 0 70px ${track.c2}2e, inset 0 -18px 40px ${track.c2}14, inset 0 14px 30px color-mix(in srgb, var(--wash) 06%, transparent)` }}>
           {heights.map((h, i) => {
@@ -980,8 +968,8 @@ export const FrequencyOrb = React.memo(function FrequencyOrb({ track, playing, p
           <motion.div
             animate={{ scale: playing ? [1, 1.04, 1] : 1 }}
             transition={{ duration: 2, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
-            className="relative z-10 rounded-2xl overflow-hidden"
-            style={{ width: 76, height: 76, boxShadow: `0 10px 32px ${track.c2}55, 0 2px 8px rgba(0,0,0,0.4)` }}
+            className="relative z-10 rounded-full overflow-hidden"
+            style={{ width: 84, height: 84, border: `2px solid ${track.c2}55`, boxShadow: `0 10px 32px ${track.c2}55, 0 2px 8px rgba(0,0,0,0.4)` }}
           >
             <img src={track.img} alt="" className="w-full h-full object-cover" />
           </motion.div>
