@@ -41,6 +41,411 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Full player — MYRA's premium listening surface. */
+.myra-full-player {
+  isolation: isolate;
+  background: #020207;
+}
+
+.myra-player-noise {
+  opacity: 0.045;
+  mix-blend-mode: soft-light;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.5) 0 0.5px, transparent 0.8px),
+    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.35) 0 0.45px, transparent 0.8px);
+  background-size: 7px 7px, 11px 11px;
+}
+
+.myra-player-header {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 98px;
+  align-items: center;
+  gap: 18px;
+  padding: max(18px, env(safe-area-inset-top)) clamp(20px, 3vw, 38px) 12px;
+}
+
+.myra-player-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.myra-player-icon-button,
+.myra-player-control,
+.myra-player-like,
+.myra-player-volume-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(242,242,248,0.78);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 36px rgba(0,0,0,0.2);
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.myra-player-icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  backdrop-filter: blur(22px) saturate(1.3);
+}
+
+.myra-player-icon-button:hover,
+.myra-player-control:hover,
+.myra-player-like:hover,
+.myra-player-utility:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.09);
+}
+
+.myra-player-tabs {
+  justify-self: center;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(6,6,15,0.62);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 60px rgba(0,0,0,0.28);
+  backdrop-filter: blur(28px) saturate(1.35);
+}
+
+.myra-player-tab {
+  position: relative;
+  min-width: 76px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  transition: color 180ms ease;
+}
+
+.myra-player-shell {
+  width: min(100%, 1200px);
+  height: 100%;
+  min-height: 0;
+  margin-inline: auto;
+  padding: 16px clamp(24px, 4vw, 52px) 28px;
+  display: grid;
+  grid-template-columns: minmax(340px, 480px) minmax(430px, 1fr);
+  align-items: center;
+  gap: clamp(42px, 6vw, 86px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.myra-player-shell::-webkit-scrollbar { display: none; }
+
+.myra-player-visual {
+  position: relative;
+  width: 100%;
+  height: min(520px, calc(100vh - 142px));
+  min-height: 430px;
+  max-height: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: clamp(28px, 3vw, 42px);
+  background: #090914;
+  box-shadow: 0 38px 100px rgba(0,0,0,0.48), 0 0 80px rgba(124,58,237,0.08);
+}
+
+.myra-player-visual .fx-parallax > div {
+  transform: scale(1.12);
+  transform-origin: center;
+}
+
+.myra-player-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  color: rgba(255,255,255,0.7);
+  background: rgba(4,4,11,0.4);
+  backdrop-filter: blur(18px);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.myra-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  animation: myra-live-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes myra-live-pulse {
+  50% { opacity: 0.5; transform: scale(0.78); }
+}
+
+.myra-player-content {
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  justify-self: center;
+}
+
+.myra-player-meta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.myra-player-eyebrow {
+  margin-bottom: 10px;
+  color: rgba(242,242,248,0.38);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.myra-player-title {
+  max-width: 520px;
+  overflow: hidden;
+  color: #f7f7fb;
+  font-size: clamp(38px, 4vw, 58px);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.myra-player-artist,
+.myra-player-album {
+  overflow: hidden;
+  color: rgba(242,242,248,0.7);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+
+.myra-player-artist {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.myra-player-album { color: rgba(242,242,248,0.4); }
+.myra-player-artist:hover,
+.myra-player-album:hover { color: #fff; }
+
+.myra-player-like {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 17px;
+}
+
+.myra-player-timeline {
+  margin-top: clamp(24px, 4vh, 38px);
+  padding: 19px 20px 15px;
+  border: 1px solid rgba(255,255,255,0.085);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), 0 18px 55px rgba(0,0,0,0.18);
+  backdrop-filter: blur(24px);
+}
+
+.myra-player-controls {
+  display: grid;
+  grid-template-columns: 48px 58px 84px 58px 48px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vw, 14px);
+  margin-top: 25px;
+}
+
+.myra-player-control {
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+}
+
+.myra-player-control-small {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  justify-self: center;
+}
+
+.myra-player-control[data-active="true"] {
+  background: rgba(255,255,255,0.075);
+}
+
+.myra-player-play {
+  width: 84px;
+  height: 84px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 29px;
+  color: #fff;
+}
+
+.myra-player-utilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.myra-player-utility {
+  width: 100%;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,0.075);
+  border-radius: 15px;
+  color: rgba(242,242,248,0.48);
+  background: rgba(255,255,255,0.028);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.myra-player-utility[data-active="true"] { background: rgba(255,255,255,0.055); }
+
+.myra-player-sleep-menu {
+  position: absolute;
+  right: 0;
+  bottom: 52px;
+  z-index: 30;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 18px;
+  background: rgba(10,10,22,0.95);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+  backdrop-filter: blur(30px);
+}
+
+.myra-player-volume {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 13px;
+  padding-inline: 4px;
+}
+
+.myra-player-volume-icon {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 11px;
+  color: rgba(242,242,248,0.42);
+  background: transparent;
+  box-shadow: none;
+}
+
+.myra-full-player :is(button, [role="slider"]):focus-visible {
+  outline: 2px solid rgba(167,139,250,0.95);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .myra-player-header {
+    grid-template-columns: 42px minmax(0, 1fr) 94px;
+    gap: 10px;
+    padding-inline: 16px;
+  }
+
+  .myra-player-tab {
+    min-width: 0;
+    padding-inline: 13px;
+  }
+
+  .myra-player-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 12px 18px max(30px, env(safe-area-inset-bottom));
+  }
+
+  .myra-player-visual {
+    width: min(100%, 460px);
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1 / 0.96;
+    flex: 0 0 auto;
+  }
+
+  .myra-player-content {
+    width: min(100%, 600px);
+    max-width: none;
+    padding-bottom: 12px;
+  }
+
+  .myra-player-title { font-size: clamp(34px, 8vw, 48px); }
+}
+
+@media (max-width: 560px) {
+  .myra-player-header {
+    grid-template-columns: 38px minmax(0, 1fr) 84px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-inline: 12px;
+  }
+
+  .myra-player-icon-button {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+  }
+
+  .myra-player-header-actions { gap: 8px; }
+
+  .myra-player-tabs { gap: 1px; padding: 3px; }
+  .myra-player-tab { padding: 8px 9px; font-size: 10px; }
+  .myra-player-shell { padding-inline: 14px; }
+  .myra-player-visual { border-radius: 28px; }
+  .myra-player-visual .fx-parallax > div { transform: scale(0.84); }
+  .myra-player-content { padding-inline: 3px; }
+  .myra-player-title { font-size: 34px; }
+  .myra-player-meta { align-items: center; }
+  .myra-player-like { width: 44px; height: 44px; border-radius: 15px; }
+  .myra-player-timeline { margin-top: 22px; padding: 15px 15px 12px; border-radius: 20px; }
+  .myra-player-controls { grid-template-columns: 42px 50px 72px 50px 42px; gap: 6px; }
+  .myra-player-control { width: 50px; height: 50px; border-radius: 18px; }
+  .myra-player-control-small { width: 40px; height: 40px; border-radius: 14px; }
+  .myra-player-play { width: 72px; height: 72px; border-radius: 25px; }
+  .myra-player-utility { gap: 6px; padding-inline: 9px; font-size: 10px; }
+}
+
+@media (min-width: 901px) and (max-height: 700px) {
+  .myra-player-shell { padding-top: 8px; padding-bottom: 18px; }
+  .myra-player-visual { height: calc(100vh - 124px); min-height: 390px; }
+  .myra-player-title { font-size: clamp(36px, 3.6vw, 50px); }
+  .myra-player-timeline { margin-top: 20px; padding-top: 13px; padding-bottom: 12px; }
+  .myra-player-controls { margin-top: 17px; }
+  .myra-player-utilities { margin-top: 15px; }
+  .myra-player-volume { margin-top: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-live-dot { animation: none; }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

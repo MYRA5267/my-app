@@ -115,6 +115,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   const lyricIndex = Math.min((lines?.length ?? 1) - 1, Math.floor((progress / 100) * (lines?.length ?? 1)));
   const wordIndex = Math.floor(((progress / 100) * (lines?.length ?? 1) - lyricIndex) * (lines?.[lyricIndex]?.en.length ?? 1));
   const curSec = (progress / 100) * (duration || 0);
+  const sleepMinutes = sleepLeft === null ? null : Math.ceil(sleepLeft / 60);
   // Округляем до целого % для тяжёлых визуалов (орб, волна) — они и так плавно
   // доезжают через собственный rAF-интерполятор, а лишний ре-рендер 48+72 узлов
   // на каждый дробный тик прогресса — то, что подвешивало плеер на слабых телефонах.
@@ -167,38 +168,176 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
   ] as const;
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
-      <div className="absolute inset-0 overflow-hidden">
-        <img src={track.img} alt="" className="fx-heavy absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(80px) saturate(1.7) brightness(0.25)", transform: "scale(1.25)" }} />
-        <Aurora c2={track.c2} />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center 30%, transparent 0%, var(--bg) 85%)" }} />
+    <div className="myra-full-player absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <img src={track.img} alt="" className="fx-heavy absolute inset-0 w-full h-full object-cover opacity-50" style={{ filter: "blur(110px) saturate(1.45) brightness(0.15)", transform: "scale(1.35)" }} />
+        <Aurora c2={track.c2} opacity={0.42} />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 46%, ${track.c2}18 0%, transparent 34%), linear-gradient(115deg, rgba(2,2,7,0.66), rgba(2,2,7,0.94) 70%)` }} />
+        <div className="myra-player-noise absolute inset-0" />
       </div>
 
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between px-5 pt-10 pb-2 flex-shrink-0">
-        <motion.button whileTap={{ scale: 0.85 }} onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
-          <ChevronDown size={20} />
+      <header className="myra-player-header relative z-20 flex-shrink-0">
+        <motion.button aria-label={t("pl.close")} title={t("pl.close")} whileTap={{ scale: 0.88 }} onClick={onClose} className="myra-player-icon-button">
+          <ChevronDown size={19} />
         </motion.button>
-        <div className="flex gap-0.5 p-1 rounded-full" style={GLASS}>
+        <nav className="myra-player-tabs" aria-label={t("pl.playerNav")}>
           {TABS.map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} className="relative px-3 py-1.5 rounded-full text-xs font-medium" style={{ fontFamily: F.b, color: tab === id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
-              {tab === id && <motion.div layoutId="playertab" className="absolute inset-0 rounded-full" style={{ background: track.c2 }} transition={SPRING} />}
+            <button key={id} onClick={() => setTab(id)} className="myra-player-tab" aria-current={tab === id ? "page" : undefined} style={{ fontFamily: F.b, color: tab === id ? "#fff" : "rgba(242,242,248,0.46)" }}>
+              {tab === id && <motion.div layoutId="playertab" className="absolute inset-0 rounded-full" style={{ background: `linear-gradient(135deg, ${track.c2}, ${track.c2}c7)`, boxShadow: `0 8px 28px ${track.c2}38` }} transition={SPRING} />}
               <span className="relative z-10">{label}</span>
             </button>
           ))}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setReportTarget({ type: "track", id: reportTrackId })} title={t("report.title")} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
-            <Flag size={15} />
+        </nav>
+        <div className="myra-player-header-actions">
+          <motion.button aria-label={t("report.title")} title={t("report.title")} whileTap={{ scale: 0.88 }} onClick={() => setReportTarget({ type: "track", id: reportTrackId })} className="myra-player-icon-button">
+            <Flag size={16} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.85 }} onClick={shareTrack} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={GLASS}>
-            <Share2 size={16} />
+          <motion.button aria-label={t("pl.share")} title={t("pl.share")} whileTap={{ scale: 0.88 }} onClick={shareTrack} className="myra-player-icon-button">
+            <Share2 size={17} />
           </motion.button>
         </div>
-      </div>
+      </header>
 
       <div className="relative z-10 flex-1 overflow-hidden flex flex-col">
         {tab === "player" && (
+          <motion.main initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }} className="myra-player-shell">
+            <section className="myra-player-visual" aria-label={t("pl.visualizer")}>
+              <img src={track.img} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ filter: "saturate(1.12) brightness(0.48)", transform: "scale(1.02)" }} />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(2,2,8,0.18), rgba(2,2,8,0.48) 55%, rgba(2,2,8,0.88))" }} />
+              <div className="absolute inset-0" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 0 0 1px rgba(255,255,255,0.07)" }} />
+
+              <div className="absolute left-5 right-5 top-5 flex items-center justify-between z-10">
+                <div className="myra-player-kicker">
+                  <span className="myra-live-dot" style={{ background: track.c2, boxShadow: `0 0 14px ${track.c2}` }} />
+                  {t("pl.nowPlays")}
+                </div>
+                <SectionBadge section={sectionForPct(structure, progressRounded)} />
+              </div>
+
+              <div ref={parallaxRef} className="fx-parallax relative z-10" style={{ willChange: "transform" }}>
+                <FrequencyOrb track={track} playing={playing} progress={progressRounded} />
+              </div>
+
+              <div className="absolute bottom-5 left-5 right-5 z-10 flex items-end justify-between gap-5">
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: "rgba(255,255,255,0.48)", fontFamily: F.m }}>{track.genre}</div>
+                  <div className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.92)", fontFamily: F.b }}>{track.album}</div>
+                </div>
+                <div className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.58)", fontFamily: F.m }}>{fmtSec(curSec)} / {duration ? fmtSec(duration) : track.duration}</div>
+              </div>
+            </section>
+
+            <section className="myra-player-content">
+              <div className="myra-player-meta">
+                <div className="min-w-0">
+                  <div className="myra-player-eyebrow" style={{ fontFamily: F.m }}>{track.genre} · {track.plays}</div>
+                  <h1 className="myra-player-title" style={{ fontFamily: F.d }}>{track.title}</h1>
+                  <div className="flex items-center gap-2 mt-2.5 min-w-0">
+                    <button onClick={() => onOpenArtist(track.artist)} className="myra-player-artist">
+                      {track.artist}
+                      {verified && <BadgeCheck size={15} style={{ color: track.c2 }} />}
+                    </button>
+                    <span className="text-white/20">·</span>
+                    <button onClick={() => onOpenAlbum(track.album)} className="myra-player-album">{track.album}</button>
+                  </div>
+                </div>
+                <motion.button aria-label={liked ? t("pl.unlike") : t("pl.like")} title={liked ? t("pl.unlike") : t("pl.like")} whileTap={{ scale: 0.84 }} onClick={onLike} className="myra-player-like" style={{ background: liked ? `${track.c2}1f` : undefined, borderColor: liked ? `${track.c2}48` : undefined }}>
+                  <Heart size={21} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "rgba(255,255,255,0.68)"} />
+                </motion.button>
+              </div>
+
+              <div className="myra-player-timeline">
+                <ParticleWave progress={progressRounded} color={track.c2} onSeek={onSeek} height={64} playing={playing} />
+                <TrackStructureBar sections={structure} height={22} />
+                <div className="flex justify-between mt-2.5 text-[11px]" style={{ color: "rgba(242,242,248,0.42)", fontFamily: F.m }}>
+                  <span>{fmtSec(curSec)}</span>
+                  <span>-{duration ? fmtSec(Math.max(0, duration - curSec)) : track.duration}</span>
+                </div>
+              </div>
+
+              <div className="myra-player-controls">
+                <motion.button aria-label={t("pl.shuffle")} title={t("pl.shuffle")} whileTap={{ scale: 0.86 }} onClick={() => { onToggleShuffle(); toast(shuffle ? t("pl.shuffleOff") : t("pl.shuffleOn")); }} className="myra-player-control myra-player-control-small" data-active={shuffle || undefined} style={{ color: shuffle ? track.c2 : undefined }}>
+                  <Shuffle size={19} />
+                </motion.button>
+                <motion.button aria-label={t("pl.previous")} title={t("pl.previous")} whileTap={{ scale: 0.86 }} onClick={onPrev} className="myra-player-control">
+                  <SkipBack size={23} fill="currentColor" />
+                </motion.button>
+                <motion.button aria-label={playing ? t("pl.pause") : t("pl.play")} title={playing ? t("pl.pause") : t("pl.play")} whileTap={{ scale: 0.91 }} whileHover={{ scale: 1.035 }} onClick={onToggle} className="myra-player-play" style={{ background: `linear-gradient(145deg, ${track.c2}, ${track.c2}b8)`, boxShadow: `0 18px 55px ${track.c2}42, inset 0 1px 0 rgba(255,255,255,0.34)` }}>
+                  {playing ? <Pause size={29} fill="white" stroke="none" /> : <Play size={30} fill="white" stroke="none" className="ml-1" />}
+                </motion.button>
+                <motion.button aria-label={t("pl.next")} title={t("pl.next")} whileTap={{ scale: 0.86 }} onClick={onNext} className="myra-player-control">
+                  <SkipForward size={23} fill="currentColor" />
+                </motion.button>
+                <motion.button aria-label={t("pl.repeat")} title={t("pl.repeat")} whileTap={{ scale: 0.86 }} onClick={() => { onToggleRepeat(); toast(repeat ? t("pl.repeatOff") : t("pl.repeatOn")); }} className="myra-player-control myra-player-control-small" data-active={repeat || undefined} style={{ color: repeat ? track.c2 : undefined }}>
+                  <Repeat size={19} />
+                </motion.button>
+              </div>
+
+              <div className="myra-player-utilities">
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onToggleCrossfade(); toast(crossfade ? t("pl.fadeOff") : t("pl.fadeOn")); }} className="myra-player-utility" data-active={crossfade || undefined} style={{ color: crossfade ? track.c2 : undefined, borderColor: crossfade ? `${track.c2}42` : undefined }}>
+                  <Blend size={16} />
+                  <span>{t("pl.fade")}</span>
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={onDownload} className="myra-player-utility" data-active={downloaded || undefined} style={{ color: downloaded ? "#5ee7ac" : undefined, borderColor: downloaded ? "rgba(94,231,172,0.3)" : undefined }}>
+                  {downloaded ? <CheckCircle2 size={16} /> : <ArrowDownToLine size={16} />}
+                  <span>{t("pl.offline")}</span>
+                </motion.button>
+                <div className="relative">
+                  <motion.button whileTap={{ scale: 0.96 }} onClick={() => setSleepOpen(o => !o)} className="myra-player-utility" data-active={sleepLeft !== null || undefined} style={{ color: sleepLeft !== null ? track.c2 : undefined, borderColor: sleepLeft !== null ? `${track.c2}42` : undefined }}>
+                    <Timer size={16} />
+                    <span>{sleepMinutes !== null ? `${sleepMinutes}${lang === "ru" ? "м" : "m"}` : t("pl.sleep")}</span>
+                  </motion.button>
+
+                  {sleepOpen && (
+                    <motion.div initial={{ opacity: 0, y: 8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="myra-player-sleep-menu">
+                      <div className="text-[10px] uppercase tracking-[0.14em] mb-2 px-1" style={{ color: "rgba(242,242,248,0.42)", fontFamily: F.m }}>{t("pl.sleep")}</div>
+                      <div className="flex gap-1.5">
+                        {SLEEP_OPTIONS.map(m => (
+                          <button key={m} onClick={() => { onSleep(m); setSleepOpen(false); toast(t("pl.sleepSet", m)); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "rgba(255,255,255,0.07)", fontFamily: F.b }}>
+                            {m}{lang === "ru" ? "м" : "m"}
+                          </button>
+                        ))}
+                        <button onClick={() => { onSleep(null); setSleepOpen(false); toast(t("pl.sleepUnset")); }} className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(242,242,248,0.52)", fontFamily: F.b }}>
+                          {t("pl.sleepOff")}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              <div className="myra-player-volume">
+                <button aria-label={t("pl.volume")} title={t("pl.volume")} onClick={() => onVolume(volume > 0 ? 0 : 0.75)} className="myra-player-volume-icon">
+                  {volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                </button>
+                <div
+                  ref={volRef}
+                  role="slider"
+                  aria-label={t("pl.volume")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(volume * 100)}
+                  className="flex-1 relative py-3 cursor-pointer"
+                  style={{ touchAction: "none" }}
+                  onPointerDown={e => { volDragging.current = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setVol(e.clientX); }}
+                  onPointerMove={e => { if (volDragging.current) setVol(e.clientX); }}
+                  onPointerUp={() => { volDragging.current = false; }}
+                  onPointerCancel={() => { volDragging.current = false; }}
+                >
+                  <div className="rounded-full" style={{ height: 3, background: "rgba(255,255,255,0.1)" }}>
+                    <div className="h-full rounded-full relative" style={{ width: `${volume * 100}%`, background: `linear-gradient(90deg, ${track.c2}99, ${track.c2})` }}>
+                      <div className="absolute right-0 top-1/2 w-2.5 h-2.5 rounded-full bg-white" style={{ transform: "translate(50%,-50%)", boxShadow: "0 2px 8px rgba(0,0,0,0.65)" }} />
+                    </div>
+                  </div>
+                </div>
+                <span className="w-8 text-right text-[10px]" style={{ color: "rgba(242,242,248,0.38)", fontFamily: F.m }}>{Math.round(volume * 100)}</span>
+              </div>
+            </section>
+          </motion.main>
+        )}
+
+        {false && tab === "player" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 pt-2 overflow-y-auto w-full max-w-xl mx-auto" style={{ scrollbarWidth: "none" }}>
             <div className="flex justify-center items-center mb-6 mt-1">
               <div ref={parallaxRef} className="fx-parallax" style={{ willChange: "transform" }}>
@@ -282,7 +421,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setSleepOpen(o => !o)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full" style={{ ...GLASS, background: sleepLeft !== null ? `${track.c2}26` : GLASS.background }}>
                 <Timer size={14} style={{ color: sleepLeft !== null ? track.c2 : "color-mix(in srgb, var(--wash) 40%, transparent)" }} />
-                {sleepLeft !== null && <span className="text-[11px] font-semibold" style={{ color: track.c2, fontFamily: F.m }}>{Math.ceil(sleepLeft / 60)}м</span>}
+                {sleepMinutes !== null && <span className="text-[11px] font-semibold" style={{ color: track.c2, fontFamily: F.m }}>{sleepMinutes}м</span>}
               </motion.button>
 
               {sleepOpen && (
