@@ -552,3 +552,113 @@ create policy "user_follows_delete_own"
 -- Только authenticated, без anon — как и у donations (секция 4): это не
 -- публичные данные, а собственный список подписок живого человека.
 grant select, insert, delete on public.user_follows to authenticated;
+
+
+-- ============================================================================
+-- 12. reports — жалобы пользователей на треки и комментарии (модерация)
+-- ============================================================================
+-- До этой секции в MYRA не было вообще никакого способа пожаловаться на
+-- трек/комментарий или снять его с публикации — только сам автор мог удалить
+-- свой же трек. Перед публичным запуском это реальный юридический риск
+-- (нарушение авторских прав, оскорбительный контент), а не просто недостающая
+-- фича — эта секция и следующая (13, tracks.hidden) закрывают этот пробел
+-- базовой MVP-очередью модерации.
+--
+-- target_id — намеренно text, а не uuid, той же природы, что и
+-- comments.track_id (см. секцию 3 выше): жалоба может быть и на настоящую
+-- строку в базе (uuid tracks.id или comments.id), и на комментарий/трек
+-- демо-каталога вида "catalog:N", у которого никакой строки в базе нет и не
+-- будет. Жёсткий FK здесь так же невозможен, как и там.
+create table if not exists public.reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  target_type text not null check (target_type in ('track', 'comment')),
+  target_id   text not null,
+  reason      text not null,
+  details     text,
+  status      text not null default 'open' check (status in ('open', 'resolved', 'dismissed')),
+  created_at  timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+-- Ускоряет очередь модерации — она почти всегда фильтрует по status = 'open'
+create index if not exists reports_status_idx on public.reports (status);
+
+alter table public.reports enable row level security;
+
+-- Пожаловаться можно только от своего имени
+drop policy if exists "reports_insert_own" on public.reports;
+create policy "reports_insert_own"
+  on public.reports for insert
+  with check (auth.uid() = reporter_id);
+
+-- Автор жалобы видит свои же жалобы (например, чтобы на фронтенде не дать
+-- пожаловаться на одно и то же дважды — сама проверка на клиенте не входит в
+-- этот MVP, но SELECT для неё уже не помешает добавить позже)
+drop policy if exists "reports_select_own" on public.reports;
+create policy "reports_select_own"
+  on public.reports for select
+  using (auth.uid() = reporter_id);
+
+-- Админы (та же таблица admins, что и в support_messages, см. секции 8-9) —
+-- видят и обновляют ЛЮБЫЕ жалобы. Это и есть очередь модерации: несколько
+-- permissive-политик для одной операции объединяются через OR, отдельный
+-- security definer не нужен (admins сама читаема хотя бы для своей строки)
+drop policy if exists "reports_select_admin" on public.reports;
+create policy "reports_select_admin"
+  on public.reports for select
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+-- UPDATE нужен админам — пометить жалобу resolved/dismissed. Обычным
+-- пользователям UPDATE не нужен: подавать жалобу можно, а редактировать/
+-- отзывать её с клиента в этом MVP нельзя (как и комментарии, append-only)
+drop policy if exists "reports_update_admin" on public.reports;
+create policy "reports_update_admin"
+  on public.reports for update
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+
+-- ============================================================================
+-- 13. tracks.hidden — скрытие трека модератором без удаления (продолжение
+--     секции 2, tracks, по мотивам секции 10 — там donations так же донабрали
+--     колонку в уже существующую таблицу отдельной пронумерованной секцией)
+-- ============================================================================
+-- Раньше единственный рычаг снять трек с публикации был у самого автора —
+-- tracks_delete_own (секция 2). У модерации не было вообще никакого способа
+-- вмешаться. hidden — мягкое скрытие: строка остаётся на месте (жалобы,
+-- история, донаты по ней продолжают на неё ссылаться), просто трек
+-- перестаёт быть публично виден в ленте/поиске.
+alter table public.tracks
+  add column if not exists hidden boolean not null default false;
+
+-- Публичная выборка теперь исключает скрытые треки — КРОМЕ треков самого
+-- владельца (иначе автор скрытого трека потерял бы доступ даже к своей же
+-- Студии/медиатеке, а это уже не модерация, а поломанный продукт)
+drop policy if exists "tracks_select_public" on public.tracks;
+create policy "tracks_select_public"
+  on public.tracks for select
+  using (not hidden or owner_id = auth.uid());
+
+-- Админы видят вообще все треки, включая чужие скрытые — нужно для очереди
+-- модерации (проверить решение до и после, у кого угодно)
+drop policy if exists "tracks_select_admin" on public.tracks;
+create policy "tracks_select_admin"
+  on public.tracks for select
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+-- Скрыть/вернуть ЧУЖОЙ трек может только админ — tracks_update_own (секция 2)
+-- уже разрешает владельцу редактировать свои же поля (в т.ч. свой hidden),
+-- но модерация обязана уметь скрыть трек, которым не владеет
+drop policy if exists "tracks_update_admin" on public.tracks;
+create policy "tracks_update_admin"
+  on public.tracks for update
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+
+
+-- ============================================================================
+-- GRANT для таблицы из секции 12 выше (см. пояснение про grant в начале файла)
+-- ============================================================================
+-- Табличных грантов для tracks.hidden (секция 13) не требуется — insert/
+-- update/select на public.tracks для authenticated/anon уже выданы в секции 2,
+-- RLS-политики выше сами ограничивают, какие строки реально видны/редактируемы.
+grant select, insert, update on public.reports to authenticated;
