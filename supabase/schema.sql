@@ -552,3 +552,52 @@ create policy "user_follows_delete_own"
 -- Только authenticated, без anon — как и у donations (секция 4): это не
 -- публичные данные, а собственный список подписок живого человека.
 grant select, insert, delete on public.user_follows to authenticated;
+
+
+-- ============================================================================
+-- 12. payments — платежи через ЮKassa (донаты и подписки с реальным
+--    процессингом, когда он настроен — см. supabase/functions/create-payment)
+-- ============================================================================
+-- id — НЕ uuid, который генерируем мы: это id платежа в формате самой ЮKassa
+-- (строка вида "2d3febe6-000f-5000-9000-1a1c07dcd47c"), чтобы сверять запись
+-- с их API один в один, без ещё одного своего идентификатора рядом.
+--
+-- Строки сюда пишет ТОЛЬКО доверенный бэкенд (service-role, в обход RLS):
+-- create-payment создаёт запись 'pending' сразу после ответа ЮKassa, а
+-- yookassa-webhook переводит её в 'succeeded'/'canceled' ПОСЛЕ того, как сам
+-- независимо перепроверил статус GET-ом к самой ЮKassa — телу вебхука
+-- доверять нельзя (см. подробный комментарий в yookassa-webhook/index.ts).
+-- Клиенту разрешён только select своих же платежей — как история операций,
+-- ничего больше.
+create table if not exists public.payments (
+  id          text primary key,
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  kind        text not null check (kind in ('donation', 'subscription')),
+  status      text not null default 'pending' check (status in ('pending', 'succeeded', 'canceled')),
+  amount      numeric not null check (amount > 0),
+  metadata    jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists payments_user_id_idx on public.payments (user_id);
+
+alter table public.payments enable row level security;
+
+-- Пользователь видит СВОИ платежи (история), но ничего не пишет напрямую —
+-- строки создаёт/обновляет только доверенный бэкенд (create-payment создаёт
+-- 'pending', yookassa-webhook подтверждает 'succeeded' после независимой
+-- проверки статуса у самого ЮKassa)
+drop policy if exists "payments_select_own" on public.payments;
+create policy "payments_select_own"
+  on public.payments for select
+  using (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- GRANT для таблицы из секции 12 выше (см. пояснение про grant в начале файла)
+-- ============================================================================
+-- Только select — insert/update делает исключительно service-role ключ из
+-- edge-функций (create-payment, yookassa-webhook), который и так работает в
+-- обход и GRANT, и RLS, поэтому authenticated/anon insert/update вообще не получают
+grant select on public.payments to authenticated;
