@@ -45,6 +45,7 @@
     }
   },
   "dependencies": {
+    "@sentry/react": "10.65.0",
     "@supabase/supabase-js": "^2.45.4",
     "eruda": "^3.4.3",
     "lucide-react": "0.487.0",

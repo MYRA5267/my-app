@@ -12,6 +12,13 @@ const CORS_HEADERS = {
 
 const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
 
+// OpenRouter стоит реальных денег за каждый вызов — без этого порога любой
+// залогиненный пользователь мог бы в цикле гонять эндпоинт и раздуть счёт.
+// 8 сообщений в минуту — с большим запасом выше обычного темпа переписки
+// человека (даже быстрый диалог — это несколько сообщений за минуты, не
+// секунды), но достаточно низко, чтобы остановить скрипт-спам
+const RATE_LIMIT_PER_MINUTE = 8;
+
 // Контекст о приложении — чтобы модель отвечала по делу, а не общими фразами
 const SYSTEM_PROMPT = `Ты — служба поддержки музыкального стриминга MYRA. Отвечай кратко (2-4 предложения), дружелюбно и по делу, на языке, на котором пишет пользователь.
 
@@ -44,6 +51,27 @@ Deno.serve(async (req: Request) => {
     const { data: userData, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: JSON_HEADERS });
+    }
+
+    // Rate limit по своим же сообщениям за последнюю минуту. Считаем тем же
+    // supabaseClient, что и auth.getUser() выше (он аутентифицирован как сам
+    // вызывающий пользователь) — RLS support_messages_select_own и так не
+    // даст увидеть чужие строки, но .eq("user_id", ...) явный, чтобы не
+    // зависеть только от RLS (у админов есть отдельная политика на ЛЮБОЙ
+    // тред, и без явного фильтра здесь считался бы чужой трафик тоже).
+    // head:true — считаем count() без выкачивания самих строк.
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCount, error: rateError } = await supabaseClient
+      .from("support_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userData.user.id)
+      .eq("from_role", "user")
+      .gt("created_at", oneMinuteAgo);
+    // Если сам подсчёт не удался (сбой БД) — не блокируем реального пользователя
+    // из-за нашей же инфраструктурной проблемы, лимит это доп. страховка, а не
+    // единственная защита (см. ограничение истории/длины сообщений ниже)
+    if (!rateError && (recentCount ?? 0) > RATE_LIMIT_PER_MINUTE) {
+      return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: JSON_HEADERS });
     }
 
     const { messages } = await req.json();

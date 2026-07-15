@@ -4,6 +4,9 @@
 # Если нужен онлайн-режим (Supabase), добавить секреты репозитория
 #   VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY — без них приложение
 #   собирается и работает в офлайн-режиме, как и задумано.
+# Если нужна отправка ошибок в Sentry, добавить секрет репозитория
+#   VITE_SENTRY_DSN — без него приложение собирается и работает как раньше,
+#   просто без телеметрии ошибок (см. src/app/sentry.ts).
 name: deploy-web
 
 on:
@@ -37,6 +40,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
