@@ -13,7 +13,7 @@ import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, co
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
+import { supabaseEnabled, askSupportAI, sendSupportMessage, fetchSupportThread, fetchArtistProfile, searchProfiles, submitReport, createPayment, type SupportMessageRow, type ArtistProfileData, type PublicProfile, type ReportTargetType } from "./supabase";
 
 // ─── Оплата донатов (симуляция — нет бэкенда/процессинга) ────────────────────
 
@@ -50,8 +50,8 @@ function FakeQR({ seed }: { seed: number }) {
 // донат — сюда передаётся только отображаемое имя и обработчик суммы.
 // key={artistLabel} на стороне родителя сбрасывает весь внутренний стейт при
 // смене артиста — отдельный reset-эффект тут не нужен.
-function DonateWidget({ open, artistLabel, c2, onDonate }: {
-  open: boolean; artistLabel: string; c2: string; onDonate: (amount: number) => void;
+function DonateWidget({ open, artistLabel, c2, toUserId, onDonate }: {
+  open: boolean; artistLabel: string; c2: string; toUserId?: string; onDonate: (amount: number) => void;
 }) {
   const { t } = useLang();
   const [stage, setStage] = useState<"pick" | "pay" | "sent">("pick");
@@ -123,9 +123,28 @@ function DonateWidget({ open, artistLabel, c2, onDonate }: {
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     disabled={processing}
-                    onClick={() => {
+                    onClick={async () => {
                       if (method === "card" && (cardNum.replace(/\s/g, "").length < 16 || cardExp.length < 5 || cardCvc.length < 3)) { toast(t("don.cardIncomplete")); return; }
                       setProcessing(true);
+
+                      // Сначала пробуем настоящий платёж через ЮKassa — если она
+                      // настроена (см. create-payment/index.ts), уводим на её
+                      // hosted-страницу оплаты и НЕ вызываем onDonate здесь: реальный
+                      // донат запишется позже, на сервере, вебхуком после
+                      // подтверждения оплаты, а не оптимистично на клиенте
+                      try {
+                        const { data } = await createPayment("donation", finalAmount, { toArtist: artistLabel, toUserId });
+                        if (data?.confirmation_url) {
+                          window.location.href = data.confirmation_url;
+                          return;
+                        }
+                      } catch (err) {
+                        console.warn("createPayment:", err);
+                      }
+
+                      // ЮKassa не настроена (нормальное состояние сейчас, пока нет
+                      // мерчант-аккаунта) или вернула ошибку — прежний симулированный
+                      // флоу, без единого изменения в его поведении
                       setTimeout(() => {
                         setProcessing(false);
                         setStage("sent");
@@ -368,6 +387,7 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
           open={donateOpen}
           artistLabel={name}
           c2={REAL_ARTIST_C2}
+          toUserId={artistId}
           onDonate={amt => onDonate?.(artistId, name, amt)}
         />
 
@@ -1054,8 +1074,25 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
   const [cancelQ, setCancelQ] = useState(false);
   useEffect(() => { if (open) setState(status !== "none" ? "done" : "offer"); }, [open, status]);
 
-  const pay = () => {
+  const pay = async () => {
     setState("paying");
+
+    // Сначала пробуем настоящий платёж через ЮKassa (см. create-payment/index.ts).
+    // Если она настроена — уводим на её hosted-страницу оплаты; активацию
+    // подписки (status='active') в этом случае ставит вебхук после
+    // подтверждённой оплаты, а не onActivate() здесь оптимистично
+    try {
+      const { data } = await createPayment("subscription", 499, { planId: "pro" });
+      if (data?.confirmation_url) {
+        window.location.href = data.confirmation_url;
+        return;
+      }
+    } catch (err) {
+      console.warn("createPayment:", err);
+    }
+
+    // ЮKassa не настроена (нормальное состояние сейчас) или вернула ошибку —
+    // прежний симулированный флоу, без единого изменения в его поведении
     setTimeout(() => { setState("done"); onActivate(); toast.success(t("cp.done")); }, 1600);
   };
 
@@ -1231,7 +1268,25 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
 
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => { onActivate(); toast.success(t("plus.done")); }}
+                onClick={async () => {
+                  // Сначала пробуем настоящий платёж через ЮKassa (см.
+                  // create-payment/index.ts) — если настроена, уводим на её
+                  // hosted-страницу; активацию подписки в этом случае ставит
+                  // вебхук после подтверждённой оплаты, а не onActivate() тут
+                  try {
+                    const { data } = await createPayment("subscription", price, { planId: student ? "plus-student" : "plus" });
+                    if (data?.confirmation_url) {
+                      window.location.href = data.confirmation_url;
+                      return;
+                    }
+                  } catch (err) {
+                    console.warn("createPayment:", err);
+                  }
+                  // ЮKassa не настроена (нормальное состояние сейчас) или вернула
+                  // ошибку — прежняя мгновенная активация, без изменений
+                  onActivate();
+                  toast.success(t("plus.done"));
+                }}
                 className="w-full py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #34d399, #6ee7b7)", color: "#04120c", fontFamily: F.b, boxShadow: "0 12px 40px rgba(52,211,153,0.35)" }}
               >

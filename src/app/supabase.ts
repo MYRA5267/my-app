@@ -133,6 +133,22 @@ export async function setSubscriptionStatus(status: SubStatus) {
   return supabase.functions.invoke<{ ok: boolean }>("set-subscription", { body: { status } });
 }
 
+// Реальный платёж через ЮKassa — идёт через Edge Function create-payment,
+// которая держит YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY на сервере (см.
+// supabase/functions/create-payment). Пока их там нет (мерчант-аккаунт ещё не
+// оформлен), функция отвечает 503 payments_not_configured — вызывающий код
+// (DonateWidget/CreatorPlusSheet/ListenerPlusSheet в overlays.tsx) трактует
+// ЛЮБУЮ ошибку отсюда (включая supabaseEnabled === false) как "откатись на
+// прежний симулированный флоу", а не как повод падать.
+export async function createPayment(
+  kind: "donation" | "subscription",
+  amount: number,
+  opts: { toArtist?: string; toUserId?: string; planId?: string } = {},
+) {
+  if (!supabaseEnabled || !supabase) return { data: null, error: new Error("supabase not configured") };
+  return supabase.functions.invoke<{ confirmation_url: string; payment_id: string }>("create-payment", { body: { kind, amount, ...opts } });
+}
+
 // Реальное удаление аккаунта (auth.users + всё, что на него ссылается, через
 // on delete cascade) — идёт через Edge Function delete-account, потому что
 // удалить самого себя из auth.users клиент не может ни при каком RLS

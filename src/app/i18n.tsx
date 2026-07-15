@@ -28,7 +28,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "home.continue":   { ru: "Продолжить", en: "Continue" },
   "home.all":        { ru: "Все", en: "All" },
   "home.notifs":     { ru: "УВЕДОМЛЕНИЯ", en: "NOTIFICATIONS" },
-  "don.simNote":     { ru: "оплата пока симулируется — реальные деньги не списываются", en: "payments are simulated for now — no real money is charged" },
+  "don.simNote":     { ru: "оплата пока симулируется — реальные платежи появятся с подключением ЮKassa", en: "payments are simulated for now — real billing arrives with YooKassa" },
   "wd.simNote":      { ru: "вывод пока симулируется — реальные деньги не приходят", en: "withdrawals are simulated for now — no real money arrives" },
   "sup.offlineNote": { ru: "Сообщение сохранено на этом устройстве. Без подключения к серверу оно не дойдёт до команды — попробуй позже из сети", en: "Message saved on this device. Without a server connection it won't reach the team — try again when online" },
   "cr.statsLocked":  { ru: "Детальная аналитика входит в MYRA Pro", en: "Detailed analytics is part of MYRA Pro" },
