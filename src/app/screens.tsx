@@ -742,6 +742,7 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
   const you = { name: userName, avatar, level, minutesWeek, streak, you: true as const };
   const rows = [...LEADERBOARD_PEERS.map(p => ({ ...p, you: false as const })), you]
     .sort((a, b) => metric === "level" ? b.level - a.level : metric === "minutes" ? b.minutesWeek - a.minutesWeek : b.streak - a.streak);
+  const youRank = rows.findIndex(u => u.you) + 1;
 
   const METRICS = [
     { id: "level" as const,   label: t("rt.level"),   icon: Crown },
@@ -753,63 +754,91 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
     metric === "level" ? t("rt.lvlLabel", u.level) : metric === "minutes" ? t("rt.minLabel", u.minutesWeek) : t("rt.streakLabel", u.streak);
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-4">
-        <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.rating")}</h1>
-      </div>
+    <Page className="myra-experience-page myra-rating-page">
+      <div style={{ "--rating-accent": c2 } as React.CSSProperties}>
+        <header className="myra-rating-header px-5 pt-7 pb-5">
+          <span className="myra-page-eyebrow">MYRA RANKINGS</span>
+          <h1>{t("nav.rating")}</h1>
+          <p>{t("rt.subtitle")}</p>
+        </header>
 
-      {LEADERBOARD_PEERS.length === 0 && (
-        <div className="mx-5 mb-5 px-4 py-3.5 rounded-2xl flex items-center gap-3" style={GLASS}>
-          <Users size={16} style={{ color: c2, flexShrink: 0 }} />
-          <div className="min-w-0">
-            <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("rt.empty")}</div>
-            <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("rt.emptySub")}</div>
+        {/* Личная витрина: место в общем зачёте + три метрики, которые сами
+            переключают сортировку списка ниже — не дублируем отдельный таб-бар */}
+        <section className="myra-rating-hero mx-5 mb-6">
+          <div className="myra-rating-hero-top">
+            <div className="myra-rating-hero-avatar">
+              <img src={avatar} alt="" />
+              <span className="myra-rating-hero-rank">#{youRank}</span>
+            </div>
+            <div className="min-w-0">
+              <div className="myra-rating-hero-name truncate">{userName}</div>
+              <div className="myra-rating-hero-tag">
+                <Crown size={12} />
+                {t("rt.heroRank", youRank)}
+              </div>
+            </div>
+          </div>
+          <div className="myra-rating-hero-stats">
+            {METRICS.map(m => {
+              const Icon = m.icon;
+              const value = m.id === "level" ? level : m.id === "minutes" ? minutesWeek : streak;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setMetric(m.id)}
+                  aria-pressed={metric === m.id}
+                  className={`myra-rating-hero-stat${metric === m.id ? " is-active" : ""}`}
+                >
+                  <Icon size={15} />
+                  <strong>{value}</strong>
+                  <span>{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {LEADERBOARD_PEERS.length === 0 && (
+          <div className="myra-rating-note mx-5 mb-6">
+            <Users size={18} />
+            <div className="min-w-0">
+              <strong>{t("rt.empty")}</strong>
+              <span>{t("rt.emptySub")}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="myra-content-section px-5 pb-6">
+          <SectionHeading title={t("rt.leaderboardTitle")} />
+          <div className="myra-rating-list flex flex-col gap-1.5">
+            {rows.map((u, i) => (
+              <motion.div
+                key={u.you ? "you" : u.name}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileTap={u.you ? undefined : { scale: 0.98 }}
+                transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                className={`myra-rating-row${u.you ? " is-you" : ""}`}
+                onClick={() => { if (!u.you) onOpenPeer(u); }}
+              >
+                <div className="myra-rating-row-rank">{i + 1}</div>
+                <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
+                <div className="myra-rating-row-copy">
+                  <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
+                  <span>{valueFor(u)}</span>
+                </div>
+                {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+                {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
+              </motion.div>
+            ))}
           </div>
         </div>
-      )}
 
-      <div className="flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit" style={GLASS}>
-        {METRICS.map(m => {
-          const Icon = m.icon;
-          return (
-            <button key={m.id} onClick={() => setMetric(m.id)} className="relative flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: metric === m.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
-              {metric === m.id && <motion.div layoutId="rttab" className="absolute inset-0 rounded-full" style={{ background: `${c2}cc` }} transition={SPRING} />}
-              <Icon size={12} className="relative z-10" /><span className="relative z-10">{m.label}</span>
-            </button>
-          );
-        })}
+        {/* Достижения намеренно убраны с этого экрана: они скрытые — пользователь
+            узнаёт о каждом только в момент открытия (тост + уведомление).
+            Полный список остался в панели разработчика для проверки. */}
       </div>
-
-      <div className="px-5 flex flex-col gap-1.5">
-        {rows.map((u, i) => (
-          <motion.div
-            key={u.you ? "you" : u.name}
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
-            className="flex items-center gap-3 p-3 rounded-2xl"
-            style={{ ...(u.you ? { background: `${c2}18`, border: `1px solid ${c2}44` } : GLASS), cursor: u.you ? "default" : "pointer" }}
-            onClick={() => { if (!u.you) onOpenPeer(u); }}
-          >
-            <div className="w-6 text-center font-bold text-sm flex-shrink-0" style={{ color: i < 3 ? c2 : "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{i + 1}</div>
-            <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={u.you ? { border: `1.5px solid ${c2}` } : undefined} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>
-                {u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}
-              </div>
-              <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 42%, transparent)", fontFamily: F.m }}>{valueFor(u)}</div>
-            </div>
-            {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
-            {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Достижения намеренно убраны с этого экрана: они скрытые — пользователь
-          узнаёт о каждом только в момент открытия (тост + уведомление).
-          Полный список остался в панели разработчика для проверки. */}
-      <div className="pb-6" />
     </Page>
   );
 });
