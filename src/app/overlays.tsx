@@ -866,42 +866,48 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
       <Sheet open={open} onClose={onClose} z={65}>
         <div className="px-6 pt-7 pb-8">
           <div className="flex items-center justify-between mb-6">
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
-            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <div>
+              <span className="myra-page-eyebrow">MYRA ACCOUNT</span>
+              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
+            </div>
+            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
               <X size={16} />
             </button>
           </div>
 
-          {/* Уровень меломана */}
-          <div className="relative rounded-[22px] overflow-hidden p-4 mb-5" style={GLASS}>
+          {/* Уровень меломана — тёмная hero-карточка со свечением (тот же язык,
+              что у Рейтинга/Студии), а не голая GLASS-плашка. Фон карточки
+              всегда тёмный независимо от темы, поэтому текст внутри — на
+              ON_DARK/onDark(), а не на var(--fg) (иначе в светлой теме текст
+              стал бы тёмным на тёмном) */}
+          <div className="myra-account-hero mb-6">
             <Aurora c2="#8b5cf6" opacity={0.35} />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em" }}>{t("acc.level", level)}</span>
-                  <button onClick={() => setXpInfoOpen(true)} className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }}>
+                  <span className="text-xs font-bold" style={{ fontFamily: F.d, letterSpacing: "-0.01em", color: ON_DARK }}>{t("acc.level", level)}</span>
+                  <button onClick={() => setXpInfoOpen(true)} className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: onDark(40) }}>
                     <HelpCircle size={14} />
                   </button>
                 </div>
-                <span className="text-[10px]" style={{ fontFamily: F.m, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{xpIntoLevel} / {xpForLevel} XP</span>
+                <span className="text-[10px]" style={{ fontFamily: F.m, color: onDark(45) }}>{xpIntoLevel} / {xpForLevel} XP</span>
               </div>
-              <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "color-mix(in srgb, var(--wash) 10%, transparent)" }}>
+              <div className="rounded-full overflow-hidden mb-3" style={{ height: 6, background: "rgba(255,255,255,0.12)" }}>
                 <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (xpIntoLevel / xpForLevel) * 100)}%` }} transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }} className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #8b5cf6, #c4b5fd)" }} />
               </div>
-              <div className="flex gap-2">
+              <div className="myra-account-hero-stats">
                 {[[String(minutesWeek), t("acc.stMin")], [String(streak), t("acc.stStreak")], [topGenre ?? "—", t("acc.stGenre")]].map(([v, l]) => (
-                  <div key={l} className="flex-1 rounded-xl px-2 py-2 text-center" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
-                    <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#a78bfa" }}>{v}</div>
-                    <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{l}</div>
+                  <div key={l}>
+                    <div className="text-xs font-bold truncate" style={{ fontFamily: F.d, color: "#c4b5fd" }}>{v}</div>
+                    <div className="text-[9px] mt-0.5 truncate" style={{ fontFamily: F.b, color: onDark(46) }}>{l}</div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-
           {/* Аватар */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.avatar")}</div>
+          <span className="myra-account-section-label">{t("acc.avatar")}</span>
           <div className="flex gap-3 mb-6">
             {customAvatar && (
               <div className="relative rounded-full">
@@ -940,64 +946,71 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
             </label>
           </div>
 
-          {/* Имя */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.name")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
-              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
-            />
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
-          </div>
-
-          {/* Хендл */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.handle")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <input
-              value={handleInput}
-              onChange={e => setHandleInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") saveHandle(); }}
-              className="flex-1 px-4 py-3 rounded-2xl bg-transparent outline-none text-sm"
-              style={{ ...GLASS, color: "var(--fg)", fontFamily: F.b }}
-            />
-            <motion.button whileTap={{ scale: 0.95 }} onClick={saveHandle} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
-          </div>
-
-          {/* Почта */}
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-2.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("acc.email")}</div>
-          <div className="flex gap-2.5 mb-5">
-            <div className="flex-1 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={GLASS}>
-              <Mail size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
-              <input
-                value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") saveEmail(); }}
-                type="email"
-                placeholder={t("acc.emailPlaceholder")}
-                className="flex-1 bg-transparent outline-none text-sm min-w-0"
-                style={{ color: "var(--fg)", fontFamily: F.b }}
-              />
+          {/* Личные данные: имя/хендл/почта теперь одна карточка с разделителями
+              вместо трёх одинаковых GLASS-плашек подряд — подпись поля живёт
+              над инпутом, кнопка сохранения — компактно справа от него */}
+          <span className="myra-account-section-label">{t("acc.sectionProfile")}</span>
+          <div className="myra-account-card mb-6">
+            <div className="myra-account-field">
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.name")}</div>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => { if (name.trim()) { onRename(name.trim()); toast(t("acc.saved")); } }} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
             </div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={saveEmail} className="px-5 rounded-2xl text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
-              {t("acc.save")}
-            </motion.button>
+            <div className="myra-account-field">
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.handle")}</div>
+                <input
+                  value={handleInput}
+                  onChange={e => setHandleInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveHandle(); }}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={saveHandle} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
+            </div>
+            <div className="myra-account-field">
+              <Mail size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+              <div className="flex-1 min-w-0">
+                <div className="myra-account-field-label">{t("acc.email")}</div>
+                <input
+                  value={emailInput}
+                  onChange={e => setEmailInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveEmail(); }}
+                  type="email"
+                  placeholder={t("acc.emailPlaceholder")}
+                  className="w-full bg-transparent outline-none text-sm"
+                  style={{ color: "var(--fg)", fontFamily: F.b }}
+                />
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={saveEmail} className="px-4 py-2 rounded-xl text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b }}>
+                {t("acc.save")}
+              </motion.button>
+            </div>
           </div>
 
-          {/* Подписка, импорт, поддержка */}
-          <div className="flex flex-col gap-1.5 mb-6">
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+          {/* Подписка, импорт, поддержка — одна карточка строк с ховером вместо
+              трёх отдельных GLASS-плашек */}
+          <span className="myra-account-section-label">{t("acc.sectionMore")}</span>
+          <div className="myra-account-card mb-6">
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenPlan(); }} className="myra-account-row">
               <Crown size={15} style={{ color: "#facc15" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.plan")}</div>
               <div className="text-xs" style={{ color: "#facc15", fontFamily: F.m }}>{planLabel}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenImport(); }} className="myra-account-row">
               <ImportIcon size={15} style={{ color: "#8b5cf6" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("im2.row")}</div>
@@ -1005,7 +1018,7 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenSupport(); }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <motion.div whileTap={{ scale: 0.99 }} onClick={() => { onClose(); onOpenSupport(); }} className="myra-account-row">
               <MessageCircle size={15} style={{ color: "#34d399" }} />
               <div className="flex-1">
                 <div className="text-sm" style={{ fontFamily: F.b }}>{t("acc.support")}</div>
@@ -1013,19 +1026,24 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               </div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </motion.div>
-            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+          </div>
+
+          {/* Правовые документы */}
+          <span className="myra-account-section-label">{t("acc.sectionDocs")}</span>
+          <div className="myra-account-card mb-6">
+            <a href="./privacy.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
               <ShieldCheck size={15} style={{ color: "#60a5fa" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.privacy")}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </a>
-            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS}>
+            <a href="./terms.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
               <FileText size={15} style={{ color: "#a3a3a3" }} />
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.terms")}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </a>
           </div>
 
-          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>
+          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="myra-account-danger">
             <Trash2 size={14} /> {t("acc.delete")}
           </motion.button>
         </div>

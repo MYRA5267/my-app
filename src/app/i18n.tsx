@@ -238,6 +238,12 @@ const STR: Record<string, { ru: string; en: string }> = {
   "acc.deleteQ":   { ru: "Точно удалить аккаунт?", en: "Really delete your account?" },
   "acc.deleteSub": { ru: "Плейлисты, лайки и Созвуки будут стёрты навсегда", en: "Playlists, likes and Unisons will be erased forever" },
   "acc.deleteYes": { ru: "Да, удалить", en: "Yes, delete" },
+  // Заголовки сгруппированных секций редизайна AccountSheet (имя/хендл/почта,
+  // подписка+импорт+поддержка, правовые документы) — раньше это были три ряда
+  // одинаковых GLASS-плашек без единой иерархии
+  "acc.sectionProfile": { ru: "Личные данные", en: "Personal info" },
+  "acc.sectionMore":    { ru: "Ещё", en: "More" },
+  "acc.sectionDocs":    { ru: "Документы", en: "Documents" },
 
   // Соцслой: реальные подписки между аккаунтами (не путать с "ar." ниже —
   // те строки про демо-артистов каталога)
