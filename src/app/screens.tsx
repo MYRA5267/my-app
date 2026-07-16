@@ -1036,59 +1036,61 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
   };
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-5 flex items-end justify-between">
+    <Page className="myra-experience-page myra-creator-page">
+      <header className="myra-creator-header px-5 pt-7 pb-5 flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.creator")}</div>
-          <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("cr.studio")}</h1>
+          <span className="myra-page-eyebrow">MYRA STUDIO</span>
+          <h1>{t("cr.studio")}</h1>
+          <p>{t("cr.studioSub")}</p>
         </div>
         {creatorPlus && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-1" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
-            <Crown size={12} style={{ color: "#c4b5fd" }} />
-            <span className="text-[11px] font-semibold" style={{ color: "#c4b5fd", fontFamily: F.m }}>MYRA Pro</span>
+          <div className="myra-creator-pro-chip">
+            <Crown size={12} />
+            <span>MYRA Pro</span>
           </div>
         )}
-      </div>
+      </header>
 
-      <div className="px-5 mb-7">
-        <div className="rounded-[24px] p-5 mb-3 cursor-pointer" style={GLASS} onClick={openStatsGated}>
-          <div className="flex items-center justify-between mb-4">
+      <section className="myra-content-section px-5 mb-7">
+        {/* Хиро-карточка прослушиваний — та же тёмная стеклянная поверхность
+            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки */}
+        <div className="myra-creator-hero" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
+          <div className="myra-creator-hero-top">
             <div>
-              <div className="text-xs mb-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.plays7")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em" }}>{weekTotal}</div>
+              <span className="myra-creator-hero-label">{t("cr.plays7")}</span>
+              <div className="myra-creator-hero-value">{weekTotal}</div>
             </div>
             {trendPct !== null && (
-              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold" style={{ background: trendPct >= 0 ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: trendPct >= 0 ? "#34d399" : "#f87171", fontFamily: F.m }}>
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0" style={{ background: trendPct >= 0 ? "rgba(52,211,153,0.16)" : "rgba(248,113,113,0.16)", color: trendPct >= 0 ? "#34d399" : "#f87171", fontFamily: F.m }}>
                 <TrendingUp size={12} /> {trendPct >= 0 ? "+" : ""}{trendPct}%
               </div>
             )}
           </div>
           <InteractiveChart data={week} labels={WEEKDAYS} color={c2} height={72} markIndex={week.length - 1} valueLabel={v => t("cr.plays", v)} />
-          <div className="flex justify-between mt-1 text-[9px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
+          <div className="myra-creator-hero-days">
             {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5">
-          {[["0", t("cr.fans"), Users, openStatsGated], [balance.toLocaleString("ru-RU") + "₽", t("cr.donations"), Wallet, () => setWdOpen(true)], [String(myTracks.length), t("cr.releases"), Music2, openStatsGated]].map(([v, l, Icon, act]: any) => (
-            <motion.div key={l} whileTap={{ scale: 0.95 }} onClick={act} className="rounded-[20px] p-4 cursor-pointer" style={GLASS}>
-              <Icon size={15} style={{ color: c2 }} className="mb-2" />
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{v}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{l}</div>
-            </motion.div>
-          ))}
+        {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
+            общая стеклянная плашка с разделителями между колонками вместо трёх
+            отдельных карточек */}
+        <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
+          <button onClick={openStatsGated}><Users size={18} /><strong>0</strong><span>{t("cr.fans")}</span></button>
+          <button onClick={() => setWdOpen(true)}><Wallet size={18} /><strong>{balance.toLocaleString("ru-RU")}₽</strong><span>{t("cr.donations")}</span></button>
+          <button onClick={openStatsGated}><Music2 size={18} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
         </div>
 
         {supabaseEnabled && realDonationsTotal > 0 && (
-          <div className="mt-2.5 flex items-center gap-2.5 px-4 py-3 rounded-2xl" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
-            <Gift size={14} style={{ color: "#34d399" }} />
+          <div className="myra-creator-real-donations">
+            <Gift size={14} style={{ color: "#34d399", flexShrink: 0 }} />
             <span className="text-xs" style={{ fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 75%, transparent)" }}>{t("cr.realDonations", realDonationsTotal.toLocaleString("ru-RU"))}</span>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="px-5 mb-7">
-        <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("cr.newRelease")}</h2>
+      <section className="myra-content-section px-5 mb-7">
+        <SectionHeading title={t("cr.newRelease")} sub={t("cr.newReleaseSub")} />
         {/* Реальная загрузка: клик открывает выбор файла, drag-n-drop тоже работает */}
         <input
           ref={fileRef}
@@ -1098,7 +1100,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           onChange={e => { if (e.target.files?.length) { onStartRelease(e.target.files); e.target.value = ""; } }}
         />
         <div
-          className="flex flex-col items-center justify-center rounded-[20px] p-7 cursor-pointer transition-all"
+          className="myra-creator-dropzone"
           style={{ ...GLASS, border: dragOver ? `1.5px dashed ${c2}` : "1.5px dashed color-mix(in srgb, var(--wash) 16%, transparent)", background: dragOver ? `${c2}14` : GLASS.background }}
           onClick={() => fileRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1112,65 +1114,63 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>MP3 · FLAC · WAV · M4A</div>
         </div>
 
-        {/* Мои файлы */}
+        {/* Мои файлы — та же строка трека, что и в Полке (.myra-track-row) */}
         {myTracks.length > 0 && (
-          <div className="mt-4">
+          <div className="mt-5">
             <div className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("cr.myFiles")}</div>
-            {myTracks.map(tr => (
-              <motion.div key={tr.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-1.5 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-                <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={tr.img} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-                  <div className="text-[10px] mt-0.5 flex items-center gap-1.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>
-                    <FileAudio size={10} style={{ color: tr.c2 }} /> {t("cr.local")}
+            <div className="flex flex-col gap-1">
+              {myTracks.map(tr => (
+                <PremiumTrackRow key={tr.id} track={tr} active={false} playing={false} onPlay={onPlay} />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="myra-content-section px-5 mb-7">
+        <SectionHeading title={t("cr.myReleases")} sub={t("cr.myReleasesSub")} />
+        {topMyTracks.length === 0 ? (
+          <div className="myra-empty-state">
+            <Music2 size={24} />
+            <span>{t("cr.releasesEmpty")}</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {topMyTracks.map(tr => (
+              <PremiumTrackRow
+                key={tr.id}
+                track={tr}
+                active={false}
+                playing={false}
+                onPlay={onPlay}
+                trailing={
+                  <div className="flex items-center gap-1.5" style={{ color: tr.c2, fontFamily: F.m, fontSize: 11 }}>
+                    <BarChart3 size={13} />{myPlaysByTrack[tr.id] ?? 0}
                   </div>
-                </div>
-                <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-              </motion.div>
+                }
+              />
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="px-5 mb-7">
-        <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("cr.myReleases")}</h2>
-        {topMyTracks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-            <Music2 size={24} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
-            <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("cr.releasesEmpty")}</div>
-          </div>
-        ) : topMyTracks.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-2 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-            <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-              <img src={tr.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.75)" }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-[10px] mt-1" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{t("cr.plays", myPlaysByTrack[tr.id] ?? 0)}</div>
-            </div>
-            <BarChart3 size={16} style={{ color: tr.c2 }} />
-          </div>
-        ))}
-      </div>
-
-      {/* MYRA Pro / Начни зарабатывать */}
-      <div className="px-5">
-        <TiltCard max={5} className="rounded-[24px] p-6 overflow-hidden relative cursor-pointer" style={{ background: "linear-gradient(135deg, rgba(18,8,58,0.85), rgba(59,7,100,0.7))", border: "1px solid rgba(139,92,246,0.3)" }} onClick={onOpenCreatorPlus}>
+      {/* MYRA Pro / Начни зарабатывать — премиальная карточка со свечением,
+          той же породы, что и хиро-карточка выше, а не плоская плашка-приписка */}
+      <section className="myra-content-section px-5">
+        <TiltCard max={5} className="myra-creator-pro-card" onClick={onOpenCreatorPlus}>
           <Aurora c2="#8b5cf6" opacity={0.6} />
           <div className="relative z-10">
             <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>MYRA Pro</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: ON_DARK }} className="mb-1.5">
+            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 21, letterSpacing: "-0.025em", color: ON_DARK }} className="mb-1.5">
               {creatorPlus ? t("cr.active") : t("cr.earn")}
             </div>
-            <div className="text-xs mb-4" style={{ color: onDark(50), fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
+            <div className="text-xs mb-4" style={{ color: onDark(52), fontFamily: F.b }}>{creatorPlus ? t("cp.cancel") : t("cr.earnSub")}</div>
             <motion.button whileTap={{ scale: 0.95 }} onClick={e => { e.stopPropagation(); onOpenCreatorPlus(); }} className="px-6 py-2.5 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: "#fff", fontFamily: F.b }}>
               {creatorPlus ? t("cr.manage") : t("cr.connect")}
             </motion.button>
           </div>
         </TiltCard>
-      </div>
+      </section>
 
       <WithdrawSheet open={wdOpen} onClose={() => setWdOpen(false)} balance={balance} c2={c2} onDone={onWithdraw} />
     </Page>
