@@ -1,0 +1,29 @@
+# Гейт на каждый PR: typecheck + build должны быть зелёными до мерджа.
+# Намеренно без секретов Supabase/Sentry — сборка обязана проходить и в
+# полностью офлайн-конфигурации (см. CLAUDE.md, "optional-backend pattern"),
+# так что CI заодно проверяет именно этот инвариант, а не только компиляцию.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
