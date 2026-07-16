@@ -1,0 +1,105 @@
+# Автосборки по окружениям: Development (develop), Staging (staging),
+# Production (main). Названия окружений привязаны к веткам через GitHub
+# Environments — при первом прогоне на каждую ветку GitHub сам заведёт
+# Environment с этим именем в Settings → Environments, куда потом можно
+# добавить environment-scoped секреты (ключи подписи, Sentry DSN и т.д.).
+#
+# Веб для main сюда не входит — им занимается deploy-web.yml (там же и
+# единственный реальный публичный деплой, см. решение "Dev/Staging — только
+# сборка, без живого сайта" в истории задачи). Здесь только сборки-артефакты
+# для проверки: веб для develop/staging, Android debug-APK для всех трёх,
+# iOS build-check только для main (macOS-раннер дорогой и медленный, гонять
+# его на каждый пуш в develop/staging нет смысла, пока нет команды, которая
+# бы это реально смотрела).
+#
+# Подпись мобильных релизов (Android keystore, Apple-сертификаты) пока не
+# настроена — решение "собирать debug/unsigned, подпись добавить отдельным
+# шагом когда будут готовы секреты". Как только appstore/play-secrets
+# появятся в Production-окружении, assembleDebug/xcodebuild ниже нужно
+# заменить на подписанные release-сборки.
+name: build
+
+on:
+  push:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-build:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'staging' && 'Staging' || 'Development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ github.ref_name }}
+          path: dist
+          retention-days: 14
+
+  android-debug:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'Production' || github.ref_name == 'staging' && 'Staging' || 'Development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: npx cap sync android
+      - name: Собрать debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-${{ github.ref_name }}
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+  ios-build-check:
+    if: github.ref_name == 'main'
+    runs-on: macos-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: npx cap sync ios
+      - name: Проверить, что iOS-проект собирается (без подписи)
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App -configuration Debug -sdk iphonesimulator \
+            CODE_SIGNING_ALLOWED=NO build

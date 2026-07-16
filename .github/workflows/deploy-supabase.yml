@@ -1,0 +1,47 @@
+# Автодеплой Supabase Edge Functions при пуше в main с изменениями в
+# supabase/functions/**. Тот же принцип, что и optional-backend в самом
+# приложении (см. CLAUDE.md): без секретов SUPABASE_ACCESS_TOKEN и
+# SUPABASE_PROJECT_REF workflow просто ничего не делает и зелёный, а не
+# падает — Supabase для этого репозитория всегда опционален.
+#
+# schema.sql сюда намеренно не входит: это один хендмейд-файл, который
+# нужно самому вставлять в SQL Editor (см. комментарий в начале файла и
+# секцию "Supabase schema" в CLAUDE.md) — автоприменение миграций может
+# ударить по данным без ручного ревью каждого разка.
+name: deploy-supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-supabase-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Проверить, настроен ли Supabase-деплой
+        id: check
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] || [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "Секреты SUPABASE_ACCESS_TOKEN/SUPABASE_PROJECT_REF не заданы — деплой пропущен, это нормальное состояние."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.check.outputs.configured == 'true'
+        with:
+          version: latest
+      - name: Задеплоить edge functions
+        if: steps.check.outputs.configured == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"

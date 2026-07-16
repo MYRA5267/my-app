@@ -82,4 +82,20 @@ Nothing simulated may be presented as real without a clear label — this is an 
 
 ### Multi-platform packaging
 
-The same Vite output in `dist/` is reused unmodified by Electron (`main.js` just loads `dist/index.html` in a `BrowserWindow`) and Capacitor (`android/`, `ios/`, `capacitor.config.json` → `webDir: dist`). The web target deploys to GitHub Pages via `.github/workflows/deploy-web.yml` on every push to `main`, building with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`/`VITE_SENTRY_DSN` from repo secrets — all optional; the build and app must work with none of them set.
+The same Vite output in `dist/` is reused unmodified by Electron (`main.js` just loads `dist/index.html` in a `BrowserWindow`) and Capacitor (`android/`, `ios/`, `capacitor.config.json` → `webDir: dist`, appId `app.myra.music`). The web target deploys to GitHub Pages via `.github/workflows/deploy-web.yml` on every push to `main`, building with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`/`VITE_SENTRY_DSN` from repo secrets — all optional; the build and app must work with none of them set.
+
+### CI/CD and environments (Development / Staging / Production)
+
+Three long-lived branches map to three GitHub Environments (Settings → Environments — each is auto-created on its branch's first workflow run, so a fresh clone won't show them until then):
+
+- `develop` → **Development**
+- `staging` → **Staging**
+- `main` → **Production**
+
+Workflows:
+- `.github/workflows/ci.yml` — typecheck+build gate on every PR into `main`/`staging`/`develop`, deliberately without Supabase/Sentry secrets (validates the offline-config invariant).
+- `.github/workflows/build.yml` — automatic builds per environment: web build artifact for `develop`/`staging` pushes (`main`'s web build is `deploy-web.yml`'s job, not duplicated here), an unsigned/debug Android APK for all three branches, and an unsigned iOS build-check (compiles only, no signing) for `main` pushes + manual dispatch only — iOS needs a macOS runner, which is slow/expensive, so it isn't run on every `develop`/`staging` push.
+- `.github/workflows/deploy-web.yml` — the only live deploy target right now (GitHub Pages, on push to `main`). `develop`/`staging` intentionally have no live hosting — see the artifact-only builds above.
+- `.github/workflows/deploy-supabase.yml` — deploys `supabase/functions/*` on push to `main` touching that path; a clean no-op (green, not failing) without `SUPABASE_ACCESS_TOKEN`/`SUPABASE_PROJECT_REF` secrets, same optional-backend spirit as the rest of the app. `schema.sql` is deliberately not auto-applied by any workflow — it stays a manual paste into the SQL Editor (see above).
+
+Mobile release signing (Android keystore, Apple Developer certificates) isn't set up yet — `build.yml` produces debug/unsigned artifacts only. When signing secrets are ready, add them to the **Production** environment and switch the relevant `build.yml` steps from `assembleDebug`/unsigned `xcodebuild` to signed release builds.

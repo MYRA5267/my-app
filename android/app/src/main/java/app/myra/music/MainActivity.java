@@ -1,4 +1,4 @@
-package com.example.app;
+package app.myra.music;
 
 import com.getcapacitor.BridgeActivity;
 
