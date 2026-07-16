@@ -1543,6 +1543,247 @@
   .myra-creator-hero { transition-duration: 1ms !important; transform: none !important; }
 }
 
+/* ─── AlbumSheet / PlaylistSheet — полноценное хиро-изображение с тем же
+   языком, что и .myra-artist-hero у ArtistSheet/RealArtistSheet (тёмный
+   оверлей поверх обложки + акцентный цвет через CSS custom property), но
+   отдельными классами: правки артистского хиро не должны молча утекать
+   сюда и наоборот. Строки треков переиспользуют .myra-track-row как есть
+   (см. .myra-track-row в разделе "Library" выше) — сам класс не трогаем,
+   он общий с несколькими экранами. Плейлисту нужна отдельная колонка под
+   ручку drag-n-drop, поэтому у него свой вариант строки —
+   .myra-playlist-track-row — визуально в тон, но не производный класс. ─── */
+.myra-album-hero {
+  position: relative;
+  height: clamp(200px, 30vh, 280px);
+  overflow: hidden;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--album-accent) 34%, #060610), #05050a 78%);
+}
+
+.myra-album-hero > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.5) saturate(1.15);
+  transform: scale(1.02);
+}
+
+.myra-album-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3,3,8,0.05), rgba(3,3,8,0.22) 45%, rgba(8,8,16,0.98));
+  pointer-events: none;
+}
+
+.myra-album-hero > button,
+.myra-album-identity { z-index: 2; }
+
+.myra-album-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--album-accent) 36%, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--album-accent) 78%, #fff);
+  background: rgba(0,0,0,0.26);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.myra-album-title {
+  display: block;
+  margin-top: 9px;
+  overflow: hidden;
+  color: #f7f5ff;
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-album-sub {
+  display: block;
+  margin-top: 5px;
+  color: rgba(244,244,250,0.56);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 12px;
+  transition: color 160ms ease;
+}
+
+.myra-album-sub:hover { color: #fff; }
+
+/* Плейлист — тот же приём; акцент берётся из первого трека плейлиста */
+.myra-playlist-hero {
+  position: relative;
+  height: clamp(200px, 30vh, 280px);
+  overflow: hidden;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--playlist-accent) 34%, #060610), #05050a 78%);
+}
+
+.myra-playlist-hero > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.5) saturate(1.15);
+  transform: scale(1.02);
+}
+
+.myra-playlist-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3,3,8,0.05), rgba(3,3,8,0.22) 45%, rgba(8,8,16,0.98));
+  pointer-events: none;
+}
+
+.myra-playlist-hero > button,
+.myra-playlist-hero-identity { z-index: 2; }
+
+.myra-playlist-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--playlist-accent) 36%, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--playlist-accent) 78%, #fff);
+  background: rgba(0,0,0,0.26);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.myra-playlist-hero-title {
+  display: block;
+  margin-top: 9px;
+  overflow: hidden;
+  color: #f7f5ff;
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-hero-sub {
+  display: block;
+  margin-top: 5px;
+  color: rgba(244,244,250,0.56);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 12px;
+}
+
+/* Строка трека плейлиста — визуальный язык .myra-track-row плюс своя
+   колонка под ручку drag-n-drop (сам .myra-track-row общий, не трогаем) */
+.myra-playlist-track-row {
+  display: grid;
+  grid-template-columns: 18px 50px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  cursor: grab;
+  transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.myra-playlist-track-row:active { cursor: grabbing; }
+
+.myra-playlist-track-row:hover,
+.myra-playlist-track-row.is-active {
+  border-color: rgba(255,255,255,0.075);
+  background: rgba(255,255,255,0.045);
+}
+
+.myra-playlist-track-row.is-drag-source { opacity: 0.5; }
+
+.myra-playlist-track-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--wash) 22%, transparent);
+  background: color-mix(in srgb, var(--wash) 08%, transparent);
+}
+
+.myra-playlist-track-row-grip {
+  display: flex;
+  color: color-mix(in srgb, var(--fg) 25%, transparent);
+  flex-shrink: 0;
+}
+
+.myra-playlist-track-row-cover {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  overflow: hidden;
+  border-radius: 15px;
+  flex-shrink: 0;
+}
+
+.myra-playlist-track-row-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.myra-playlist-track-row-cover > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0,0,0,0.26);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.myra-playlist-track-row:hover .myra-playlist-track-row-cover > span,
+.myra-playlist-track-row.is-active .myra-playlist-track-row-cover > span { opacity: 1; }
+
+.myra-playlist-track-row-copy { min-width: 0; }
+
+.myra-playlist-track-row-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-track-row-copy span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myra-playlist-track-row-duration {
+  color: color-mix(in srgb, var(--fg) 34%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .myra-album-hero,
+  .myra-playlist-hero { height: 220px; }
+  .myra-album-title,
+  .myra-playlist-hero-title { font-size: 23px; }
+  .myra-playlist-track-row { grid-template-columns: 14px 44px minmax(0, 1fr) 34px; gap: 9px; padding: 8px 6px; }
+  .myra-playlist-track-row-cover { width: 44px; height: 44px; border-radius: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-playlist-track-row { transition-duration: 1ms !important; }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

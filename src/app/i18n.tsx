@@ -459,8 +459,11 @@ const STR: Record<string, { ru: string; en: string }> = {
   "al.shuffled": { ru: "Альбом перемешан", en: "Album shuffled" },
 
   // Плейлист (drag-n-drop)
-  "pl.dragHint":  { ru: "зажми и перетащи, чтобы изменить порядок", en: "hold & drag to reorder" },
-  "pl.reordered": { ru: "Порядок треков обновлён", en: "Track order updated" },
+  "pl.dragHint":     { ru: "зажми и перетащи, чтобы изменить порядок", en: "hold & drag to reorder" },
+  "pl.reordered":    { ru: "Порядок треков обновлён", en: "Track order updated" },
+  "pl.playAll":      { ru: "Слушать плейлист", en: "Play playlist" },
+  "pl.plShuffled":   { ru: "Плейлист перемешан", en: "Playlist shuffled" },
+  "pl.emptyTracks":  { ru: "В этом плейлисте пока нет треков", en: "No tracks in this playlist yet" },
 
   // Онбординг и вход
   // Раньше здесь было "Вся музыка в одном месте" — обещание лицензированного

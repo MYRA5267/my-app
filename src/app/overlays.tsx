@@ -587,21 +587,22 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
   const c2 = cover.c2;
 
   return (
-    <Sheet open={!!album} onClose={onClose} z={55}>
-      <div className="relative" style={{ height: 200 }}>
-        <img src={cover.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.5)" }} />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
+    <Sheet open={!!album} onClose={onClose} z={55} wide>
+      {/* Хиро того же языка, что .myra-artist-hero у ArtistSheet — тёмный
+          оверлей поверх обложки + акцент альбома через CSS custom property */}
+      <div className="myra-album-hero relative" style={{ "--album-accent": c2 } as React.CSSProperties}>
+        <img src={cover.img} alt="" className="w-full h-full object-cover" />
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="absolute bottom-3 left-6 right-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: onDark(45), fontFamily: F.m }}>{t("al.type")}</div>
-          <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 26, letterSpacing: "-0.03em", color: ON_DARK }}>{album}</div>
-          <button onClick={() => onOpenArtist(cover.artist)} className="text-xs mt-1 hover:text-white transition-colors" style={{ color: onDark(55), fontFamily: F.b }}>{cover.artist} · {t("al.nTracks", totalDur)}</button>
+        <div className="myra-album-identity absolute bottom-5 left-6 right-6">
+          <span className="myra-album-eyebrow">{t("al.type")}</span>
+          <div className="myra-album-title">{album}</div>
+          <button onClick={() => onOpenArtist(cover.artist)} className="myra-album-sub">{cover.artist} · {t("al.nTracks", totalDur)}</button>
         </div>
       </div>
 
-      <div className="px-6 pt-4 pb-8">
+      <div className="px-6 pt-5 pb-8">
         <div className="flex gap-2.5 mb-6">
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => tracks[0] && onPlay(tracks[0])} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}99)`, color: "#fff", fontFamily: F.b }}>
             <Play size={16} fill="white" stroke="none" className="ml-0.5" /> {t("al.play")}
@@ -612,17 +613,27 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           </motion.button>
         </div>
 
-        {tracks.map((tr, i) => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
-            <div className="w-6 text-center text-xs" style={{ color: currentTrack.id === tr.id && playing ? c2 : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>
-              {currentTrack.id === tr.id && playing ? <EQ color={c2} size={10} /> : i + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-              <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{tr.duration}</div>
-            </div>
-          </div>
-        ))}
+        {/* Строки треков — переиспользуем .myra-track-row (Полка/PremiumTrackRow),
+            не заводим отдельный стиль строки под альбом */}
+        <div className="flex flex-col gap-1">
+          {tracks.map(tr => {
+            const active = currentTrack.id === tr.id && playing;
+            return (
+              <div key={tr.id} className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(tr)}>
+                <div className="myra-track-row-cover">
+                  <img src={tr.img} alt="" loading="lazy" decoding="async" />
+                  <span>{active ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+                </div>
+                <div className="myra-track-row-copy">
+                  <strong>{tr.title}</strong>
+                  <button onClick={e => { e.stopPropagation(); onOpenArtist(tr.artist); }}>{tr.artist}</button>
+                </div>
+                <span className="myra-track-row-genre">{tr.genre}</span>
+                <span className="myra-track-row-duration">{tr.duration}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </Sheet>
   );
@@ -643,6 +654,9 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
   const [overIdx, setOverIdx] = useState<number | null>(null);
 
   const tracks = order.map(id => ALL_TRACKS.find(tr => tr.id === id)).filter((tr): tr is Track => !!tr);
+  // Плейлисты (в т.ч. созданные пользователем) не хранят свой акцентный цвет —
+  // берём его у первого трека, с нейтральным фиолетовым фолбэком для пустого
+  const accent = tracks[0]?.c2 ?? "#8b5cf6";
 
   const reorder = (from: number, to: number) => {
     if (from === to) return;
@@ -656,59 +670,80 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
   if (!pl) return <Sheet open={false} onClose={onClose} z={56}><div /></Sheet>;
 
   return (
-    <Sheet open={!!playlistId} onClose={onClose} z={56}>
-      <div className="relative px-6 pt-7 pb-8">
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+    <Sheet open={!!playlistId} onClose={onClose} z={56} wide>
+      {/* Тот же хиро-приём, что у AlbumSheet/ArtistSheet — акцент из первого трека */}
+      <div className="myra-playlist-hero relative" style={{ "--playlist-accent": accent } as React.CSSProperties}>
+        <img src={pl.img} alt="" className="w-full h-full object-cover" />
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         {customPlIds?.has(pl.id) && (
-          <button onClick={() => { onDelete?.(pl.id); onClose(); }} className="absolute top-4 right-16 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(248,113,113,0.12)" }}>
+          <button onClick={() => { onDelete?.(pl.id); onClose(); }} className="absolute top-4 right-16 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(248,113,113,0.16)", backdropFilter: "blur(10px)" }}>
             <Trash2 size={15} style={{ color: "#f87171" }} />
           </button>
         )}
+        <div className="myra-playlist-hero-identity absolute bottom-5 left-6 right-6">
+          <span className="myra-playlist-hero-eyebrow">{t("lib.playlists")}</span>
+          <div className="myra-playlist-hero-title">{pl.name}</div>
+          <div className="myra-playlist-hero-sub">{t("lib.nTracks", tracks.length)}</div>
+        </div>
+      </div>
 
-        <div className="flex gap-4 mb-6">
-          <img src={pl.img} alt="" className="w-24 h-24 rounded-2xl object-cover flex-shrink-0" style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.4)" }} />
-          <div className="pt-1">
-            <div className="text-[10px] uppercase tracking-[0.16em] mb-1" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("lib.playlists")}</div>
-            <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{pl.name}</div>
-            <div className="text-xs mt-1" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.nTracks", tracks.length)}</div>
-            <div className="text-[10px] mt-2" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("pl.dragHint")}</div>
+      <div className="px-6 pt-5 pb-8">
+        {tracks.length > 0 && (
+          <div className="flex gap-2.5 mb-5">
+            <motion.button whileTap={{ scale: 0.94 }} onClick={() => onPlay(tracks[0])} className="flex-1 py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}99)`, color: "#fff", fontFamily: F.b }}>
+              <Play size={16} fill="white" stroke="none" className="ml-0.5" /> {t("pl.playAll")}
+            </motion.button>
+            {/* Шафл честный: реально запускает случайный трек плейлиста */}
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const tr = tracks[Math.floor(Math.random() * tracks.length)]; if (tr) { onPlay(tr); toast(t("pl.plShuffled")); } }} className="px-5 rounded-full text-sm font-semibold" style={{ ...GLASS, fontFamily: F.b }}>
+              <Shuffle size={15} />
+            </motion.button>
           </div>
+        )}
+
+        <div className="flex items-center gap-1.5 mb-4">
+          <GripVertical size={12} style={{ color: "color-mix(in srgb, var(--fg) 28%, transparent)" }} />
+          <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "color-mix(in srgb, var(--fg) 32%, transparent)", fontFamily: F.m }}>{t("pl.dragHint")}</span>
         </div>
 
-        <div className="flex flex-col gap-1">
-          {tracks.map((tr, i) => (
-            <motion.div
-              key={tr.id}
-              layout
-              draggable
-              onDragStart={() => setDragIdx(i)}
-              onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
-              onDragEnd={() => { if (dragIdx !== null && overIdx !== null) reorder(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); }}
-              onClick={() => onPlay(tr)}
-              className="flex items-center gap-3 p-2.5 rounded-2xl cursor-grab active:cursor-grabbing transition-colors"
-              style={{
-                background: overIdx === i && dragIdx !== null ? "color-mix(in srgb, var(--wash) 08%, transparent)" : "color-mix(in srgb, var(--wash) 03%, transparent)",
-                border: overIdx === i && dragIdx !== null ? "1px solid color-mix(in srgb, var(--wash) 12%, transparent)" : "1px solid transparent",
-                opacity: dragIdx === i ? 0.5 : 1,
-              }}
-            >
-              <GripVertical size={14} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />
-              <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={tr.img} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
-                  {tr.title}
-                  {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
-                </div>
-                <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
-              </div>
-              <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{tr.duration}</span>
-            </motion.div>
-          ))}
-        </div>
+        {tracks.length === 0 ? (
+          <div className="myra-empty-state">
+            <span>{t("pl.emptyTracks")}</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {/* Драг-н-дроп полностью как был: те же dragIdx/overIdx, тот же
+                reorder(from, to) — меняется только визуальное оформление строки */}
+            {tracks.map((tr, i) => {
+              const active = currentTrack.id === tr.id && playing;
+              const rowClass = `myra-playlist-track-row${active ? " is-active" : ""}${dragIdx === i ? " is-drag-source" : ""}${overIdx === i && dragIdx !== null ? " is-drag-over" : ""}`;
+              return (
+                <motion.div
+                  key={tr.id}
+                  layout
+                  draggable
+                  onDragStart={() => setDragIdx(i)}
+                  onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
+                  onDragEnd={() => { if (dragIdx !== null && overIdx !== null) reorder(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); }}
+                  onClick={() => onPlay(tr)}
+                  className={rowClass}
+                >
+                  <GripVertical size={14} className="myra-playlist-track-row-grip" />
+                  <div className="myra-playlist-track-row-cover">
+                    <img src={tr.img} alt="" loading="lazy" decoding="async" />
+                    <span>{active ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+                  </div>
+                  <div className="myra-playlist-track-row-copy">
+                    <strong>{tr.title}</strong>
+                    <span>{tr.artist}</span>
+                  </div>
+                  <span className="myra-playlist-track-row-duration">{tr.duration}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </Sheet>
   );
