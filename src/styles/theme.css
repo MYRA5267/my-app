@@ -501,6 +501,72 @@
 }
 .myra-playlist-card:hover .myra-playlist-cover { border-color: rgba(196,181,253,0.28); }
 
+/* Profile */
+.myra-profile-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background:
+    radial-gradient(circle at 50% -12%, color-mix(in srgb, var(--profile-accent) 26%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--profile-accent) 8%, rgba(255,255,255,0.035)), rgba(255,255,255,0.015));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 22px 60px rgba(0,0,0,0.16);
+}
+
+.myra-profile-hero .myra-page-eyebrow {
+  text-align: center;
+}
+
+.myra-profile-name {
+  margin-top: 18px;
+  color: var(--fg);
+  font-family: "Sora", sans-serif;
+  font-size: clamp(24px, 4vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.myra-profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-inline: 12px;
+}
+
+.myra-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 24px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--profile-accent) 11%, rgba(255,255,255,0.035)), rgba(255,255,255,0.02));
+}
+
+.myra-profile-stats > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 1px 10px;
+  padding: 18px clamp(14px, 3vw, 24px);
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+
+.myra-profile-stats > div:last-child { border-right: 0; }
+.myra-profile-stats svg { grid-row: 1 / 3; color: var(--profile-accent); }
+.myra-profile-stats strong { color: var(--fg); font-family: "Sora", sans-serif; font-size: 20px; line-height: 1; }
+.myra-profile-stats span { color: color-mix(in srgb, var(--fg) 42%, transparent); font-size: 10px; }
+
+.myra-profile-row {
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.myra-profile-row:hover {
+  transform: translateX(3px);
+}
+
 /* Navigation */
 .myra-desktop-rail {
   width: 246px;
@@ -611,6 +677,7 @@
   .myra-chart-row,
   .myra-track-row,
   .myra-artist-track,
+  .myra-profile-row,
   .myra-desktop-nav-item {
     transition-duration: 1ms !important;
     transform: none !important;
@@ -708,6 +775,11 @@
   .myra-library-overview strong { font-size: 17px; }
   .myra-library-overview span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .myra-library-tabs { max-width: calc(100% - 40px); overflow-x: auto; scrollbar-width: none; }
+  .myra-profile-hero { border-radius: 28px; }
+  .myra-profile-stats > div { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 5px; padding: 14px 12px; }
+  .myra-profile-stats svg { width: 15px; height: 15px; }
+  .myra-profile-stats strong { font-size: 17px; }
+  .myra-profile-stats span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .myra-track-row { grid-template-columns: 48px minmax(0, 1fr) 34px; gap: 11px; padding: 8px 6px; }
   .myra-track-row-cover { width: 48px; height: 48px; border-radius: 13px; }
   .myra-track-row-genre,
