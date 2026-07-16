@@ -1229,18 +1229,22 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
   }, [lang]);
 
   return (
-    <Page>
-      <div className="px-5 pt-8 pb-6 text-center">
-        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mb-4" onClick={onAvatarTap}>
+    <Page className="myra-experience-page myra-profile-page">
+      {/* Идентичность — эйбрау + аватар + бейджи роли/тарифа/мецената/разработчика
+          теперь живут в собственной карточке со свечением под цвет текущего трека,
+          а не голым текстом на фоне страницы (тот же язык, что у hero Главной) */}
+      <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <span className="myra-page-eyebrow">MYRA PROFILE</span>
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
           <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
             {userRole === "artist" ? <Mic2Icon /> : <Headphones size={12} />}
           </div>
         </motion.div>
-        <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{userName}</div>
+        <div className="myra-profile-name">{userName}</div>
         <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
         {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик» */}
-        <div className="flex justify-center gap-2 mt-3.5 flex-wrap px-6">
+        <div className="myra-profile-badges">
           {badges.map(b => {
             const Icon = b.icon;
             return (
@@ -1249,14 +1253,6 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
               </span>
             );
           })}
-        </div>
-        <div className="flex justify-center gap-10 mt-6">
-          {[[String(follows), t("pr.follows")], ["0", t("pr.fans")], [fmtCount(totalPlays), t("pr.plays")]].map(([v, l]) => (
-            <div key={l} className="text-center">
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19, color: c2, letterSpacing: "-0.02em" }}>{v}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{l}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -1278,12 +1274,19 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
       )}
 
+      {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
+      <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <div><Users size={18} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
+        <div><Heart size={18} /><strong>0</strong><span>{t("pr.fans")}</span></div>
+        <div><BarChart3 size={18} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
+      </section>
+
       {/* Настройки: декоративные тумблеры (уведомления, автозагрузка с фейковыми
           цифрами, AI-фильтр) убраны совсем — они ничего реального не делали, а
           настоящие настройки спрятаны в аккордеон, чтобы профиль не был простынёй */}
       <div className="px-5 flex flex-col gap-1.5">
         {/* Достижения — вернулись из дев-панели в профиль */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}><Trophy size={15} style={{ color: c2 }} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.achievements")}</div>
@@ -1294,7 +1297,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Прозрачный сплит — компактной строкой вместо полноширинного баннера,
             чтобы профиль не был двумя одинаковыми по весу плашками подряд */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.16)" }}><Gift size={15} style={{ color: "#facc15" }} /></div>
           <div className="flex-1">
             <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.split")}{t("pr.splitAccent")}</div>
@@ -1307,7 +1310,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
             не закончился; теперь появляется только в последние 3 дня месяца, когда
             recap реально имеет смысл смотреть */}
         {isMonthEndWindow() && (
-          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
+          <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.16)" }}><Sparkles size={15} style={{ color: "#a78bfa" }} /></div>
             <div className="flex-1">
               <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.wrapped")}{t("pr.month")}</div>
@@ -1346,7 +1349,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         <motion.div
           whileTap={{ scale: 0.99 }}
-          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
+          className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
           style={GLASS}
           onClick={() => {
             // Free: цикл AAC ↔ FLAC (Hi-Res — привилегия апгрейда). Ранний
@@ -1407,7 +1410,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         </div>
 
         {/* Язык — реально переключает интерфейс */}
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Globe size={15} /></div>
           <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.lang")}</div>
           <div className="flex gap-1 p-1 rounded-full" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
@@ -1420,7 +1423,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           </div>
         </motion.div>
 
-        <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAccount}>
+        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAccount}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Settings size={15} /></div>
           <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.account")}</div>
           <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
@@ -1428,7 +1431,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Панель разработчика — появляется после 7 тапов по аватару */}
         {devMode && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(244,114,182,0.12)" }}><Wrench size={15} style={{ color: "#f472b6" }} /></div>
             <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("dev.row")}</div>
             <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
