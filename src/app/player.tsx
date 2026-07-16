@@ -4,11 +4,12 @@ import {
   ChevronDown, Share2, Volume2, VolumeX, Globe, Flag,
   MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
 import { commentHotMoments } from "./smart";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Aurora, Waveform, ParticleWave, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Waveform, ParticleWave, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
+import { DetailBackdrop } from "./detail";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
@@ -171,7 +172,9 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
     <div className="myra-full-player absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <img src={track.img} alt="" className="fx-heavy absolute inset-0 w-full h-full object-cover opacity-50" style={{ filter: "blur(110px) saturate(1.45) brightness(0.15)", transform: "scale(1.35)" }} />
-        <Aurora c2={track.c2} opacity={0.42} />
+        {/* DETAIL — фирменный мотив вместо Aurora здесь конкретно: Full Player —
+            главная витрина, где он должен быть особенно заметен (см. план) */}
+        <DetailBackdrop variant="full" accent={track.c2} active={playing} />
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 46%, ${track.c2}18 0%, transparent 34%), linear-gradient(115deg, rgba(2,2,7,0.66), rgba(2,2,7,0.94) 70%)` }} />
         <div className="myra-player-noise absolute inset-0" />
       </div>
@@ -205,6 +208,10 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
             <section className="myra-player-visual" aria-label={t("pl.visualizer")}>
               <img src={track.img} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ filter: "saturate(1.12) brightness(0.48)", transform: "scale(1.02)" }} />
               <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(2,2,8,0.18), rgba(2,2,8,0.48) 55%, rgba(2,2,8,0.88))" }} />
+              {/* .myra-player-visual непрозрачна (см. theme.css) — общий DETAIL из
+                  фона FullPlayer сюда не проникает, поэтому здесь свой, мягче,
+                  прямо за обложкой/орбом ("за обложкой", "вокруг зоны воспроизведения") */}
+              <DetailBackdrop variant="soft" accent={track.c2} active={playing} />
               <div className="absolute inset-0" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 0 0 1px rgba(255,255,255,0.07)" }} />
 
               <div className="absolute left-5 right-5 top-5 flex items-center justify-between z-10">
@@ -647,9 +654,23 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
         style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}
         onClick={onOpen}
       >
-        <div className="flex items-center gap-3 px-3 py-2.5">
-          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0" style={{ boxShadow: `0 4px 18px ${track.c2}44` }}>
-            <img src={track.img} alt="" className="w-full h-full object-cover" />
+        {/* Небольшой фирменный акцент DETAIL — узкая полоса сверху, не
+            перегружает мини-плеер (variant="mobile": тоньше блюр, меньше вес) */}
+        <DetailBackdrop variant="mobile" accent={track.c2} active={playing} className="myra-mini-detail" />
+        <div className="relative flex items-center gap-3 px-3 py-2.5">
+          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 relative" style={{ boxShadow: `0 4px 18px ${track.c2}44` }}>
+            <AnimatePresence mode="popLayout">
+              <motion.img
+                key={track.id}
+                src={track.img}
+                alt=""
+                initial={{ opacity: 0, scale: 1.06 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </AnimatePresence>
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate" style={{ fontFamily: F.b }}>{track.title}</div>
@@ -658,10 +679,11 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
               {track.artist}
             </div>
           </div>
-          <motion.button whileTap={{ scale: 0.75 }} onClick={e => { e.stopPropagation(); onLike(); }} className="p-1">
+          {/* 44×44 touch target — раньше p-1+17px иконка (~25px) не дотягивала до минимума */}
+          <motion.button aria-label={liked ? "unlike" : "like"} whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); onLike(); }} className="w-11 h-11 flex items-center justify-center flex-shrink-0">
             <Heart size={17} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "color-mix(in srgb, var(--wash) 30%, transparent)"} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); onToggle(); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${track.c2}, ${track.c2}aa)` }}>
+          <motion.button aria-label={playing ? "pause" : "play"} whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); onToggle(); }} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${track.c2}, ${track.c2}aa)` }}>
             {playing ? <Pause size={15} fill="white" stroke="none" /> : <Play size={15} fill="white" stroke="none" className="ml-0.5" />}
           </motion.button>
         </div>

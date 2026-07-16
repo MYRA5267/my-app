@@ -775,6 +775,7 @@
 
 .myra-mini-player,
 .myra-mobile-nav {
+  position: relative;
   border: 1px solid rgba(255,255,255,0.1) !important;
   background: color-mix(in srgb, var(--island) 94%, transparent) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 44px rgba(0,0,0,0.42) !important;
@@ -2294,4 +2295,77 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+/* ─── DETAIL — фирменный визуальный мотив (см. src/app/detail.tsx) ───────────
+   Лента-свечение вместо круглых пятен Aurora; растворяется в фоне через
+   mask-image (не прямоугольная картинка) + blur + низкую непрозрачность.
+   Дыхание — единственная анимация, замедляется на паузе (.myra-detail--paused),
+   гасится в .fx-simple и при prefers-reduced-motion — как остальной fx-декор. */
+.myra-detail {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 34%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(ellipse 72% 62% at 50% 34%, #000 0%, transparent 74%);
+}
+
+.myra-detail svg { width: 100%; height: 100%; display: block; }
+
+.myra-detail-ribbon {
+  filter: blur(34px);
+  opacity: 0.55;
+  transform-origin: 48% 40%;
+  animation: myra-detail-breathe 13s ease-in-out infinite;
+  transition: opacity 0.6s ease;
+}
+
+.myra-detail-ribbon-b {
+  filter: blur(44px);
+  opacity: 0.38;
+  animation-duration: 17s;
+  animation-direction: reverse;
+}
+
+@keyframes myra-detail-breathe {
+  0%, 100% { transform: translate(-3%, -2%) scale(1); }
+  50% { transform: translate(3%, 2%) scale(1.06); }
+}
+
+/* Варианты интенсивности — тот же ассет, разная заметность под контекст */
+.myra-detail--soft .myra-detail-ribbon { opacity: 0.26; }
+.myra-detail--soft .myra-detail-ribbon-b { opacity: 0.18; }
+.myra-detail--blur .myra-detail-ribbon { filter: blur(64px); opacity: 0.3; }
+.myra-detail--blur .myra-detail-ribbon-b { filter: blur(74px); opacity: 0.2; }
+.myra-detail--mobile .myra-detail-ribbon { filter: blur(22px); }
+.myra-detail--mobile .myra-detail-ribbon-b { filter: blur(28px); }
+
+/* Пауза — дыхание замедляется, а не останавливается рывком */
+.myra-detail--paused .myra-detail-ribbon { animation-duration: 30s; opacity: 0.34; }
+.myra-detail--paused .myra-detail-ribbon-b { animation-duration: 38s; opacity: 0.24; }
+
+/* Слабые устройства/Android WebView: статичная версия — вторая лента и
+   движение убраны, первая остаётся статичным цветовым пятном (не пусто) */
+.fx-simple .myra-detail-ribbon { animation: none !important; filter: blur(18px); }
+.fx-simple .myra-detail-ribbon-b { display: none; }
+
+/* Мини-плеер: тонкая полоса-акцент сверху, а не полноценный фон — "не
+   перегружать mini player эффектами" (см. план, раздел 4) */
+.myra-mini-detail {
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: auto;
+  height: 46px;
+  opacity: 0.5;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+.myra-mini-detail .myra-detail-ribbon { opacity: 0.5; }
+.myra-mini-detail .myra-detail-ribbon-b { opacity: 0.3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-detail-ribbon,
+  .myra-detail-ribbon-b { animation: none !important; }
 }
