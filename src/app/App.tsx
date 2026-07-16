@@ -5,7 +5,7 @@ import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, LOCAL_PALETTE, type Track, type Friend, type Playlist } from "./data";
 import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle, isWeakEnvironment, type ThemeName } from "./lib";
-import { smartNext, pushHistory } from "./smart";
+import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -31,7 +31,7 @@ import {
   supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, uploadTrackAudio, insertTrack, deleteAccountRemote,
   fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type PublicProfile, type FriendFeedItem,
 } from "./supabase";
-import { HomeScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
+import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
 import { ArtistSheet, RealArtistSheet, AlbumSheet, PlaylistSheet, BlendSheet, AccountSheet, CreatorPlusSheet, ListenerPlusSheet, WrappedModal, SplitSheet, AchievementsSheet, StudioStatsSheet, ImportSheet, SupportSheet, PeerProfileSheet, ReleaseFormSheet, RealProfileSheet, PeopleSearchSheet } from "./overlays";
 const RoomSheet = lazy(() => import("./roomSheet").then(m => ({ default: m.RoomSheet })));
@@ -74,7 +74,7 @@ const GLOBAL_STYLE = `
 // ничем не отличался бы от того, что и так доступно всем
 const FREE_DOWNLOAD_LIMIT = 20;
 
-type Tab = "home" | "rating" | "library" | "creator" | "profile";
+type Tab = "home" | "browse" | "rating" | "library" | "creator" | "profile";
 
 // Ленивый маунт шторки: чанк не грузится, пока шторку ни разу не открыли,
 // а после первого открытия остаётся смонтированной — размонтирование по
@@ -135,7 +135,8 @@ function AppInner() {
     setCrossfade(c => { ls.set("crossfade", !c); return !c; });
   }, []);
 
-  const [onboarded, setOnboarded] = useState(() => ls.get("onboarded", false));
+  const devPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
+  const [onboarded, setOnboarded] = useState(() => devPreview || ls.get("onboarded", false));
   const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
   const [email, setEmailState] = useState(() => ls.get("email", ""));
   const setEmail = useCallback((next: string) => { setEmailState(next); ls.set("email", next); }, []);
@@ -1129,6 +1130,10 @@ function AppInner() {
   const lvl = levelInfo(xp);
   const statMinutesWeek = minutesOf(weekSeconds(stats));
   const statTopGenre = topGenre(stats);
+  const recommendations = useMemo(
+    () => smartRecommendations(queue, likedIds, followed, currentTrack.id, lang, 8),
+    [queue, likedIds, followed, currentTrack.id, lang],
+  );
 
   // Текущий план для строки в аккаунте: Pro — у артистов, Plus — у слушателей
   const planLabel = userRole === "artist"
@@ -1164,7 +1169,11 @@ function AppInner() {
         onOpenPeopleSearch={openPeopleSearch}
         onOpenRealProfile={setRealProfile}
         uid={uid}
+        recommendations={recommendations}
       />
+    ),
+    browse: (
+      <BrowseScreen onPlay={playTrack} onOpenArtist={openArtist} />
     ),
     rating: (
       <RatingScreen
@@ -1245,13 +1254,13 @@ function AppInner() {
   };
 
   return themedRoot(
-    <div className="flex h-full w-full overflow-hidden relative">
+    <div className="myra-app-shell flex h-full w-full overflow-hidden relative">
       <DynamicBg track={currentTrack} />
 
       {/* Desktop sidebar */}
       {isDesktop && (
-      <aside className="hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10" style={{ width: 224, borderRight: "1px solid color-mix(in srgb, var(--wash) 05%, transparent)", background: "var(--island)", backdropFilter: "blur(32px)" }}>
-        <div className="px-6 mb-9 flex items-center gap-2">
+      <aside className="myra-desktop-rail hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10">
+        <div className="myra-desktop-brand px-6 mb-9 flex items-center gap-2">
           <MyraWordmark height={20} style={{ color: "var(--fg)" }} />
           <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
         </div>
@@ -1259,7 +1268,7 @@ function AppInner() {
           const Icon = n.icon;
           const active = tab === n.id;
           return (
-            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--fg)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
+            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="myra-desktop-nav-item relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--fg)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
               {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="absolute inset-0 rounded-2xl" style={{ background: `${currentTrack.c2}1a`, border: `1px solid ${currentTrack.c2}30` }} />}
               <Icon size={17} className="relative z-10" style={{ color: active ? currentTrack.c2 : undefined }} />
               <span className="relative z-10">{t(n.label)}</span>
@@ -1268,7 +1277,7 @@ function AppInner() {
         })}
         <div className="flex-1" />
         <div className="mx-3">
-          <div className="rounded-[20px] overflow-hidden cursor-pointer" style={{ ...GLASS }} onClick={() => setPlayerOpen(true)}>
+          <div className="myra-rail-player rounded-[20px] overflow-hidden cursor-pointer" onClick={() => setPlayerOpen(true)}>
             <div className="relative" style={{ height: 118 }}>
               <img src={currentTrack.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.45)" }} />
               <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${currentTrack.c1}ee, transparent)` }} />
@@ -1300,10 +1309,10 @@ function AppInner() {
           <AnimatePresence initial={false}>
             <motion.div
               key={tab}
-              initial={{ opacity: 0, y: 16, scale: 0.995 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, transition: { duration: 0.18 } }}
-              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+              transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
               className="absolute inset-0"
             >
               {screens[tab]}

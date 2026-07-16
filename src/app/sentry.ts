@@ -1,38 +1,51 @@
 // ─── Мониторинг ошибок (Sentry) ────────────────────────────────────────────
-// Единственный файл, импортирующий "@sentry/react" — тот же принцип, что и
-// у supabase.ts с "@supabase/supabase-js": весь остальной код не должен
-// знать, настроен Sentry или нет. Без VITE_SENTRY_DSN приложение обязано
-// работать ровно как раньше — ни одного сетевого запроса к Sentry, ни одной
-// новой зависимости в рантайме.
+// SDK грузится в idle-время и только при настроенном DSN. Локальный boundary
+// остаётся синхронным, поэтому белого экрана не будет даже до загрузки Sentry.
 
-import * as Sentry from "@sentry/react";
+import React from "react";
 
 const env = (import.meta as any).env ?? {};
 const dsn = env.VITE_SENTRY_DSN;
 
-// init() на пустом DSN сама по себе ничего не делает, но оборачиваем в
-// try/catch по той же причине, что и createClient() в supabase.ts: белый
-// экран от синхронного краха на этапе загрузки модуля (ДО монтирования
-// React) уже случался один раз, и это не должно повториться из-за нового
-// модуля мониторинга
-try {
-  if (dsn) {
-    Sentry.init({
-      dsn,
-      // Трейсинг производительности, source maps и релизы — отдельная задача
-      // на будущее, здесь только базовый перехват ошибок
-      tracesSampleRate: 0,
-      sendDefaultPii: false,
-    });
-  }
-} catch (err) {
-  console.warn("Sentry.init:", err);
-}
-
 export const sentryEnabled = !!dsn;
 
-// ErrorBoundary оборачивает корень приложения в main.tsx ВСЕГДА, вне
-// зависимости от того, задан DSN или нет: без клиента Sentry.captureException
-// внутри неё просто ничего никуда не шлёт, но сама поимка краха рендера и
-// показ фолбэка вместо белого экрана не должны зависеть от конфигурации
-export const SentryErrorBoundary = Sentry.ErrorBoundary;
+let sentryPromise: Promise<typeof import("@sentry/react")> | null = null;
+let initialized = false;
+
+const loadSentry = async () => {
+  if (!dsn) return null;
+  if (!sentryPromise) sentryPromise = import("@sentry/react");
+  const Sentry = await sentryPromise;
+  if (!initialized) {
+    Sentry.init({ dsn, tracesSampleRate: 0, sendDefaultPii: false });
+    initialized = true;
+  }
+  return Sentry;
+};
+
+if (dsn && typeof window !== "undefined") {
+  const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number };
+  if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(() => { void loadSentry(); }, { timeout: 2500 });
+  else window.setTimeout(() => { void loadSentry(); }, 1200);
+}
+
+type BoundaryProps = { fallback: React.ComponentType; children: React.ReactNode };
+type BoundaryState = { failed: boolean };
+
+export class SentryErrorBoundary extends React.Component<BoundaryProps, BoundaryState> {
+  state: BoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): BoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
+    void loadSentry()
+      .then(Sentry => Sentry?.captureException(error, { extra: { componentStack: info.componentStack } }))
+      .catch(err => console.warn("Sentry.captureException:", err));
+  }
+
+  render() {
+    return this.state.failed ? React.createElement(this.props.fallback) : this.props.children;
+  }
+}

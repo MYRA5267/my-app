@@ -123,14 +123,14 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
   const S = SLIDES[slide];
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-hidden" style={{ background: "var(--bg)", fontFamily: F.b, color: "var(--fg)" }}>
+    <div className="myra-onboarding fixed inset-0 z-[90] flex flex-col overflow-hidden" style={{ background: "var(--bg)", fontFamily: F.b, color: "var(--fg)" }}>
       {/* Фон */}
       <AnimatePresence>
         <motion.img
           key={step === "slides" ? slide : step}
           src={S.img}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="myra-onboarding-backdrop absolute inset-0 w-full h-full object-cover"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -143,7 +143,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
       {/* Верх: лого + тема + язык */}
-      <div className="relative z-10 flex items-center justify-between px-7 pt-9">
+      <div className="myra-onboarding-header relative z-10 flex items-center justify-between px-7 pt-9">
         <MyraWordmark height={24} style={{ color: "var(--fg)" }} />
         <div className="flex items-center gap-2">
           <motion.button whileTap={{ scale: 0.88 }} onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ ...GLASS }}>
@@ -155,11 +155,24 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
         </div>
       </div>
 
+      <aside className="myra-onboarding-showcase" aria-hidden="true">
+        <div className="myra-onboarding-showcase-art">
+          <img src={S.img} alt="" />
+          <span />
+        </div>
+        <div className="myra-onboarding-showcase-copy">
+          <small>MYRA IMMERSIVE AUDIO</small>
+          <strong>{S.title}</strong>
+          <p>{S.sub}</p>
+          <Waveform progress={38} color={S.c2} height={38} seed={slide * 4 + 5} bars={52} dim />
+        </div>
+      </aside>
+
       {/* На телефоне контент прижат вниз (удобно большим пальцем), на планшете/ПК/ТВ — по центру */}
-      <div className="relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+      <div className="myra-onboarding-content relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {/* ── Слайды ── */}
           {step === "slides" && (
-            <motion.div key={"slide" + slide} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full">
+            <motion.div key={"slide" + slide} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
               <div className="mb-8">
                 <Waveform progress={38} color={S.c2} height={40} seed={slide * 4 + 5} bars={48} dim />
               </div>
@@ -189,7 +202,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
           {/* ── Вход / регистрация ── */}
           {step === "auth" && (
-            <motion.div key="auth" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full">
+            <motion.div key="auth" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
               <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 32, letterSpacing: "-0.04em" }} className="mb-1.5">{t("au.welcome")}</h1>
               <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("au.sub")}</p>
 
@@ -235,7 +248,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
           {/* ── Вкусы ── */}
           {step === "taste" && (
-            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full">
+            <motion.div key="taste" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
               <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mb-1.5">{t("ta.title")}</h1>
               <p className="text-sm mb-6" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("ta.sub")}</p>
 
@@ -276,7 +289,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
           {/* ── Артист или слушатель ── */}
           {step === "role" && (
-            <motion.div key="role" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full">
+            <motion.div key="role" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
               <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em" }} className="mb-1.5">{t("role.title")}</h1>
               <p className="text-sm mb-7" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{t("role.sub")}</p>
 
@@ -307,7 +320,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
           {/* ── Подтверждение почты ── */}
           {step === "confirm" && (
-            <motion.div key="confirm" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="px-7 pb-10 max-w-md mx-auto w-full text-center">
+            <motion.div key="confirm" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full text-center">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(139,92,246,0.16)", border: "1px solid rgba(139,92,246,0.35)" }}>
                 <Mail size={24} style={{ color: "#c4b5fd" }} />
               </div>

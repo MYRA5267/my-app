@@ -621,11 +621,11 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { Home, Trophy, Library, User, Mic2 } from "lucide-react";
+import { Home, Search, Library, User, Mic2 } from "lucide-react";
 
 export const NAV = [
   { id: "home",    icon: Home,    label: "nav.home" },
-  { id: "rating",  icon: Trophy,  label: "nav.rating" },
+  { id: "browse",  icon: Search,  label: "nav.browse" },
   { id: "library", icon: Library, label: "nav.library" },
   { id: "creator", icon: Mic2,    label: "nav.creator" },
   { id: "profile", icon: User,    label: "nav.profile" },
@@ -646,12 +646,12 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
   const seekRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="absolute bottom-0 inset-x-0 z-40 px-3 pb-3 flex flex-col gap-2 pointer-events-none" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+    <div className="myra-mobile-dock absolute bottom-0 inset-x-0 z-40 px-3 pb-3 flex flex-col gap-2 pointer-events-none" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
       <motion.div
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={SPRING}
-        className="pointer-events-auto rounded-[20px] overflow-hidden cursor-pointer"
+        className="myra-mini-player pointer-events-auto rounded-[20px] overflow-hidden cursor-pointer"
         style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}
         onClick={onOpen}
       >
@@ -694,12 +694,12 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
         </div>
       </motion.div>
 
-      <div className="pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" style={{ ...GLASS, background: "var(--island)", boxShadow: "0 18px 50px rgba(0,0,0,0.55)" }}>
+      <nav className="myra-mobile-nav pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" aria-label={t("pl.playerNav")}>
         {navItems(showStudio).map(n => {
           const active = activeTab === n.id;
           const Icon = n.icon;
           return (
-            <motion.button key={n.id} layout onClick={() => onTab(n.id)} className="relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
+            <motion.button key={n.id} layout onClick={() => onTab(n.id)} aria-label={t(n.label)} className="myra-mobile-nav-item relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
               {active && <motion.div layoutId="mobnav" className="absolute inset-0 rounded-full" style={{ background: `${track.c2}2e`, border: `1px solid ${track.c2}44` }} transition={SPRING} />}
               <Icon size={17} className="relative z-10" style={{ color: active ? track.c2 : "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
               {active && (
@@ -710,7 +710,7 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
             </motion.button>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 });

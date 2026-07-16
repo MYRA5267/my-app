@@ -217,7 +217,7 @@ const QUALITY_DSP = [
 export function useAudio(onEnded: () => void, getFade: () => boolean = () => true) {
   const players = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null);
   const activeIdx = useRef(0);
-  const fadeIv = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fadeRaf = useRef<number | null>(null);
   const volRef = useRef(0.75);
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
@@ -260,7 +260,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   }, [stopSim]);
 
   const stopFade = () => {
-    if (fadeIv.current) { clearInterval(fadeIv.current); fadeIv.current = null; }
+    if (fadeRaf.current !== null) { cancelAnimationFrame(fadeRaf.current); fadeRaf.current = null; }
   };
 
   useEffect(() => {
@@ -297,7 +297,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
       const onMeta = () => { if (isActive()) setDuration(a.duration || 0); };
       const onEnd = () => { if (isActive()) endedRef.current(); };
       const onPlay = () => { if (isActive()) { modeRef.current = "real"; stopSim(); setPlaying(true); } };
-      const onPause = () => { if (isActive() && modeRef.current === "real" && !fadeIv.current) setPlaying(false); };
+      const onPause = () => { if (isActive() && modeRef.current === "real" && fadeRaf.current === null) setPlaying(false); };
       const onErr = () => { if (isActive() && a.src) startSim(); };
       a.addEventListener("timeupdate", onTime);
       a.addEventListener("loadedmetadata", onMeta);
@@ -357,20 +357,22 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     activeIdx.current = nextIdx;
     nxt.play().catch(() => startSim());
 
-    const DUR = 1400, STEP = 50;
-    let tms = 0;
-    fadeIv.current = setInterval(() => {
-      tms += STEP;
-      const k = Math.min(1, tms / DUR);
+    const durationMs = 1400;
+    const startedAt = performance.now();
+    const fadeFrame = (now: number) => {
+      const k = Math.min(1, (now - startedAt) / durationMs);
       nxt.volume = volRef.current * k;
       cur.volume = volRef.current * (1 - k);
       if (k >= 1) {
-        stopFade();
+        fadeRaf.current = null;
         cur.pause();
         cur.src = "";
         cur.volume = volRef.current;
+      } else {
+        fadeRaf.current = requestAnimationFrame(fadeFrame);
       }
-    }, STEP);
+    };
+    fadeRaf.current = requestAnimationFrame(fadeFrame);
   }, [startSim, stopSim]);
 
   const toggle = useCallback(() => {
@@ -402,7 +404,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   const setVolume = useCallback((v: number) => {
     volRef.current = v;
     const a = active();
-    if (a && !fadeIv.current) a.volume = v;
+    if (a && fadeRaf.current === null) a.volume = v;
     setVolumeState(v);
   }, []);
 
@@ -1006,8 +1008,8 @@ export function Toggle({ on, onChange, color }: { on: boolean; onChange: () => v
 }
 
 /** Шторка снизу — общий контейнер оверлеев. center — компактный диалог по центру экрана */
-export function Sheet({ open, onClose, children, z = 60, center = false }: {
-  open: boolean; onClose: () => void; children: React.ReactNode; z?: number; center?: boolean;
+export function Sheet({ open, onClose, children, z = 60, center = false, wide = false }: {
+  open: boolean; onClose: () => void; children: React.ReactNode; z?: number; center?: boolean; wide?: boolean;
 }) {
   return (
     <AnimatePresence>
@@ -1026,7 +1028,7 @@ export function Sheet({ open, onClose, children, z = 60, center = false }: {
             exit={center ? { scale: 0.94, opacity: 0, y: 8 } : { y: "10%", opacity: 0, scale: 0.98 }}
             transition={SPRING}
             onClick={e => e.stopPropagation()}
-            className={`w-full max-h-[92vh] overflow-y-auto ${center ? "max-w-xs rounded-[28px]" : "lg:max-w-md rounded-t-[30px] lg:rounded-[30px]"}`}
+            className={`w-full max-h-[92vh] overflow-y-auto ${center ? "max-w-xs rounded-[28px]" : wide ? "lg:max-w-4xl rounded-t-[30px] lg:rounded-[34px]" : "lg:max-w-md rounded-t-[30px] lg:rounded-[30px]"}`}
             style={{ background: "var(--sheet)", backdropFilter: "blur(40px) saturate(1.6)", WebkitBackdropFilter: "blur(40px) saturate(1.6)", border: "1px solid color-mix(in srgb, var(--wash) 11%, transparent)", boxShadow: center ? "0 30px 90px rgba(0,0,0,0.65)" : "0 -20px 80px rgba(0,0,0,0.6)", scrollbarWidth: "none" }}
           >
             {children}

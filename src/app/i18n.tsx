@@ -7,9 +7,9 @@ export type Lang = "ru" | "en";
 const STR: Record<string, { ru: string; en: string }> = {
   // Навигация
   "nav.home":    { ru: "Главная",   en: "Home" },
-  "nav.browse":  { ru: "Обзор",     en: "Browse" },
+  "nav.browse":  { ru: "Поиск",     en: "Search" },
   "nav.rating":  { ru: "Рейтинг",   en: "Rating" },
-  "nav.library": { ru: "Полка", en: "Shelf" },
+  "nav.library": { ru: "Медиатека", en: "Library" },
   "nav.creator": { ru: "Студия",    en: "Studio" },
   "nav.profile": { ru: "Профиль",   en: "Profile" },
 
@@ -18,6 +18,10 @@ const STR: Record<string, { ru: string; en: string }> = {
   // Прилив (личный поток), Течение (радио от трека), Созвук (общий плейлист двух людей),
   // Эхо месяца (итоги), Глубина (свайп-дека), Полка (медиатека), Перелив (кроссфейд)
   "home.flow":       { ru: "Персональный поток", en: "Personal flow" },
+  "home.headline":   { ru: "Музыка, которая чувствует момент", en: "Music that feels the moment" },
+  "home.headlineSub":{ ru: "Новые релизы, любимые артисты и персональный поток — без шума и повторов.", en: "New releases, favorite artists and a personal flow — without noise or repeats." },
+  "home.forYou":     { ru: "Создано для тебя", en: "Made for you" },
+  "home.forYouSub":  { ru: "Подборка меняется вместе с твоим вкусом", en: "A selection that evolves with your taste" },
   "home.wave":       { ru: "Прилив", en: "Tide" },
   "home.liked":      { ru: "Любимое",  en: "Liked" },
   "home.charts":     { ru: "Чарты",    en: "Charts" },
@@ -45,6 +49,10 @@ const STR: Record<string, { ru: string; en: string }> = {
 
   // Обзор
   "browse.search":     { ru: "Треки, артисты, жанры…", en: "Tracks, artists, genres…" },
+  "browse.eyebrow":    { ru: "Найди своё звучание", en: "Find your sound" },
+  "browse.subtitle":   { ru: "Мгновенный поиск по релизам, артистам и настроениям", en: "Instant search across releases, artists and moods" },
+  "browse.trending":   { ru: "В тренде сейчас", en: "Trending now" },
+  "browse.noResults":  { ru: "Ничего не найдено. Попробуй другой запрос.", en: "Nothing found. Try another search." },
   "browse.found":      { ru: "Найдено: {0}", en: "Found: {0}" },
   "browse.chart":      { ru: "Мировой чарт", en: "Global chart" },
   "browse.genres":     { ru: "Жанры", en: "Genres" },
@@ -57,6 +65,10 @@ const STR: Record<string, { ru: string; en: string }> = {
 
   // Медиатека
   "lib.tracks":    { ru: "Треки · {0}", en: "Tracks · {0}" },
+  "lib.subtitle":  { ru: "Всё любимое, загруженное и сохранённое — в одном месте", en: "Everything you love, upload and save — in one place" },
+  "lib.search":    { ru: "Поиск в медиатеке…", en: "Search your library…" },
+  "lib.saved":     { ru: "Сохранено", en: "Saved" },
+  "lib.local":     { ru: "На устройстве", en: "On device" },
   "lib.playlists": { ru: "Плейлисты", en: "Playlists" },
   "lib.podcasts":  { ru: "Подкасты", en: "Podcasts" },
   "lib.nTracks":   { ru: "{0} треков", en: "{0} tracks" },

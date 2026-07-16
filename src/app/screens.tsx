@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue } from "react";
 import {
   Play, Pause, Heart, Search, Mic2, Upload, BarChart3, Plus, ChevronRight,
   Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
@@ -15,6 +15,7 @@ import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraWordmark } from "./logo";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
+import type { SmartPick } from "./smart";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function DeckCardContent({ track }: { track: Track }) {
   );
 }
 
-function DiscoveryDeck({ onPlay, onLike }: { onPlay: (t: Track) => void; onLike: (id: number) => void }) {
+function DiscoveryDeck({ onPlay, onLike, tracks }: { onPlay: (t: Track) => void; onLike: (id: number) => void; tracks: Track[] }) {
   const { t } = useLang();
   const [index, setIndex] = useState(0);
   const [exiting, setExiting] = useState<"left" | "right" | null>(null);
@@ -77,7 +78,7 @@ function DiscoveryDeck({ onPlay, onLike }: { onPlay: (t: Track) => void; onLike:
   const scheduleDrag = useCallback(() => { if (!rafRef.current) rafRef.current = requestAnimationFrame(applyDrag); }, [applyDrag]);
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
-  const deck = useMemo(() => TRACKS.slice(0, 6), []);
+  const deck = useMemo(() => (tracks.length ? tracks : TRACKS).slice(0, 6), [tracks]);
   const current = deck[index % deck.length];
   const next = deck[(index + 1) % deck.length];
   const after = deck[(index + 2) % deck.length];
@@ -186,6 +187,64 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
 /** Компактная запись счётчика: 2400 → "2.4K" */
 export const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K` : String(n));
 
+function SectionHeading({ title, sub, action, onAction }: { title: string; sub?: string; action?: string; onAction?: () => void }) {
+  return (
+    <div className="myra-section-heading">
+      <div>
+        <h2>{title}</h2>
+        {sub && <p>{sub}</p>}
+      </div>
+      {action && onAction && (
+        <button onClick={onAction}>{action}<ChevronRight size={15} /></button>
+      )}
+    </div>
+  );
+}
+
+const ReleaseCard = React.memo(function ReleaseCard({ track, reason, active, playing, onPlay, onArtist }: {
+  track: Track; reason?: string; active?: boolean; playing?: boolean;
+  onPlay: (track: Track) => void; onArtist?: (name: string) => void;
+}) {
+  return (
+    <article className={`myra-release-card${active ? " is-active" : ""}`} style={{ "--release-accent": track.c2 } as React.CSSProperties}>
+      <button className="myra-release-cover" onClick={() => onPlay(track)} aria-label={`${track.title} — ${track.artist}`}>
+        <img src={track.img} alt="" loading="lazy" decoding="async" />
+        <span className="myra-release-shade" />
+        {reason && <span className="myra-release-reason"><Sparkles size={11} />{reason}</span>}
+        <span className="myra-release-play">
+          {active && playing ? <EQ color="#fff" size={13} /> : <Play size={18} fill="currentColor" strokeWidth={0} />}
+        </span>
+      </button>
+      <div className="myra-release-meta">
+        <button className="myra-release-title" onClick={() => onPlay(track)}>{track.title}</button>
+        <button className="myra-release-artist" onClick={() => onArtist?.(track.artist)}>{track.artist}</button>
+        <span>{track.genre}</span>
+      </div>
+    </article>
+  );
+});
+
+const PremiumTrackRow = React.memo(function PremiumTrackRow({ track, active, playing, onPlay, onArtist, trailing }: {
+  track: Track; active?: boolean; playing?: boolean; onPlay: (track: Track) => void;
+  onArtist?: (name: string) => void; trailing?: React.ReactNode;
+}) {
+  return (
+    <div className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(track)}>
+      <div className="myra-track-row-cover">
+        <img src={track.img} alt="" loading="lazy" decoding="async" />
+        <span>{active && playing ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+      </div>
+      <div className="myra-track-row-copy">
+        <strong>{track.title}</strong>
+        <button onClick={event => { event.stopPropagation(); onArtist?.(track.artist); }}>{track.artist}</button>
+      </div>
+      <span className="myra-track-row-genre">{track.genre}</span>
+      <span className="myra-track-row-duration">{track.duration}</span>
+      {trailing && <div className="myra-track-row-trailing" onClick={event => event.stopPropagation()}>{trailing}</div>}
+    </div>
+  );
+});
+
 /** Реальное относительное время из timestamp'а события */
 function relTimeParts(ts: number): [number, string] {
   const mins = Math.max(1, Math.round((Date.now() - ts) / 60000));
@@ -274,7 +333,7 @@ function HeroWave({ playing }: { playing: boolean }) {
   return <ParticleWave progress={progress} playing={playing} color="#c4b5fd" height={44} />;
 }
 
-export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid }: {
+export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid, recommendations }: {
   onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; onNavigate: (tab: string) => void;
   onOpenBlend: (f: Friend) => void; onOpenRooms: () => void; onPlayWave: () => void; onPlayRadio: () => void;
   onLikeTrack: (id: number) => void; onPauseMain: () => void; onOpenArtist: (name: string) => void;
@@ -282,6 +341,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
   activity: ActivityItem[];
   friendsFeed: FriendFeedItem[]; onOpenPeopleSearch: () => void; onOpenRealProfile: (p: PublicProfile) => void;
   uid: string | null;
+  recommendations: SmartPick[];
 }) {
   const { t } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -293,7 +353,6 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
     if (!notifOpen) { const now = Date.now(); ls.set("notifSeen", now); setNotifSeenTs(now); }
     setNotifOpen(o => !o);
   };
-  const [searchOpen, setSearchOpen] = useState(false);
   const waveActive = playing;
   const { playingId: previewPlayingId, toggle: togglePreview } = useTrackPreview(onPauseMain);
 
@@ -314,15 +373,15 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
   const QUICK = [
     { label: t("home.liked"),  icon: Heart,      act: () => onNavigate("library") },
-    { label: t("home.charts"), icon: TrendingUp, act: () => setSearchOpen(true) },
+    { label: t("home.charts"), icon: TrendingUp, act: () => onNavigate("rating") },
     { label: t("home.radio"),  icon: Radio,      act: onPlayRadio },
     { label: t("home.blend"),  icon: BlendIcon,  act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
   ];
 
   return (
-    <Page>
+    <Page className="myra-experience-page myra-home-page">
       {/* Верхняя панель */}
-      <div className="px-5 pt-6 pb-5 flex items-center justify-between">
+      <div className="myra-page-header px-5 pt-6 pb-5 flex items-center justify-between">
         <div className="lg:hidden" style={{ color: "var(--fg)" }}><MyraWordmark height={22} /></div>
         <div className="hidden lg:block" style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("nav.home")}</div>
         <div className="flex gap-2 relative items-center">
@@ -367,10 +426,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       </div>
 
       {/* Hero: Прилив */}
-      <div className="px-5 mb-7">
+      <div className="myra-home-hero px-5 mb-7">
         <TiltCard
           max={5}
-          className="relative rounded-[28px] overflow-hidden cursor-pointer"
+          className="myra-home-flow relative rounded-[28px] overflow-hidden cursor-pointer"
           style={{
             background: "linear-gradient(140deg, rgba(18,8,58,0.9), rgba(59,7,100,0.75))",
             backdropFilter: "blur(28px) saturate(1.7)",
@@ -384,17 +443,19 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           onClick={() => (playing && waveActive ? onPlay(currentTrack) : onPlayWave())}
         >
           <Aurora c2="#8b5cf6" />
-          <div className="relative z-10 flex items-center justify-between p-6">
-            <div>
+          <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
+            <div className="myra-home-flow-copy">
               <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("home.flow")}</div>
-              <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em", lineHeight: 1, color: ON_DARK }}>
-                <span style={{ background: "var(--brand-grad)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{t("home.wave")}</span>
-              </div>
-              <div className="text-xs mt-2.5" style={{ color: onDark(55), fontFamily: F.b }}>{t("home.aiSub")}</div>
+              <h1>{t("home.headline")}</h1>
+              <p>{t("home.headlineSub")}</p>
+              <div className="myra-home-flow-label"><Sparkles size={13} />{t("home.aiSub")}</div>
             </div>
-            <motion.div whileTap={{ scale: 0.88 }} className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 12%, transparent)", backdropFilter: "blur(10px)", border: `1.5px solid ${waveActive ? "#a78bfa" : "color-mix(in srgb, var(--wash) 25%, transparent)"}` }}>
-              {waveActive ? <Pause size={22} fill="white" stroke="none" /> : <Play size={22} fill="white" stroke="none" className="ml-1" />}
-            </motion.div>
+            <div className="myra-home-flow-art" style={{ "--flow-color": currentTrack.c2 } as React.CSSProperties}>
+              <img src={currentTrack.img} alt="" />
+              <motion.span whileTap={{ scale: 0.88 }}>
+                {waveActive ? <Pause size={22} fill="white" stroke="none" /> : <Play size={22} fill="white" stroke="none" className="ml-1" />}
+              </motion.span>
+            </div>
           </div>
           <div className="relative z-10 px-6 pb-5">
             <HeroWave playing={playing} />
@@ -404,40 +465,14 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
       {/* Поиск */}
       <div className="px-5 mb-7">
-        <button onClick={() => setSearchOpen(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
+        <button onClick={() => onNavigate("browse")} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
           <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
           <span className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("home.search")}</span>
         </button>
       </div>
 
-      <AnimatePresence>
-        {searchOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40"
-            style={{ background: "var(--dim)", backdropFilter: "blur(30px)", WebkitBackdropFilter: "blur(30px)" }}
-          >
-            <motion.div
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 16, opacity: 0 }}
-              transition={SPRING}
-              className="absolute inset-0 lg:inset-6 lg:rounded-[28px] overflow-hidden"
-              style={{ background: "var(--bg)" }}
-            >
-              <button onClick={() => setSearchOpen(false)} className="absolute top-6 right-5 z-10 w-9 h-9 rounded-full flex items-center justify-center" style={GLASS}>
-                <X size={16} />
-              </button>
-              <BrowseScreen onPlay={tr => { onPlay(tr); setSearchOpen(false); }} onOpenArtist={name => { setSearchOpen(false); onOpenArtist(name); }} autoFocus />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Быстрые действия */}
-      <div className="px-5 mb-8 grid grid-cols-4 gap-2.5">
+      <div className="myra-quick-grid px-5 mb-8 grid grid-cols-4 gap-2.5">
         {QUICK.map((q, i) => {
           const Icon = q.icon;
           return (
@@ -458,39 +493,49 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         })}
       </div>
 
+      <section className="myra-content-section px-5 mb-9">
+        <SectionHeading title={t("home.forYou")} sub={t("home.forYouSub")} action={t("home.all")} onAction={() => onNavigate("browse")} />
+        <div className="myra-release-grid">
+          {recommendations.slice(0, 6).map(item => (
+            <ReleaseCard
+              key={item.track.id}
+              track={item.track}
+              reason={item.reason}
+              active={currentTrack.id === item.track.id}
+              playing={playing}
+              onPlay={onPlay}
+              onArtist={onOpenArtist}
+            />
+          ))}
+        </div>
+      </section>
+
       {/* Дека */}
-      <div className="px-5 mb-8">
+      <div className="myra-content-section myra-discovery-section px-5 mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.discover")}</h2>
           <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("home.swipeHint")}</span>
         </div>
-        <DiscoveryDeck onPlay={onPlay} onLike={onLikeTrack} />
+        <DiscoveryDeck onPlay={onPlay} onLike={onLikeTrack} tracks={recommendations.map(item => item.track)} />
       </div>
 
       {/* Релизы сообщества — реальные треки реальных пользователей MYRA */}
       {supabaseEnabled && communityTracks.length > 0 && (
-        <div className="px-5 mb-8">
-          <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.community")}</h2>
-          <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        <div className="myra-content-section px-5 mb-8">
+          <SectionHeading title={t("home.community")} />
+          <div className="myra-release-grid">
             {communityTracks.map(row => {
               const artistName = row.profiles?.username ?? "?";
               const tr = trackFromRow(row, artistName);
               return (
-                <motion.div key={row.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
-                  <div className="relative w-full rounded-[18px] overflow-hidden mb-2" style={{ aspectRatio: "1", boxShadow: currentTrack.id === tr.id ? `0 10px 34px ${tr.c2}50` : "0 6px 20px rgba(0,0,0,0.35)" }}>
-                    <img src={tr.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.4)" }}>
-                      <Play size={18} fill="white" stroke="none" />
-                    </div>
-                    {currentTrack.id === tr.id && playing && (
-                      <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }}>
-                        <EQ color="#fff" size={9} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs font-semibold truncate" style={{ fontFamily: F.b }}>{tr.title}</div>
-                  <button onClick={e => { e.stopPropagation(); onOpenRealArtist(row.owner_id); }} className="text-[10px] truncate hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{artistName}</button>
-                </motion.div>
+                <ReleaseCard
+                  key={row.id}
+                  track={tr}
+                  active={currentTrack.id === tr.id}
+                  playing={playing}
+                  onPlay={onPlay}
+                  onArtist={() => onOpenRealArtist(row.owner_id)}
+                />
               );
             })}
           </div>
@@ -544,13 +589,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       </div>
 
       {/* Продолжить */}
-      <div className="px-5 mb-6">
+      <div className="myra-content-section px-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.continue")}</h2>
           <button onClick={() => onNavigate("library")} className="text-xs flex items-center gap-0.5" style={{ color: currentTrack.c2, fontFamily: F.b }}>{t("home.all")} <ChevronRight size={13} /></button>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {TRACKS.slice(1, 7).map(tr => (
+          {recommendations.slice(2, 8).map(({ track: tr }) => (
             <motion.div key={tr.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
               <div className="relative w-full rounded-[18px] overflow-hidden mb-2" style={{ aspectRatio: "1", boxShadow: currentTrack.id === tr.id ? `0 10px 34px ${tr.c2}50` : "0 6px 20px rgba(0,0,0,0.35)" }}>
                 <img src={tr.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -575,10 +620,14 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
 // ─── Обзор ────────────────────────────────────────────────────────────────────
 
-export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: Track) => void; onOpenArtist: (name: string) => void; autoFocus?: boolean }) {
+export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: Track) => void; onOpenArtist: (name: string) => void; autoFocus?: boolean }) {
   const { t } = useLang();
   const [query, setQuery] = useState("");
-  const filtered = query ? TRACKS.filter(tr => (tr.title + tr.artist + tr.genre).toLowerCase().includes(query.toLowerCase())) : [];
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase();
+  const filtered = useMemo(() => normalizedQuery
+    ? TRACKS.filter(track => `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLocaleLowerCase().includes(normalizedQuery))
+    : [], [normalizedQuery]);
 
   const MOODS = [
     { label: t("mood.focus"),   icon: Brain,    track: TRACKS[3] },
@@ -589,29 +638,31 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
   ];
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-4">
-        <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.browse")}</h1>
-        <div className="mt-4 flex items-center gap-3 px-4 py-3.5 rounded-[18px]" style={GLASS}>
-          <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+    <Page className="myra-experience-page myra-search-page">
+      <header className="myra-search-hero px-5 pt-7 pb-5">
+        <span className="myra-page-eyebrow">MYRA DISCOVERY</span>
+        <h1>{t("browse.eyebrow")}</h1>
+        <p>{t("browse.subtitle")}</p>
+        <div className="myra-search-field mt-5 flex items-center gap-3 px-4 py-3.5 rounded-[18px]">
+          <Search size={19} />
           <input
             autoFocus={autoFocus}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t("browse.search")}
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-none"
             style={{ color: "var(--fg)", fontFamily: F.b }}
           />
-          {query && <button onClick={() => setQuery("")}><X size={14} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} /></button>}
+          {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={16} /></button>}
         </div>
-      </div>
+      </header>
 
-      <div className="px-5 mb-7">
-        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="myra-mood-strip px-5 mb-8">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {MOODS.map(m => {
             const Icon = m.icon;
             return (
-              <motion.button key={m.label} whileTap={{ scale: 0.93 }} onClick={() => { onPlay(m.track); toast(t("browse.mixStarted", m.label)); }} className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-medium" style={{ ...GLASS, fontFamily: F.b, color: "color-mix(in srgb, var(--fg) 80%, transparent)" }}>
+              <motion.button key={m.label} whileTap={{ scale: 0.96 }} onClick={() => { onPlay(m.track); toast(t("browse.mixStarted", m.label)); }} className="myra-mood-chip flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-medium" style={{ "--mood-color": m.track.c2 } as React.CSSProperties}>
                 <Icon size={13} style={{ color: m.track.c2 }} />
                 {m.label}
               </motion.button>
@@ -621,31 +672,27 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
       </div>
 
       {query ? (
-        <div className="px-5">
-          <div className="text-xs mb-3" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("browse.found", filtered.length)}</div>
-          {filtered.map((tr, i) => (
-            <motion.div key={tr.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl mb-2 cursor-pointer hover:bg-white/5 transition-colors" style={{ background: "color-mix(in srgb, var(--wash) 03%, transparent)" }}>
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={tr.img} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{tr.title}</div>
-                <button onClick={e => { e.stopPropagation(); onOpenArtist(tr.artist); }} className="text-xs hover:text-white transition-colors" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist} · {tr.genre}</button>
-              </div>
-            </motion.div>
-          ))}
+        <div className="myra-content-section px-5">
+          <SectionHeading title={t("browse.found", filtered.length)} />
+          {filtered.length > 0 ? (
+            <div className="myra-release-grid myra-search-results">
+              {filtered.map(track => (
+                <ReleaseCard key={track.id} track={track} onPlay={onPlay} onArtist={onOpenArtist} />
+              ))}
+            </div>
+          ) : (
+            <div className="myra-empty-state"><Search size={24} /><span>{t("browse.noResults")}</span></div>
+          )}
         </div>
       ) : (
         <>
-          <div className="px-5 mb-7">
-            <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("browse.chart")}</h2>
+          <div className="myra-content-section px-5 mb-8">
+            <SectionHeading title={t("browse.trending")} sub={t("browse.chart")} />
+            <div className="myra-chart-list">
             {CHARTS.map((c, i) => (
-              <motion.div
+              <div
                 key={c.pos}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-3 px-2 py-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1"
+                className="myra-chart-row flex items-center gap-3 cursor-pointer"
                 onClick={() => onPlay({ ...TRACKS[(c.pos + 1) % TRACKS.length], id: c.pos + 100, title: c.title, artist: c.artist, album: "Charts", img: c.img })}
               >
                 <div className="w-7 text-center font-bold text-sm" style={{ color: c.pos <= 3 ? "#a78bfa" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{c.pos}</div>
@@ -659,13 +706,14 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
                 <div className="text-[11px] px-2 py-1 rounded-full font-semibold" style={{ fontFamily: F.m, color: c.delta > 0 ? "#34d399" : c.delta < 0 ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)", background: c.delta > 0 ? "rgba(52,211,153,0.1)" : c.delta < 0 ? "rgba(248,113,113,0.1)" : "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
                   {c.delta > 0 ? `+${c.delta}` : c.delta < 0 ? c.delta : "—"}
                 </div>
-              </motion.div>
+              </div>
             ))}
+            </div>
           </div>
 
-          <div className="px-5 mb-6">
-            <h2 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("browse.genres")}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="myra-content-section px-5 mb-6">
+            <SectionHeading title={t("browse.genres")} />
+            <div className="myra-genre-grid grid grid-cols-2 md:grid-cols-4 gap-3">
               {GENRE_TILES.map(([g, c], i) => (
                 <TiltCard key={g} max={11} onClick={() => setQuery(g)} className="relative rounded-[18px] overflow-hidden cursor-pointer h-[68px]" style={{ boxShadow: `0 8px 26px ${c}22` }}>
                   <img src={svgCover("var(--bg2)", c, i + 51)} alt={g} className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
@@ -680,7 +728,7 @@ export function BrowseScreen({ onPlay, onOpenArtist, autoFocus }: { onPlay: (t: 
       )}
     </Page>
   );
-}
+});
 
 // ─── Рейтинг ──────────────────────────────────────────────────────────────────
 
@@ -780,8 +828,13 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
   const [tab, setTab] = useState<"liked" | "playlists" | "podcasts">("liked");
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase());
   const uploadRef = useRef<HTMLInputElement>(null);
-  const liked = TRACKS.filter(tr => likedIds.has(tr.id));
+  const liked = useMemo(() => TRACKS.filter(track => likedIds.has(track.id)), [likedIds]);
+  const matchesLibrary = useCallback((track: Track) => !deferredQuery || `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLocaleLowerCase().includes(deferredQuery), [deferredQuery]);
+  const visibleLocal = useMemo(() => myTracks.filter(matchesLibrary), [myTracks, matchesLibrary]);
+  const visibleLiked = useMemo(() => liked.filter(matchesLibrary), [liked, matchesLibrary]);
 
   const TABS = [
     { id: "liked" as const, label: t("lib.tracks", liked.length + myTracks.length) },
@@ -790,15 +843,31 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
   ];
 
   return (
-    <Page>
-      <div className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <h1 style={{ fontFamily: F.d, fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em" }}>{t("nav.library")}</h1>
+    <Page className="myra-experience-page myra-library-page">
+      <header className="myra-library-header px-5 pt-7 pb-5 flex items-start justify-between">
+        <div>
+          <span className="myra-page-eyebrow">MYRA COLLECTION</span>
+          <h1>{t("nav.library")}</h1>
+          <p>{t("lib.subtitle")}</p>
+        </div>
         <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCreateOpen(true)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}99)` }}>
           <Plus size={16} />
         </motion.button>
+      </header>
+
+      <section className="myra-library-overview mx-5 mb-5" style={{ "--library-accent": currentTrack.c2 } as React.CSSProperties}>
+        <div><Heart size={18} /><strong>{liked.length}</strong><span>{t("lib.saved")}</span></div>
+        <div><FileAudio size={18} /><strong>{myTracks.length}</strong><span>{t("lib.local")}</span></div>
+        <div><Music2 size={18} /><strong>{playlists.length}</strong><span>{t("lib.playlists")}</span></div>
+      </section>
+
+      <div className="myra-library-search mx-5 mb-5">
+        <Search size={16} />
+        <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("lib.search")} />
+        {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={15} /></button>}
       </div>
 
-      <div className="flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit" style={GLASS}>
+      <div className="myra-library-tabs flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit">
         {TABS.map(tb => (
           <button key={tb.id} onClick={() => setTab(tb.id)} className="relative px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: tab === tb.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
             {tab === tb.id && <motion.div layoutId="libtab" className="absolute inset-0 rounded-full" style={{ background: `${currentTrack.c2}cc` }} transition={SPRING} />}
@@ -831,56 +900,36 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   </motion.div>
                 </>
               )}
-              {myTracks.map(tr => (
-                <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors group">
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                    <img src={tr.img} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.5)" }}>
-                      <Play size={14} fill="white" stroke="none" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
-                      {tr.title}
-                      {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
-                    </div>
-                    <div className="text-xs truncate flex items-center gap-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>
-                      <FileAudio size={11} style={{ color: tr.c2 }} />
-                      {t("cr.local")}
-                    </div>
-                  </div>
-                  {onDeleteLocal && (
-                    <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); onDeleteLocal(tr.id); }} className="p-1.5">
-                      <Trash2 size={14} style={{ color: "rgba(248,113,113,0.6)" }} />
+              {visibleLocal.map(tr => (
+                <PremiumTrackRow
+                  key={tr.id}
+                  track={tr}
+                  active={currentTrack.id === tr.id}
+                  playing={playing}
+                  onPlay={onPlay}
+                  trailing={onDeleteLocal && (
+                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onDeleteLocal(tr.id)} className="myra-row-icon-button" aria-label="Delete">
+                      <Trash2 size={15} />
                     </motion.button>
                   )}
-                </div>
+                />
               ))}
-              {liked.map(tr => (
-                <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors group">
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                    <img src={tr.img} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.5)" }}>
-                      <Play size={14} fill="white" stroke="none" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate flex items-center gap-2" style={{ fontFamily: F.b }}>
-                      {tr.title}
-                      {currentTrack.id === tr.id && playing && <EQ color={tr.c2} size={9} />}
-                    </div>
-                    <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>
-                      <button onClick={e => { e.stopPropagation(); onOpenArtist(tr.artist); }} className="hover:text-white transition-colors">{tr.artist}</button>
-                      {" · "}
-                      <button onClick={e => { e.stopPropagation(); onOpenAlbum?.(tr.album); }} className="hover:text-white transition-colors">{tr.album}</button>
-                    </div>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.7 }} onClick={e => { e.stopPropagation(); onLike(tr.id); }} className="p-1.5">
-                    <Heart size={15} fill={likedIds.has(tr.id) ? tr.c2 : "none"} stroke={likedIds.has(tr.id) ? tr.c2 : "color-mix(in srgb, var(--wash) 25%, transparent)"} />
-                  </motion.button>
-                </div>
+              {visibleLiked.map(tr => (
+                <PremiumTrackRow
+                  key={tr.id}
+                  track={tr}
+                  active={currentTrack.id === tr.id}
+                  playing={playing}
+                  onPlay={onPlay}
+                  onArtist={onOpenArtist}
+                  trailing={(
+                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => onLike(tr.id)} className="myra-row-icon-button" aria-label="Unlike">
+                      <Heart size={16} fill={tr.c2} stroke={tr.c2} />
+                    </motion.button>
+                  )}
+                />
               ))}
-              {liked.length === 0 && myTracks.length === 0 && (
+              {visibleLiked.length === 0 && visibleLocal.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Heart size={28} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)" }} />
                   <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.empty")}</div>
@@ -899,8 +948,8 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
           {tab === "playlists" && playlists.length > 0 && (
             <div className="px-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {playlists.map(pl => (
-                <TiltCard key={pl.id} max={9} className="cursor-pointer group" onClick={() => onOpenPlaylist ? onOpenPlaylist(pl.id) : toast(t("lib.plToast", pl.name, pl.trackIds.length))}>
-                  <div className="rounded-[20px] overflow-hidden mb-2.5 aspect-square relative">
+                <TiltCard key={pl.id} max={7} className="myra-playlist-card cursor-pointer group" onClick={() => onOpenPlaylist ? onOpenPlaylist(pl.id) : toast(t("lib.plToast", pl.name, pl.trackIds.length))}>
+                  <div className="myra-playlist-cover rounded-[20px] overflow-hidden mb-2.5 aspect-square relative">
                     <img src={pl.img} alt={pl.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.4)" }}>
                       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 16%, transparent)", backdropFilter: "blur(10px)", border: "1px solid color-mix(in srgb, var(--wash) 30%, transparent)" }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Play, Heart, BadgeCheck, Gift, Check, X, ChevronRight, ChevronLeft, ArrowRight,
   Mail, Crown, MessageCircle, Trash2, Share2, RefreshCw, UserPlus, Loader2,
@@ -201,7 +201,7 @@ function DonateWidget({ open, artistLabel, c2, toUserId, onDonate }: {
 
 // ─── Страница артиста ─────────────────────────────────────────────────────────
 
-export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, followed, onFollow, onOpenArtist, onOpenAlbum, onDonate }: {
+export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, followed, onFollow, onOpenArtist, onOpenAlbum, onDonate }: {
   name: string | null; onClose: () => void; onPlay: (t: Track) => void;
   currentTrack: Track; playing: boolean;
   followed: Set<string>; onFollow: (name: string) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
@@ -219,26 +219,27 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
   const isFollowed = followed.has(artist.name);
 
   return (
-    <Sheet open={!!name} onClose={onClose} z={55}>
+    <Sheet open={!!name} onClose={onClose} z={55} wide>
       {/* Шапка */}
-      <div className="relative" style={{ height: 210 }}>
+      <div className="myra-artist-hero relative" style={{ "--artist-accent": artist.c2 } as React.CSSProperties}>
         <img src={artist.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="absolute bottom-3 left-6 right-6">
+        <div className="myra-artist-identity absolute bottom-3 left-6 right-6">
           <div className="flex items-center gap-2">
             <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", color: ON_DARK }}>{artist.name}</span>
             {artist.verified && <BadgeCheck size={20} style={{ color: artist.c2 }} />}
           </div>
           <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
+          <div className="myra-artist-genre">{artist.genre}</div>
         </div>
       </div>
 
-      <div className="px-6 pt-4 pb-8">
+      <div className="myra-artist-body px-6 pt-4 pb-8">
         {/* Действия */}
-        <div className="flex gap-2.5 mb-6">
+        <div className="myra-artist-actions flex gap-2.5 mb-6">
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => own[0] && onPlay(own[0])} className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${artist.c2}, ${artist.c2}99)`, boxShadow: `0 8px 26px ${artist.c2}55` }}>
             <Play size={18} fill="white" stroke="none" className="ml-0.5" />
           </motion.button>
@@ -266,7 +267,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
         {/* Популярное */}
         <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
         {own.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
+          <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
               <img src={tr.img} alt="" className="w-full h-full object-cover" />
             </div>
@@ -285,7 +286,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
           <>
             <h3 className="mb-3 mt-5" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.similarTr")}</h3>
             {similar.slice(0, 2).map(tr => (
-              <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
+              <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
                 <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
                   <img src={tr.img} alt="" className="w-full h-full object-cover" />
                 </div>
@@ -301,7 +302,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
 
         {/* Похожие артисты */}
         <h3 className="mb-3 mt-5" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.similar")}</h3>
-        <div className="flex gap-2.5">
+        <div className="myra-similar-artists flex gap-2.5">
           {artist.similar.map(s => {
             const sa = artistByName(s);
             if (!sa) return null;
@@ -316,7 +317,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
       </div>
     </Sheet>
   );
-}
+});
 
 // ─── Профиль настоящего артиста (реальный пользователь, не демо-каталог) ─────
 // В отличие от ArtistSheet (фиксированные 8 артистов каталога), здесь артист —
@@ -324,7 +325,7 @@ export function ArtistSheet({ name, onClose, onPlay, currentTrack, playing, foll
 // Supabase по artistId (uuid), а не берутся из статичного ARTISTS.
 const REAL_ARTIST_C2 = "#8b5cf6";
 
-export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playing, onDonate }: {
+export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playing, onDonate }: {
   artistId: string | null; onClose: () => void; onPlay: (t: Track) => void;
   currentTrack: Track; playing: boolean;
   onDonate?: (toUserId: string, artistName: string, amount: number) => void;
@@ -351,13 +352,13 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
   const tracks = (profile?.tracks ?? []).map(row => trackFromRow(row, name));
 
   return (
-    <Sheet open={!!artistId} onClose={onClose} z={55}>
-      <div className="relative" style={{ height: 200 }}>
+    <Sheet open={!!artistId} onClose={onClose} z={55} wide>
+      <div className="myra-artist-hero myra-real-artist-hero relative" style={{ "--artist-accent": REAL_ARTIST_C2 } as React.CSSProperties}>
         <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${REAL_ARTIST_C2}33, #07070f 75%)` }} />
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="absolute bottom-4 left-6 right-6 flex items-end gap-3">
+        <div className="myra-artist-identity absolute bottom-4 left-6 right-6 flex items-end gap-3">
           <img src={avatar} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" style={{ border: "2px solid rgba(255,255,255,0.2)" }} />
           <div className="min-w-0 pb-0.5">
             <div style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", color: ON_DARK }} className="truncate">{name || "…"}</div>
@@ -366,8 +367,8 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
         </div>
       </div>
 
-      <div className="px-6 pt-4 pb-8">
-        <div className="flex gap-2.5 mb-6">
+      <div className="myra-artist-body px-6 pt-4 pb-8">
+        <div className="myra-artist-actions flex gap-2.5 mb-6">
           <motion.button
             whileTap={{ scale: 0.94 }}
             disabled={!tracks[0]}
@@ -397,7 +398,7 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
         ) : tracks.length === 0 ? (
           <div className="text-xs py-6 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("ra.empty")}</div>
         ) : tracks.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors mb-1">
+          <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
               <img src={tr.img} alt="" className="w-full h-full object-cover" />
             </div>
@@ -414,7 +415,7 @@ export function RealArtistSheet({ artistId, onClose, onPlay, currentTrack, playi
       </div>
     </Sheet>
   );
-}
+});
 
 // ─── Профиль другого пользователя (из Рейтинга) ──────────────────────────────
 
