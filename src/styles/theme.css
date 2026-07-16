@@ -2038,6 +2038,123 @@
   .myra-playlist-track-row { transition-duration: 1ms !important; }
 }
 
+/* ─── Общий язык шторок второй волны: PeerProfile, RealProfile, PeopleSearch,
+   Blend, Split, Achievements, StudioStats, ReleaseForm, Import, Support,
+   Report. Хиро — та же тёмная карточка со свечением, что .myra-account-hero,
+   но с настраиваемым через --sheet-accent акцентом (у каждой шторки свой цвет:
+   сосед по рейтингу, друг Созвука, жёлтые «деньги» Сплита). Карточка тёмная
+   в любой теме, поэтому текст внутри задаётся явными светлыми цветами
+   (ON_DARK/onDark), а не var(--fg). ─── */
+.myra-sheet-hero {
+  --sheet-accent: #8b5cf6;
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--sheet-accent) 26%, rgba(255,255,255,0.1));
+  background:
+    radial-gradient(circle at 80% -14%, color-mix(in srgb, var(--sheet-accent) 28%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(17,8,46,0.95), rgba(7,4,20,0.94) 74%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 20px 54px rgba(0,0,0,0.28);
+}
+
+.myra-sheet-avatar {
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--sheet-accent) 75%, #fff);
+  box-shadow: 0 0 44px color-mix(in srgb, var(--sheet-accent) 42%, transparent);
+}
+
+/* Плитки статов внутри тёмного хиро — тот же рисунок, что .myra-account-hero-stats */
+.myra-sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+}
+
+.myra-sheet-stats > div {
+  min-width: 0;
+  padding: 9px 6px;
+  text-align: center;
+  background: rgba(8,6,20,0.55);
+}
+
+/* Нейтральные карточка-группа, строка и mono-подпись — рисунок
+   .myra-account-card/.myra-account-row/.myra-account-section-label, но без
+   привязки имени к Аккаунту, для остальных шторок */
+.myra-sheet-eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: color-mix(in srgb, var(--fg) 40%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.myra-sheet-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-edge);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--glass-shadow);
+}
+
+.myra-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.myra-sheet-row:last-child { border-bottom: 0; }
+
+.myra-sheet-row[data-clickable] {
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.myra-sheet-row[data-clickable]:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
+
+/* Строка трека в Созвуке (Blend) — язык .myra-playlist-track-row без ручки drag-n-drop */
+.myra-blend-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.myra-blend-row:hover {
+  border-color: rgba(255,255,255,0.075);
+  background: rgba(255,255,255,0.045);
+}
+
+.myra-blend-row-cover {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.myra-blend-row-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-sheet-row[data-clickable],
+  .myra-blend-row { transition-duration: 1ms !important; }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
