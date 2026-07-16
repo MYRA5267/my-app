@@ -218,14 +218,6 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               <div ref={parallaxRef} className="fx-parallax relative z-10" style={{ willChange: "transform" }}>
                 <FrequencyOrb track={track} playing={playing} progress={progressRounded} />
               </div>
-
-              <div className="absolute bottom-5 left-5 right-5 z-10 flex items-end justify-between gap-5">
-                <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: "rgba(255,255,255,0.48)", fontFamily: F.m }}>{track.genre}</div>
-                  <div className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.92)", fontFamily: F.b }}>{track.album}</div>
-                </div>
-                <div className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.58)", fontFamily: F.m }}>{fmtSec(curSec)} / {duration ? fmtSec(duration) : track.duration}</div>
-              </div>
             </section>
 
             <section className="myra-player-content">

@@ -9,12 +9,16 @@ const dsn = env.VITE_SENTRY_DSN;
 
 export const sentryEnabled = !!dsn;
 
-let sentryPromise: Promise<typeof import("@sentry/react")> | null = null;
+// Именованный импорт вместо "import * as Sentry" — весь SDK тащит с собой
+// browserTracingIntegration/replayIntegration (~400KB) просто потому, что
+// звёздный импорт мешает Rollup вырезать неиспользуемые экспорты пакета:
+// нам нужны только init/captureException, ни трейсинг, ни реплей мы не включаем
+let sentryPromise: Promise<{ init: typeof import("@sentry/react").init; captureException: typeof import("@sentry/react").captureException }> | null = null;
 let initialized = false;
 
 const loadSentry = async () => {
   if (!dsn) return null;
-  if (!sentryPromise) sentryPromise = import("@sentry/react");
+  if (!sentryPromise) sentryPromise = import("@sentry/react").then(({ init, captureException }) => ({ init, captureException }));
   const Sentry = await sentryPromise;
   if (!initialized) {
     Sentry.init({ dsn, tracesSampleRate: 0, sendDefaultPii: false });

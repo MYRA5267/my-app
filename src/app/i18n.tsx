@@ -7,9 +7,9 @@ export type Lang = "ru" | "en";
 const STR: Record<string, { ru: string; en: string }> = {
   // Навигация
   "nav.home":    { ru: "Главная",   en: "Home" },
-  "nav.browse":  { ru: "Поиск",     en: "Search" },
+  "nav.browse":  { ru: "Обзор",     en: "Browse" },
   "nav.rating":  { ru: "Рейтинг",   en: "Rating" },
-  "nav.library": { ru: "Медиатека", en: "Library" },
+  "nav.library": { ru: "Полка", en: "Shelf" },
   "nav.creator": { ru: "Студия",    en: "Studio" },
   "nav.profile": { ru: "Профиль",   en: "Profile" },
 
