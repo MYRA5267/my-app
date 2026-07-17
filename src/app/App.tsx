@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle } from "./lib";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark } from "./lib";
 import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
 import { useSleepTimer } from "./useSleepTimer";
 import { useMediaSession } from "./useMediaSession";
@@ -13,6 +13,7 @@ import { usePlaylists } from "./usePlaylists";
 import { useLocalTracks } from "./useLocalTracks";
 import { useSocialLayer } from "./useSocialLayer";
 import { useSubscription } from "./useSubscription";
+import { useIdentity } from "./useIdentity";
 import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -31,11 +32,10 @@ const DevPanelSheet = lazy(() => import("./dev").then(m => ({ default: m.DevPane
 const AdminSupportSheet = lazy(() => import("./dev").then(m => ({ default: m.AdminSupportSheet })));
 const ModerationSheet = lazy(() => import("./dev").then(m => ({ default: m.ModerationSheet })));
 import { LangProvider, useLang } from "./i18n";
-import type { UserRole } from "./auth";
 import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
-  supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, fetchReceivedDonationsTotal, deleteAccountRemote,
+  supabaseEnabled, signOutRemote, recordDonation, fetchReceivedDonationsTotal, deleteAccountRemote,
 } from "./supabase";
 import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
@@ -103,38 +103,16 @@ function AppInner() {
     setCrossfade(c => { ls.set("crossfade", !c); return !c; });
   }, []);
 
-  const devPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
-  const [onboarded, setOnboarded] = useState(() => devPreview || ls.get("onboarded", false));
-  const [userName, setUserName] = useState(() => ls.get("userName", "Алекс"));
-  const [email, setEmailState] = useState(() => ls.get("email", ""));
-  const setEmail = useCallback((next: string) => { setEmailState(next); ls.set("email", next); }, []);
-  // Хендл: если пользователь не задавал свой — показываем автосгенерированный из имени
-  const [customHandle, setCustomHandleState] = useState<string | null>(() => ls.get<string | null>("customHandle", null));
-  const setCustomHandle = useCallback((next: string | null) => { setCustomHandleState(next); ls.set("customHandle", next); }, []);
-  const handle = customHandle ?? deriveHandle(userName);
-  const setHandle = useCallback(async (h: string) => {
-    setCustomHandle(h);
-    if (supabaseEnabled) {
-      const session = await getSession();
-      const uid = session?.user?.id;
-      if (uid) {
-        try { await upsertProfile(uid, { handle: h }); } catch (err) { console.warn("upsertProfile handle:", err); }
-      }
-    }
-  }, [setCustomHandle]);
-  const [avatarIdx, setAvatarIdx] = useState(() => ls.get("avatarIdx", 0));
-
-  // uid текущей сессии Supabase — нужен, чтобы донаты и статус подписки
-  // писались на сервер, а не только в localStorage этого устройства
-  const [uid, setUid] = useState<string | null>(null);
+  const {
+    onboarded, userName, setUserName, email, setEmail, handle, setHandle,
+    avatarIdx, setAvatarIdx, customAvatar, setCustomAvatar,
+    userRole, setRole, uid, finishOnboarding, clearIdentity,
+  } = useIdentity();
+  // uidRef — только для sendDonation ниже (ref, чтобы не пересоздавать колбэк
+  // при каждой смене uid); хуки useSocialLayer/useLocalTracks/useSubscription
+  // держат собственные внутренние копии этого же паттерна
   const uidRef = useRef<string | null>(null);
   uidRef.current = uid;
-  useEffect(() => {
-    if (!supabaseEnabled) return;
-    getSession().then(s => setUid(s?.user?.id ?? null));
-    const { data } = onAuthStateChange(s => setUid(s?.user?.id ?? null));
-    return () => data.subscription.unsubscribe();
-  }, []);
 
   const {
     followingSet, friendsFeed, realProfile, setRealProfile,
@@ -142,8 +120,6 @@ function AppInner() {
     toggleRealFollow, clearSocial,
   } = useSocialLayer(uid);
 
-  const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
-  const setRole = useCallback((r: UserRole) => { setUserRole(r); ls.set("userRole", r); }, []);
   // Студия — только артистам: MYRA Pro больше не открывает её слушателям
   const showStudio = userRole === "artist";
   // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
@@ -152,7 +128,6 @@ function AppInner() {
   const [adminSupportOpen, setAdminSupportOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
-  const [customAvatar, setCustomAvatar] = useState<string | null>(() => ls.get<string | null>("customAvatar", null));
   const [followed, setFollowed] = useState<Set<string>>(() => new Set(ls.get<string[]>("followed", [])));
 
   const [tab, setTabState] = useState<Tab>(() => ls.get<Tab>("tab", "home"));
@@ -406,52 +381,6 @@ function AppInner() {
     return () => clearInterval(iv);
   }, [audio.playing, currentTrack.genre, currentTrack.artist]);
 
-  // Уже зарегистрирован на Supabase, но локально флаг онбординга не стоит —
-  // это либо (а) только что подтвердил почту по ссылке из письма и вернулся
-  // на этот же адрес (тогда доводим до конца профиль, отложенный в finishRole),
-  // либо (б) другое устройство/очищенный localStorage — просто подтягиваем профиль
-  useEffect(() => {
-    if (!supabaseEnabled) return;
-    (async () => {
-      const session = await getSession();
-      const uid = session?.user?.id;
-      if (!uid || ls.get("onboarded", false)) return;
-
-      const pending = ls.get<{ name: string; role: UserRole; email: string } | null>("pendingProfile", null);
-      if (pending) {
-        try {
-          const { error } = await upsertProfile(uid, { username: pending.name, role: pending.role, email: pending.email });
-          if (error) console.warn("upsertProfile:", error.message);
-        } catch (err) {
-          console.warn("upsertProfile:", err);
-        }
-        ls.set("pendingProfile", null);
-        setUserName(pending.name);
-        ls.set("userName", pending.name);
-        setEmail(pending.email);
-        setUserRole(pending.role);
-        ls.set("userRole", pending.role);
-        ls.set("onboarded", true);
-        setOnboarded(true);
-        toast.success(t("au.emailConfirmed"));
-        return;
-      }
-
-      const { data: profile } = await fetchProfile(uid);
-      if (!profile) return;
-      setUserName(profile.username);
-      ls.set("userName", profile.username);
-      setEmail(profile.email ?? "");
-      if (profile.handle) setCustomHandle(profile.handle);
-      if (profile.role === "artist" || profile.role === "listener") {
-        setUserRole(profile.role);
-        ls.set("userRole", profile.role);
-      }
-      ls.set("onboarded", true);
-      setOnboarded(true);
-    })();
-  }, [setEmail, t]);
-
   // Реально полученные донаты (from RealArtistSheet, to_user_id = uid) — не
   // тот же счётчик, что локальный симулированный balance/withdraw ниже:
   // подтягиваем при каждом заходе в Студию, чтобы сумма была свежей
@@ -658,21 +587,6 @@ function AppInner() {
     setAlbumName(album);
   }, []);
 
-  // Тост здесь не нужен: каждый путь онбординга (регистрация, вход, соцсети)
-  // уже показывает свой — раньше «Аккаунт создан» дублировался и вылезал даже при входе
-  const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string, handle?: string | null) => {
-    setUserName(name);
-    ls.set("userName", name);
-    setUserRole(role);
-    ls.set("userRole", role);
-    setEmail(enteredEmail);
-    // При входе в существующий аккаунт приходит серверный хендл; при регистрации —
-    // null, чтобы не унаследовать кастомный хендл предыдущего владельца устройства
-    setCustomHandle(handle ?? null);
-    ls.set("onboarded", true);
-    setOnboarded(true);
-  }, [setEmail, setCustomHandle]);
-
   const handleLogout = useCallback(() => {
     audio.pause();
     // Гасим и серверную сессию Supabase — иначе getSession() на следующем запуске
@@ -683,7 +597,7 @@ function AppInner() {
     clearLocalTracks();
     clearDownloads();
     ls.clear();
-    setOnboarded(false);
+    clearIdentity();
     setTab("home");
     setPlayerOpen(false);
     setAccountOpen(false);
@@ -698,11 +612,6 @@ function AppInner() {
     setAdminSupportOpen(false);
     setModerationOpen(false);
     setPlusOpen(false);
-    setUserRole("listener");
-    setCustomAvatar(null);
-    setAvatarIdx(0);
-    setCustomHandleState(null);
-    setEmailState("");
     setStats(touchDailyStreak(loadStats()));
     setActivity([]);
     setMyPlays({ byTrack: {}, byDay: {} });
@@ -718,7 +627,7 @@ function AppInner() {
     setDonationLedger({});
     setSplitOpen(false);
     toast(t("pr.loggedOut"));
-  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists, clearSocial, clearSubscription]);
+  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists, clearSocial, clearSubscription, clearIdentity]);
 
   // В отличие от остальных фоновых синхронизаций (донаты, подписки), здесь
   // нельзя молча проглотить ошибку и продолжить как ни в чём не бывало:
