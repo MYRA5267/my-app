@@ -5,7 +5,7 @@ import {
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
-  SlidersHorizontal, CircleUserRound, type LucideIcon,
+  SlidersHorizontal, CircleUserRound, Cast, type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -391,7 +391,9 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
             <Bell size={16} />
             {hasUnread && <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full" style={{ background: currentTrack.c2 }} />}
           </motion.button>
-          <motion.img whileTap={{ scale: 0.9 }} src={avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover cursor-pointer" style={{ border: `1.5px solid ${currentTrack.c2}66` }} onClick={() => onNavigate("profile")} />
+          <motion.button whileTap={{ scale: 0.9 }} aria-label={t("nav.profile")} className="w-10 h-10 rounded-full flex-shrink-0" onClick={() => onNavigate("profile")}>
+            <img src={avatar} alt="" className="w-10 h-10 rounded-full object-cover" style={{ border: `1.5px solid ${currentTrack.c2}66` }} />
+          </motion.button>
           <AnimatePresence>
             {notifOpen && (
               <motion.div
@@ -524,16 +526,18 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         <DiscoveryDeck onPlay={onPlay} onLike={onLikeTrack} tracks={recommendations.map(item => item.track)} />
       </div>
 
-      {/* Релизы сообщества — реальные треки реальных пользователей MYRA */}
+      {/* Релизы сообщества — реальные треки реальных пользователей MYRA.
+          Список PremiumTrackRow, а не та же сетка ReleaseCard, что и «Для тебя»
+          чуть выше: секции подряд не должны выглядеть одинаковой каруселью */}
       {supabaseEnabled && communityTracks.length > 0 && (
         <div className="myra-content-section px-5 mb-8">
           <SectionHeading title={t("home.community")} />
-          <div className="myra-release-grid">
+          <div className="flex flex-col gap-1">
             {communityTracks.map(row => {
               const artistName = row.profiles?.username ?? "?";
               const tr = trackFromRow(row, artistName);
               return (
-                <ReleaseCard
+                <PremiumTrackRow
                   key={row.id}
                   track={tr}
                   active={currentTrack.id === tr.id}
@@ -580,11 +584,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
       {/* Совместные комнаты — настоящий MVP на Supabase Realtime (см. rooms.tsx):
           вместо демо-ленты фейковых "друзей" (FRIENDS всегда пустой массив) —
-          рабочая кнопка входа в реальную синхронную комнату */}
+          рабочая кнопка входа в реальную синхронную комнату. Иконка Cast (не
+          Radio — тот уже занят «Течением» в быстрых действиях выше, а это
+          принципиально другая функция: совместное прослушивание, а не радио) */}
       <div className="px-5 mb-8">
         <button onClick={onOpenRooms} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-            <Radio size={15} style={{ color: currentTrack.c2 }} />
+            <Cast size={15} style={{ color: currentTrack.c2 }} />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("room.entry")}</div>
@@ -593,11 +599,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </button>
       </div>
 
-      {/* Продолжить */}
+      {/* Продолжить — срез (6, 10), а не (2, 8): раньше он пересекался с «Для
+          тебя» (0, 6), и один и тот же трек мог оказаться в обеих секциях сразу.
+          На маленьком демо-каталоге секция честно короче без загруженных треков */}
       <div className="myra-content-section px-5 mb-6">
         <SectionHeading title={t("home.continue")} action={t("home.all")} onAction={() => onNavigate("library")} />
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {recommendations.slice(2, 8).map(({ track: tr }) => (
+          {recommendations.slice(6, 10).map(({ track: tr }) => (
             <motion.div key={tr.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
               <div className="relative w-full rounded-[18px] overflow-hidden mb-2" style={{ aspectRatio: "1", boxShadow: currentTrack.id === tr.id ? `0 10px 34px ${tr.c2}50` : "0 6px 20px rgba(0,0,0,0.35)" }}>
                 <img src={tr.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
