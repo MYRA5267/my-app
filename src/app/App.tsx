@@ -8,6 +8,8 @@ import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, 
 import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
 import { useSleepTimer } from "./useSleepTimer";
 import { useMediaSession } from "./useMediaSession";
+import { useDownloads } from "./useDownloads";
+import { usePlaylists } from "./usePlaylists";
 import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -25,7 +27,6 @@ import { MyraWordmark } from "./logo";
 const DevPanelSheet = lazy(() => import("./dev").then(m => ({ default: m.DevPanelSheet })));
 const AdminSupportSheet = lazy(() => import("./dev").then(m => ({ default: m.AdminSupportSheet })));
 const ModerationSheet = lazy(() => import("./dev").then(m => ({ default: m.ModerationSheet })));
-import { saveDownload, loadDownloads, deleteDownload } from "./idb";
 import { LangProvider, useLang } from "./i18n";
 import type { UserRole } from "./auth";
 import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
@@ -72,10 +73,6 @@ const GLOBAL_STYLE = `
      тяжестью, которую упрощённая графика не гасила */
   .fx-simple .fx-orb{display:none!important}
 `;
-
-// Без MYRA Pro/Plus офлайн-загрузки ограничены — иначе "безлимит" на апгрейде
-// ничем не отличался бы от того, что и так доступно всем
-const FREE_DOWNLOAD_LIMIT = 20;
 
 type Tab = "home" | "browse" | "rating" | "library" | "creator" | "profile";
 
@@ -227,8 +224,6 @@ function AppInner() {
   const [realArtistId, setRealArtistId] = useState<string | null>(null);
   const [albumName, setAlbumName] = useState<string | null>(null);
   const [peerProfile, setPeerProfile] = useState<typeof LEADERBOARD_PEERS[number] | null>(null);
-  const [playlistId, setPlaylistId] = useState<string | null>(null);
-  const [plOrders, setPlOrders] = useState<Record<string, number[]>>(() => ls.get("plOrders", {}));
   const [blendFriend, setBlendFriend] = useState<Friend | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [creatorPlusOpen, setCreatorPlusOpen] = useState(false);
@@ -241,12 +236,8 @@ function AppInner() {
   const [roomOpen, setRoomOpen] = useState(false);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
 
-  const [downloads, setDownloads] = useState<Map<number, string>>(new Map());
-  const [customPls, setCustomPls] = useState<Playlist[]>(() => ls.get<Playlist[]>("customPls", []));
   const [importOpen, setImportOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const allPlaylists = useMemo(() => [...customPls, ...PLAYLISTS], [customPls]);
-  const customPlIds = useMemo(() => new Set(customPls.map(p => p.id)), [customPls]);
 
   // Реальная статистика аккаунта — стартует с нуля и растёт по мере использования
   const [stats, setStats] = useState<ProfileStats>(() => loadStats());
@@ -261,6 +252,12 @@ function AppInner() {
   const logActivity = useCallback((key: string, ...args: (string | number)[]) => {
     setActivity(pushActivity(key, ...args));
   }, []);
+
+  const { downloads, resolveUrl, downloadTrack, clearDownloads } = useDownloads({ hasUpgrade, logActivity });
+  const {
+    customPls, playlistId, setPlaylistId, allPlaylists, customPlIds, plOrder,
+    createPlaylist, deletePlaylist, handleCreatePlaylist, reorderPlaylist, clearPlaylists,
+  } = usePlaylists(logActivity);
 
   // Прозрачный сплит: локальная бухгалтерия отправленных донатов + шторка
   const [donationLedger, setDonationLedger] = useState<DonationLedger>(() => loadDonationLedger());
@@ -454,13 +451,6 @@ function AppInner() {
     return () => clearInterval(iv);
   }, [audio.playing, currentTrack.genre, currentTrack.artist]);
 
-  // Скачанные для офлайна треки каталога
-  useEffect(() => {
-    loadDownloads().then(recs => {
-      if (recs.length) setDownloads(new Map(recs.map(r => [r.id, URL.createObjectURL(r.blob)])));
-    });
-  }, []);
-
   // Уже зарегистрирован на Supabase, но локально флаг онбординга не стоит —
   // это либо (а) только что подтвердил почту по ссылке из письма и вернулся
   // на этот же адрес (тогда доводим до конца профиль, отложенный в finishRole),
@@ -554,11 +544,6 @@ function AppInner() {
       })));
     });
   }, []);
-
-  // Скачанный офлайн-файл важнее стрима
-  const downloadsRef = useRef(downloads);
-  downloadsRef.current = downloads;
-  const resolveUrl = useCallback((tr: Track) => downloadsRef.current.get(tr.id) ?? tr.url, []);
 
   // Реальный счётчик "начал слушать трек" — для профиля и (если это свой трек) студии
   const registerPlay = useCallback((tr: Track) => {
@@ -672,65 +657,6 @@ function AppInner() {
       return next;
     });
   }, [audio, resolveUrl, registerPlay, t]);
-
-  // Загрузка трека для офлайна — без апгрейда лимит FREE_DOWNLOAD_LIMIT треков,
-  // иначе "безлимит на Plus/Pro" ничем не отличался бы от того, что уже есть у всех
-  const downloadTrack = useCallback(async (tr: Track) => {
-    if (downloadsRef.current.has(tr.id)) {
-      const url = downloadsRef.current.get(tr.id)!;
-      URL.revokeObjectURL(url);
-      setDownloads(prev => { const m = new Map(prev); m.delete(tr.id); return m; });
-      deleteDownload(tr.id).catch(() => {});
-      toast(t("dl.removed"));
-      return;
-    }
-    if (!hasUpgrade && downloadsRef.current.size >= FREE_DOWNLOAD_LIMIT) {
-      toast(t("dl.limitReached", FREE_DOWNLOAD_LIMIT));
-      return;
-    }
-    toast(t("dl.loading", tr.title));
-    try {
-      const res = await fetch(tr.url);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      await saveDownload(tr.id, blob).catch(() => {});
-      setDownloads(prev => new Map(prev).set(tr.id, URL.createObjectURL(blob)));
-      toast.success(t("dl.done", tr.title));
-      logActivity("dl.done", tr.title);
-    } catch {
-      toast(t("dl.fail"));
-    }
-  }, [t, logActivity, hasUpgrade]);
-
-  // Свои плейлисты (создание + импорт)
-  const createPlaylist = useCallback((name: string, trackIds: number[]) => {
-    const pl: Playlist = { id: "u" + Date.now(), name, img: svgCover("#12083a", "#8b5cf6", Date.now() % 97), trackIds };
-    setCustomPls(prev => { const next = [pl, ...prev]; ls.set("customPls", next); return next; });
-    logActivity("act.plCreated", name);
-    return pl;
-  }, [logActivity]);
-
-  const deletePlaylist = useCallback((id: string) => {
-    setCustomPls(prev => {
-      const pl = prev.find(p => p.id === id);
-      const next = prev.filter(p => p.id !== id);
-      ls.set("customPls", next);
-      if (pl) logActivity("act.plDeleted", pl.name);
-      return next;
-    });
-    setPlaylistId(cur => (cur === id ? null : cur));
-    // Порядок треков удалённого плейлиста больше не нужен — иначе ключи
-    // копились бы в myra.plOrders бесконечно
-    setPlOrders(prev => {
-      if (!(id in prev)) return prev;
-      const { [id]: _gone, ...rest } = prev;
-      ls.set("plOrders", rest);
-      return rest;
-    });
-    toast(t("lib.plDeleted"));
-  }, [t, logActivity]);
-
-  const handleCreatePlaylist = useCallback((name: string) => { createPlaylist(name, []); }, [createPlaylist]);
 
   // Добавление своих аудиофайлов (клик или drag-n-drop)
   const addFiles = useCallback(async (files: FileList | File[]) => {
@@ -884,18 +810,6 @@ function AppInner() {
     setAlbumName(album);
   }, []);
 
-  const plOrder = playlistId
-    ? (plOrders[playlistId] ?? allPlaylists.find(p => p.id === playlistId)?.trackIds ?? [])
-    : [];
-  const reorderPlaylist = useCallback((ids: number[]) => {
-    if (!playlistId) return;
-    setPlOrders(prev => {
-      const next = { ...prev, [playlistId]: ids };
-      ls.set("plOrders", next);
-      return next;
-    });
-  }, [playlistId]);
-
   // Тост здесь не нужен: каждый путь онбординга (регистрация, вход, соцсети)
   // уже показывает свой — раньше «Аккаунт создан» дублировался и вылезал даже при входе
   const finishOnboarding = useCallback((name: string, role: UserRole, enteredEmail: string, handle?: string | null) => {
@@ -922,10 +836,7 @@ function AppInner() {
       if (tr.url.startsWith("blob:")) URL.revokeObjectURL(tr.url);
       deleteLocalTrack(tr.id).catch(() => {});
     });
-    downloads.forEach((url, id) => {
-      URL.revokeObjectURL(url);
-      deleteDownload(id).catch(() => {});
-    });
+    clearDownloads();
     ls.clear();
     setOnboarded(false);
     setTab("home");
@@ -935,10 +846,8 @@ function AppInner() {
     // а не просто выглядеть так до следующей перезагрузки страницы
     setLikedIds(new Set());
     setFollowed(new Set());
-    setCustomPls([]);
+    clearPlaylists();
     setMyTracks([]);
-    setDownloads(new Map());
-    setPlOrders({});
     setCpStatus("none");
     setPlusActiveState(false);
     setDevModeState(false);
@@ -969,7 +878,7 @@ function AppInner() {
     setDonationLedger({});
     setSplitOpen(false);
     toast(t("pr.loggedOut"));
-  }, [audio, t, myTracks, downloads]);
+  }, [audio, t, myTracks, clearDownloads, clearPlaylists]);
 
   // В отличие от остальных фоновых синхронизаций (донаты, подписки), здесь
   // нельзя молча проглотить ошибку и продолжить как ни в чём не бывало:
