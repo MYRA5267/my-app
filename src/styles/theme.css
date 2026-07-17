@@ -35,6 +35,15 @@
   scroll-behavior: smooth;
 }
 
+/* Нижний отступ страницы под Mini Player + таб-бар: 176px — это их совокупная
+   высота с запасом, плюс env(safe-area-inset-bottom) — раньше был просто
+   pb-44 без учёта home-indicator, и на iPhone последний пункт экрана мог
+   зайти под Mini Player */
+.myra-page-scroll { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
+@media (min-width: 1024px) {
+  .myra-page-scroll { padding-bottom: 32px; }
+}
+
 .myra-experience-page > div {
   max-width: 1180px;
 }
@@ -567,6 +576,79 @@
 
 .myra-profile-row:hover {
   transform: translateX(3px);
+}
+
+/* Заголовок группы пунктов (Мой профиль / Приложение / Безопасность) — в
+   отличие от .myra-page-eyebrow (один фирменный англоязычный штамп на весь
+   экран), это локализуемый текст, поэтому разрежение заметно скромнее */
+.myra-section-label {
+  display: block;
+  margin: 22px 4px 8px;
+  color: color-mix(in srgb, var(--fg) 42%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.myra-section-label:first-of-type { margin-top: 4px; }
+
+/* Спокойная поверхность для рядовых пунктов (настройки/язык/качество/друзья/
+   разработчик) — без тяжёлого backdrop-filter, в отличие от GLASS, который
+   теперь зарезервирован только для по-настоящему акцентных карточек */
+.myra-card-quiet {
+  background: color-mix(in srgb, var(--wash) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wash) 8%, transparent);
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.myra-card-quiet:hover { background: color-mix(in srgb, var(--wash) 6%, transparent); transform: translateX(3px); }
+.myra-card-quiet:active { transform: scale(0.99); }
+
+/* Единый значок-контейнер иконки — IconBadge */
+.myra-icon-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--icon-accent, var(--wash)) 20%, transparent);
+  background: color-mix(in srgb, var(--icon-accent, var(--wash)) 12%, transparent);
+  box-shadow: inset 0 0 14px color-mix(in srgb, var(--icon-accent, var(--wash)) 16%, transparent);
+  color: var(--icon-accent, var(--fg));
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.myra-icon-badge:hover { transform: scale(1.05); }
+.myra-icon-badge:active { transform: scale(0.94); }
+
+/* Слабые устройства/Android WebView: гасим внутренний glow (box-shadow) —
+   он безобиден для FPS сам по себе, но входит в общий бюджет compositing
+   слоёв вместе с blur-эффектами; граница и заливка остаются читаемыми */
+.fx-simple .myra-icon-badge { box-shadow: none; }
+.fx-simple .myra-icon-badge:hover, .fx-simple .myra-icon-badge:active { transform: none; }
+
+/* ProgressCard — тонкая полоса прогресса на реальных данных (достижения) */
+.myra-progress-track {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wash) 10%, transparent);
+  overflow: hidden;
+}
+
+.myra-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--icon-accent, var(--fg));
+  transition: width 400ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-icon-badge, .myra-card-quiet { transition: none; }
+  .myra-progress-fill { transition: none; }
 }
 
 /* Rating */

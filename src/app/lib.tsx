@@ -1000,9 +1000,13 @@ export const EQ = React.memo(function EQ({ color, size = 12 }: { color: string; 
 
 /** iOS-переключатель */
 export function Toggle({ on, onChange, color }: { on: boolean; onChange: () => void; color: string }) {
+  // Видимая дорожка остаётся 46×27 (как раньше), но кликабельная область
+  // кнопки — полные 44px высотой: раньше тап-зона была ровно 27px, ниже
+  // рекомендуемого минимума 44×44
   return (
-    <button onClick={onChange} className="relative rounded-full flex-shrink-0 transition-colors duration-300" style={{ width: 46, height: 27, background: on ? color : "color-mix(in srgb, var(--wash) 13%, transparent)" }}>
-      <motion.div animate={{ x: on ? 20 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} className="absolute top-[3px] left-[3px] w-[21px] h-[21px] rounded-full bg-white" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.35)" }} />
+    <button onClick={onChange} aria-pressed={on} className="relative flex-shrink-0" style={{ width: 46, height: 44 }}>
+      <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-full transition-colors duration-300" style={{ height: 27, background: on ? color : "color-mix(in srgb, var(--wash) 13%, transparent)" }} />
+      <motion.div animate={{ x: on ? 20 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} className="absolute top-1/2 left-[3px] w-[21px] h-[21px] rounded-full bg-white" style={{ marginTop: -10.5, boxShadow: "0 2px 8px rgba(0,0,0,0.35)" }} />
     </button>
   );
 }
@@ -1039,10 +1043,13 @@ export function Sheet({ open, onClose, children, z = 60, center = false, wide = 
   );
 }
 
-/** Адаптивная страница: скролл + центрированная колонка под телефон/планшет/ПК/ТВ */
+/** Адаптивная страница: скролл + центрированная колонка под телефон/планшет/ПК/ТВ.
+    Нижний отступ учитывает safe-area-inset-bottom (см. .myra-page-scroll в
+    theme.css) — раньше был фиксированный pb-44, и на устройствах с высоким
+    home-indicator (iPhone) последний пункт экрана мог упираться в Mini Player */
 export function Page({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`overflow-y-auto h-full pb-44 lg:pb-8 ${className}`} style={{ scrollbarWidth: "none" }}>
+    <div className={`myra-page-scroll overflow-y-auto h-full ${className}`} style={{ scrollbarWidth: "none" }}>
       <div className="mx-auto w-full max-w-[640px] md:max-w-[720px] lg:max-w-[860px] 2xl:max-w-[1040px]">
         {children}
       </div>

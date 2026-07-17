@@ -171,9 +171,16 @@ const STR: Record<string, { ru: string; en: string }> = {
   "pr.lang":        { ru: "Язык", en: "Language" },
   "pr.account":     { ru: "Аккаунт", en: "Account" },
   "pr.logout":      { ru: "Выйти", en: "Log out" },
+  "pr.logoutRow":   { ru: "Выйти из аккаунта", en: "Log out of account" },
   "pr.logoutQ":     { ru: "Выйти из аккаунта?", en: "Log out of your account?" },
   "pr.logoutSub":   { ru: "Твоя музыка и настройки сохранятся", en: "Your music and settings will be kept" },
   "pr.cancel":      { ru: "Отмена", en: "Cancel" },
+  // Секции экрана профиля — сгруппировали плоский список пунктов по смыслу
+  "pr.sectionProfile": { ru: "Мой профиль", en: "My profile" },
+  "pr.sectionApp":     { ru: "Приложение", en: "App" },
+  "pr.sectionSecurity":{ ru: "Безопасность", en: "Security" },
+  "pr.manageAccount":  { ru: "Управление аккаунтом", en: "Manage account" },
+  "pr.settingsRowSub": { ru: "Графика и тема", en: "Graphics and theme" },
 
   // Live-сессия «Слушают вместе»
   // Совместные комнаты — настоящий MVP на Supabase Realtime (rooms.ts/rooms.tsx):

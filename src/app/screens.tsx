@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue } from "react";
 import {
   Play, Pause, Heart, Search, Mic2, Upload, BarChart3, Plus, ChevronRight,
-  Volume2, Globe, Settings, Bell, Check, Download, X, Users, Music2,
+  Volume2, Globe, Bell, Check, Download, X, Users, Music2,
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
+  SlidersHorizontal, CircleUserRound, type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -1261,34 +1262,29 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
     return label.charAt(0).toUpperCase() + label.slice(1);
   }, [lang]);
 
+  // Акцентные цвета для IconBadge — по одному на функцию, чтобы разные
+  // пункты не сливались в одинаковую фиолетовую подсветку (см. бейджи выше:
+  // роль/Pro/Plus уже цветные, тут — остальные функциональные карточки)
+  const ACCENT_ACHIEVEMENTS = "#a78bfa";
+  const ACCENT_SPLIT = "#facc15";
+  const ACCENT_SETTINGS = "#a5b4fc";
+  const ACCENT_QUALITY = "#c4b5fd";
+  const ACCENT_FRIENDS = "#f0abfc";
+  const ACCENT_LANG = "#7dd3fc";
+
   return (
     <Page className="myra-experience-page myra-profile-page">
-      {/* Идентичность — эйбрау + аватар + бейджи роли/тарифа/мецената/разработчика
-          теперь живут в собственной карточке со свечением под цвет текущего трека,
-          а не голым текстом на фоне страницы (тот же язык, что у hero Главной) */}
-      <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
-        <DetailBackdrop variant="soft" accent={c2} />
-        <span className="myra-page-eyebrow">MYRA PROFILE</span>
-        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
-          <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
-            {userRole === "artist" ? <Mic2Icon /> : <Headphones size={12} />}
-          </div>
-        </motion.div>
-        <div className="myra-profile-name">{userName}</div>
-        <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
-        {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик» */}
-        <div className="myra-profile-badges">
-          {badges.map(b => {
-            const Icon = b.icon;
-            return (
-              <span key={b.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: `${b.c}1c`, border: `1px solid ${b.c}44`, color: b.c, fontFamily: F.b }}>
-                <Icon size={12} /> {b.label}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      <AccountSummaryCard
+        c2={c2}
+        avatar={avatar}
+        userName={userName}
+        handle={handle}
+        roleIcon={userRole === "artist" ? Mic2 : Headphones}
+        badges={badges}
+        onAvatarTap={onAvatarTap}
+        onManage={onOpenAccount}
+        manageLabel={t("pr.manageAccount")}
+      />
 
       {/* MYRA Plus — бесплатный уровень, виден только слушателям (Pro — у артистов в Студии) */}
       {userRole === "listener" && (
@@ -1315,102 +1311,42 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         <div><BarChart3 size={18} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
       </section>
 
-      {/* Настройки: декоративные тумблеры (уведомления, автозагрузка с фейковыми
-          цифрами, AI-фильтр) убраны совсем — они ничего реального не делали, а
-          настоящие настройки спрятаны в аккордеон, чтобы профиль не был простынёй */}
       <div className="px-5 flex flex-col gap-1.5">
-        {/* Достижения — вернулись из дев-панели в профиль */}
-        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAchievements}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${c2}1c` }}><Trophy size={15} style={{ color: c2 }} /></div>
-          <div className="flex-1">
-            <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.achievements")}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("ach.progress", achDone, achTotal)}</div>
-          </div>
-          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-        </motion.div>
+        <SectionLabel>{t("pr.sectionProfile")}</SectionLabel>
 
-        {/* Прозрачный сплит — компактной строкой вместо полноширинного баннера,
-            чтобы профиль не был двумя одинаковыми по весу плашками подряд */}
-        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenSplit}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(250,204,21,0.16)" }}><Gift size={15} style={{ color: "#facc15" }} /></div>
-          <div className="flex-1">
-            <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.split")}{t("pr.splitAccent")}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{t("pr.splitSub")}</div>
-          </div>
-          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-        </motion.div>
+        <ProgressCard
+          icon={Trophy}
+          accent={ACCENT_ACHIEVEMENTS}
+          label={t("pr.achievements")}
+          done={achDone}
+          total={achTotal}
+          onClick={onOpenAchievements}
+        />
+
+        <NavigationCard
+          icon={Gift}
+          accent={ACCENT_SPLIT}
+          label={`${t("pr.split")}${t("pr.splitAccent")}`}
+          sub={t("pr.splitSub")}
+          onClick={onOpenSplit}
+        />
 
         {/* Эхо месяца — раньше висело в профиле весь месяц напоказ, хотя месяц ещё
             не закончился; теперь появляется только в последние 3 дня месяца, когда
             recap реально имеет смысл смотреть */}
         {isMonthEndWindow() && (
-          <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenWrapped}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(139,92,246,0.16)" }}><Sparkles size={15} style={{ color: "#a78bfa" }} /></div>
-            <div className="flex-1">
-              <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.wrapped")}{t("pr.month")}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{monthLabel}</div>
-            </div>
-            <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-          </motion.div>
+          <NavigationCard
+            icon={Sparkles}
+            accent="#a78bfa"
+            label={`${t("pr.wrapped")}${t("pr.month")}`}
+            sub={monthLabel}
+            onClick={onOpenWrapped}
+          />
         )}
 
-        {/* Аккордеон реальных настроек */}
-        <div className="rounded-2xl overflow-hidden" style={GLASS}>
-          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 cursor-pointer" onClick={() => setSettingsOpen(o => !o)}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Settings size={15} /></div>
-            <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.settingsGroup")}</div>
-            <motion.div animate={{ rotate: settingsOpen ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
-          </motion.div>
-          <AnimatePresence>
-            {settingsOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-                <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
-                  <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
-                    <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
-                  </SettingRow>
-                  {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения.
-                      Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
-                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
-                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
-                      {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
-                    </div>
-                  </SettingRow>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <motion.div
-          whileTap={{ scale: 0.99 }}
-          className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer"
-          style={GLASS}
-          onClick={() => {
-            // Free: цикл AAC ↔ FLAC (Hi-Res — привилегия апгрейда). Ранний
-            // return здесь раньше вообще блокировал клик с дефолтного FLAC —
-            // Free-пользователь не мог даже вернуться на экономный AAC
-            const maxTier = hasUpgrade ? QUALITIES.length : 2;
-            const next = (quality + 1) % maxTier;
-            onSetQuality(next);
-            toast(!hasUpgrade && quality === 1 ? t("pr.qualityLocked") : t("pr.qualitySet", QUALITIES[next]));
-          }}
-        >
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Volume2 size={15} /></div>
-          <div className="flex-1">
-            <div className="text-sm" style={{ fontFamily: F.b }}>{t("pr.quality")}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: quality === 0 ? "color-mix(in srgb, var(--fg) 40%, transparent)" : "#34d399", fontFamily: F.m }}>{quality === 0 ? t("pr.compressed") : t("pr.lossless")}</div>
-          </div>
-          {!hasUpgrade && <Lock size={12} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />}
-          <div className="text-xs px-2.5 py-1 rounded-full" style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>{QUALITIES[quality]}</div>
-        </motion.div>
-
-        {/* Blend */}
-        <div className="rounded-2xl overflow-hidden" style={GLASS}>
-          <motion.div whileTap={{ scale: 0.99 }} className="flex items-center gap-3 px-4 py-3.5 cursor-pointer" onClick={() => setBlendOpen(o => !o)}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Users size={15} /></div>
-            <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.blendRow")}</div>
-            <motion.div animate={{ rotate: blendOpen ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
-          </motion.div>
+        {/* Друзья и Созвук */}
+        <div className="myra-card-quiet rounded-2xl overflow-hidden">
+          <AccordionTrigger icon={Users} accent={ACCENT_FRIENDS} label={t("pr.blendRow")} open={blendOpen} onClick={() => setBlendOpen(o => !o)} />
           <AnimatePresence>
             {blendOpen && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
@@ -1443,38 +1379,68 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           </AnimatePresence>
         </div>
 
-        {/* Язык — реально переключает интерфейс */}
-        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Globe size={15} /></div>
-          <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.lang")}</div>
-          <div className="flex gap-1 p-1 rounded-full" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
-            {(["ru", "en"] as Lang[]).map(l => (
-              <span key={l} className="relative px-2.5 py-1 rounded-full text-[11px] font-bold uppercase" style={{ fontFamily: F.m, color: lang === l ? "#fff" : "color-mix(in srgb, var(--fg) 40%, transparent)" }}>
-                {lang === l && <motion.span layoutId="langpill" className="absolute inset-0 rounded-full" style={{ background: c2 }} transition={SPRING} />}
-                <span className="relative z-10">{l}</span>
-              </span>
-            ))}
-          </div>
-        </motion.div>
+        <SectionLabel>{t("pr.sectionApp")}</SectionLabel>
 
-        <motion.div whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={GLASS} onClick={onOpenAccount}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}><Settings size={15} /></div>
-          <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("pr.account")}</div>
-          <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-        </motion.div>
+        <StatusCard
+          icon={Volume2}
+          accent={ACCENT_QUALITY}
+          label={t("pr.quality")}
+          statusText={quality === 0 ? t("pr.compressed") : t("pr.lossless")}
+          statusColor={quality === 0 ? "color-mix(in srgb, var(--fg) 40%, transparent)" : "#34d399"}
+          valueChip={QUALITIES[quality]}
+          locked={!hasUpgrade}
+          onClick={() => {
+            // Free: цикл AAC ↔ FLAC (Hi-Res — привилегия апгрейда). Ранний
+            // return здесь раньше вообще блокировал клик с дефолтного FLAC —
+            // Free-пользователь не мог даже вернуться на экономный AAC
+            const maxTier = hasUpgrade ? QUALITIES.length : 2;
+            const next = (quality + 1) % maxTier;
+            onSetQuality(next);
+            toast(!hasUpgrade && quality === 1 ? t("pr.qualityLocked") : t("pr.qualitySet", QUALITIES[next]));
+          }}
+        />
+
+        {/* Язык — реально переключает интерфейс */}
+        <SegmentedSetting
+          icon={Globe}
+          accent={ACCENT_LANG}
+          label={t("pr.lang")}
+          options={[{ value: "ru", label: "ru" }, { value: "en", label: "en" }]}
+          value={lang}
+          onChange={v => setLang(v as Lang)}
+        />
+
+        {/* Аккордеон реальных настроек */}
+        <div className="myra-card-quiet rounded-2xl overflow-hidden">
+          <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} />
+          <AnimatePresence>
+            {settingsOpen && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+                <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
+                  <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
+                    <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
+                  </SettingRow>
+                  {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения.
+                      Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
+                  <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
+                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+                      {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
+                    </div>
+                  </SettingRow>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <SectionLabel>{t("pr.sectionSecurity")}</SectionLabel>
 
         {/* Панель разработчика — появляется после 7 тапов по аватару */}
         {devMode && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.99 }} className="myra-profile-row flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer" style={{ ...GLASS, border: "1px solid rgba(244,114,182,0.35)" }} onClick={onOpenDevPanel}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(244,114,182,0.12)" }}><Wrench size={15} style={{ color: "#f472b6" }} /></div>
-            <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("dev.row")}</div>
-            <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
-          </motion.div>
+          <NavigationCard icon={Wrench} accent="#f472b6" label={t("dev.row")} onClick={onOpenDevPanel} accentBorder />
         )}
 
-        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setLogoutQ(true)} className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl mt-2 text-sm font-medium" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.18)", color: "#f87171", fontFamily: F.b }}>
-          <LogOut size={14} /> {t("pr.logout")}
-        </motion.button>
+        <DestructiveButton label={t("pr.logoutRow")} onClick={() => setLogoutQ(true)} />
       </div>
 
       <ConfirmSheet
@@ -1497,15 +1463,193 @@ function SettingRow({ icon, label, sub, children }: { icon: React.ReactNode; lab
       <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>{icon}</div>
       <div className="flex-1">
         <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
-        {sub && <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)", fontFamily: F.m }}>{sub}</div>}
+        {/* Обычный (не монопространственный) шрифт — полное предложение в
+            моноширинном IBM Plex Mono читалось как искусственно разрежённое */}
+        {sub && <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{sub}</div>}
       </div>
       {children}
     </div>
   );
 }
 
-function Mic2Icon() {
-  return <Mic2 size={12} />;
+// ─── Профиль: карточки-примитивы ──────────────────────────────────────────────
+// Раньше каждый пункт профиля был одинаковой GLASS-строкой с одной и той же
+// иконкой-контейнером и стрелкой — иерархии не было. Ниже — набор карточек с
+// разным характером (навигация / статус / сегмент / прогресс / сводка
+// аккаунта / опасное действие), собранных на общем IconBadge и Surface-тоне
+
+/** Единый значок иконки: 44px, мягкий квадрат, тонкая граница, лёгкий
+    внутренний glow под акцентный цвет — гасится в fx-simple через CSS */
+function IconBadge({ icon: Icon, accent, size = 15 }: { icon: LucideIcon; accent: string; size?: number }) {
+  return (
+    <div className="myra-icon-badge flex-shrink-0" style={{ "--icon-accent": accent } as React.CSSProperties}>
+      <Icon size={size} />
+    </div>
+  );
+}
+
+/** Небольшой вторичный заголовок группы пунктов (Мой профиль/Приложение/Безопасность) */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <span className="myra-section-label">{children}</span>;
+}
+
+/** Строка-навигация к вложенному экрану/шторке — иконка, название, описание, стрелка.
+    Настоящая кнопка (не div), чтобы работала клавиатура и screen reader */
+function NavigationCard({ icon, accent, label, sub, onClick, trailing, ariaLabel, accentBorder }: {
+  icon: LucideIcon; accent: string; label: string; sub?: string; onClick: () => void;
+  trailing?: React.ReactNode; ariaLabel?: string; accentBorder?: boolean;
+}) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.99 }}
+      onClick={onClick}
+      aria-label={ariaLabel ?? label}
+      className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left"
+      style={accentBorder ? { borderColor: `${accent}59` } : undefined}
+    >
+      <IconBadge icon={icon} accent={accent} />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
+        {sub && <div className="text-xs mt-0.5 truncate" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{sub}</div>}
+      </div>
+      {trailing ?? <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} className="flex-shrink-0" />}
+    </motion.button>
+  );
+}
+
+/** Триггер аккордеона (Настройки/Друзья) — та же оболочка, что у NavigationCard,
+    но со стрелкой-индикатором раскрытия вместо перехода на другой экран */
+function AccordionTrigger({ icon, accent, label, open, onClick }: {
+  icon: LucideIcon; accent: string; label: string; open: boolean; onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} aria-expanded={open} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+      <IconBadge icon={icon} accent={accent} />
+      <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{label}</div>
+      <motion.div animate={{ rotate: open ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
+    </button>
+  );
+}
+
+/** Карточка-статус (Качество звука) — текущее состояние + бейдж значения вместо
+    обычной стрелки-перехода */
+function StatusCard({ icon, accent, label, statusText, statusColor, valueChip, locked, onClick }: {
+  icon: LucideIcon; accent: string; label: string; statusText: string; statusColor: string;
+  valueChip: string; locked?: boolean; onClick: () => void;
+}) {
+  return (
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+      <IconBadge icon={icon} accent={accent} />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
+        <div className="text-xs mt-0.5" style={{ color: statusColor, fontFamily: F.b }}>{statusText}</div>
+      </div>
+      {locked && <Lock size={12} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} className="flex-shrink-0" />}
+      <span className="text-xs px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: `${accent}1e`, color: accent, fontFamily: F.m }}>{valueChip}</span>
+    </motion.button>
+  );
+}
+
+/** Сегментированный переключатель (Язык) — role="radiogroup"/"radio" вместо
+    голых div/span, туч-таргеты растянуты до 44px без раздувания видимой пилюли */
+function SegmentedSetting({ icon, accent, label, options, value, onChange }: {
+  icon: LucideIcon; accent: string; label: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="myra-card-quiet flex items-center gap-3 px-4 py-3.5 rounded-2xl">
+      <IconBadge icon={icon} accent={accent} />
+      <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{label}</div>
+      <div role="radiogroup" aria-label={label} className="flex gap-1 p-1 rounded-full flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 06%, transparent)" }}>
+        {options.map(o => (
+          <button
+            key={o.value}
+            role="radio"
+            aria-checked={value === o.value}
+            onClick={() => onChange(o.value)}
+            className="relative rounded-full text-[11px] font-bold uppercase flex items-center justify-center flex-shrink-0"
+            style={{ fontFamily: F.m, color: value === o.value ? "#fff" : "color-mix(in srgb, var(--fg) 40%, transparent)", minWidth: 44, minHeight: 44, padding: "0 10px" }}
+          >
+            {value === o.value && <motion.span layoutId="langpill" className="absolute inset-0 rounded-full" style={{ background: accent }} transition={SPRING} />}
+            <span className="relative z-10">{o.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Карточка прогресса (Достижения) — вместо голого текста «Открыто X из Y»
+    настоящая полоса прогресса, посчитанная из тех же done/total */
+function ProgressCard({ icon, accent, label, done, total, onClick }: {
+  icon: LucideIcon; accent: string; label: string; done: number; total: number; onClick: () => void;
+}) {
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  return (
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+      <IconBadge icon={icon} accent={accent} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
+          <div className="text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{done}/{total}</div>
+        </div>
+        <div className="myra-progress-track mt-2" style={{ "--icon-accent": accent } as React.CSSProperties} role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
+          <div className="myra-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} className="flex-shrink-0" />
+    </motion.button>
+  );
+}
+
+/** Сводная карточка аккаунта — заменяет собой и старую hero-плашку, и
+    отдельную строку «Аккаунт»: аватар/имя/хендл/бейджи (роль, Pro/Plus,
+    меценат, разработчик) + единственное действие «Управление аккаунтом» */
+function AccountSummaryCard({ c2, avatar, userName, handle, roleIcon: RoleIcon, badges, onAvatarTap, onManage, manageLabel }: {
+  c2: string; avatar: string; userName: string; handle: string; roleIcon: LucideIcon;
+  badges: { icon: LucideIcon; label: string; c: string }[];
+  onAvatarTap: () => void; onManage: () => void; manageLabel: string;
+}) {
+  return (
+    <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+      <DetailBackdrop variant="soft" accent={c2} />
+      <span className="myra-page-eyebrow">MYRA PROFILE</span>
+      <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
+        <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />
+        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c2}, ${c2}aa)` }}>
+          <RoleIcon size={12} style={{ color: "#fff" }} />
+        </div>
+      </motion.div>
+      <div className="myra-profile-name">{userName}</div>
+      <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
+      {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик»;
+          это и есть честный «статус подписки/аккаунта» — без выдуманных полей */}
+      <div className="myra-profile-badges">
+        {badges.map(b => {
+          const Icon = b.icon;
+          return (
+            <span key={b.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: `${b.c}1c`, border: `1px solid ${b.c}44`, color: b.c, fontFamily: F.b }}>
+              <Icon size={12} /> {b.label}
+            </span>
+          );
+        })}
+      </div>
+      <motion.button whileTap={{ scale: 0.97 }} onClick={onManage} className="flex items-center gap-2 mt-5 mx-auto px-5 py-3 rounded-full text-xs font-semibold" style={{ minHeight: 44, background: "color-mix(in srgb, var(--wash) 08%, transparent)", border: "1px solid color-mix(in srgb, var(--wash) 14%, transparent)", color: "var(--fg)", fontFamily: F.b }}>
+        <CircleUserRound size={14} style={{ color: c2 }} />
+        {manageLabel}
+        <ChevronRight size={13} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
+      </motion.button>
+    </div>
+  );
+}
+
+/** Кнопка опасного действия (Выйти) — ниже контентных карточек, с
+    подтверждением (см. ConfirmSheet в ProfileScreen), не перегружена свечением */
+function DestructiveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <motion.button whileTap={{ scale: 0.98 }} onClick={onClick} aria-label={label} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl mt-2 text-sm font-medium" style={{ minHeight: 44, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.22)", color: "#f87171", fontFamily: F.b }}>
+      <LogOut size={14} /> {label}
+    </motion.button>
+  );
 }
 
 // ─── Вывод средств артиста ────────────────────────────────────────────────────
