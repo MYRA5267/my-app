@@ -590,8 +590,13 @@ function AppInner() {
   // Тоже строго до раннего return ниже — иначе на первом рендере (onboarded
   // ещё false) этот хук не вызывается, а на следующем начинает вызываться,
   // и React падает с "Rendered more hooks than during the previous render"
+  // Лимит 10 (не 8): «Для тебя» (0-6) и «Продолжить» (6-10) на Главной берут
+  // непересекающиеся срезы одного списка — раньше их срезы (0-6 и 2-8)
+  // частично совпадали, и один трек мог показываться в обеих секциях сразу.
+  // Демо-каталог маленький (8 треков), поэтому «Продолжить» честно короче
+  // без загруженных треков — это ограничение размера каталога, не баг
   const recommendations = useMemo(
-    () => smartRecommendations(queue, likedIds, followed, currentTrack.id, lang, 8),
+    () => smartRecommendations(queue, likedIds, followed, currentTrack.id, lang, 10),
     [queue, likedIds, followed, currentTrack.id, lang],
   );
 

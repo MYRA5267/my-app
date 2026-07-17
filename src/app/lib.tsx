@@ -435,7 +435,7 @@ export type AudioApi = ReturnType<typeof useAudio>;
 export function TiltCard({ children, className, style, max = 9, onClick }: {
   children: React.ReactNode; className?: string; style?: React.CSSProperties; max?: number; onClick?: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const raf = useRef(0);
   const pos = useRef({ rx: 0, ry: 0, active: false });
 
@@ -464,17 +464,24 @@ export function TiltCard({ children, className, style, max = 9, onClick }: {
 
   useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); }, []);
 
+  // button, а не div, когда карточка кликабельна (все текущие вызовы передают
+  // onClick) — раньше все TiltCard-карточки во всём приложении (Библиотека,
+  // Обзор, Студия, Главная) были недоступны с клавиатуры/screen reader.
+  // "block w-full text-left" воспроизводит блочное поведение div внутри
+  // grid/flex-контейнеров — иначе button своим inline-block сжался бы по контенту
+  const Tag = onClick ? "button" : "div";
   return (
-    <div
-      ref={ref}
-      className={className}
+    <Tag
+      ref={ref as any}
+      type={onClick ? "button" : undefined}
+      className={`${className ?? ""}${onClick ? " block w-full text-left" : ""}`}
       onClick={onClick}
       onPointerMove={onMove}
       onPointerLeave={() => { pos.current = { rx: 0, ry: 0, active: false }; schedule(); }}
       style={{ ...style, transformStyle: "preserve-3d" }}
     >
       {children}
-    </div>
+    </Tag>
   );
 }
 

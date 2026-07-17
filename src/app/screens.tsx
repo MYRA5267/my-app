@@ -5,7 +5,7 @@ import {
   Zap, Radio, Moon, Dumbbell, Car, Brain, LogOut, TrendingUp, Wallet,
   Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
-  SlidersHorizontal, CircleUserRound, type LucideIcon,
+  SlidersHorizontal, CircleUserRound, Cast, ChevronDown, type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -391,7 +391,9 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
             <Bell size={16} />
             {hasUnread && <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full" style={{ background: currentTrack.c2 }} />}
           </motion.button>
-          <motion.img whileTap={{ scale: 0.9 }} src={avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover cursor-pointer" style={{ border: `1.5px solid ${currentTrack.c2}66` }} onClick={() => onNavigate("profile")} />
+          <motion.button whileTap={{ scale: 0.9 }} aria-label={t("nav.profile")} className="w-10 h-10 rounded-full flex-shrink-0" onClick={() => onNavigate("profile")}>
+            <img src={avatar} alt="" className="w-10 h-10 rounded-full object-cover" style={{ border: `1.5px solid ${currentTrack.c2}66` }} />
+          </motion.button>
           <AnimatePresence>
             {notifOpen && (
               <motion.div
@@ -524,16 +526,18 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         <DiscoveryDeck onPlay={onPlay} onLike={onLikeTrack} tracks={recommendations.map(item => item.track)} />
       </div>
 
-      {/* Релизы сообщества — реальные треки реальных пользователей MYRA */}
+      {/* Релизы сообщества — реальные треки реальных пользователей MYRA.
+          Список PremiumTrackRow, а не та же сетка ReleaseCard, что и «Для тебя»
+          чуть выше: секции подряд не должны выглядеть одинаковой каруселью */}
       {supabaseEnabled && communityTracks.length > 0 && (
         <div className="myra-content-section px-5 mb-8">
           <SectionHeading title={t("home.community")} />
-          <div className="myra-release-grid">
+          <div className="flex flex-col gap-1">
             {communityTracks.map(row => {
               const artistName = row.profiles?.username ?? "?";
               const tr = trackFromRow(row, artistName);
               return (
-                <ReleaseCard
+                <PremiumTrackRow
                   key={row.id}
                   track={tr}
                   active={currentTrack.id === tr.id}
@@ -580,11 +584,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
       {/* Совместные комнаты — настоящий MVP на Supabase Realtime (см. rooms.tsx):
           вместо демо-ленты фейковых "друзей" (FRIENDS всегда пустой массив) —
-          рабочая кнопка входа в реальную синхронную комнату */}
+          рабочая кнопка входа в реальную синхронную комнату. Иконка Cast (не
+          Radio — тот уже занят «Течением» в быстрых действиях выше, а это
+          принципиально другая функция: совместное прослушивание, а не радио) */}
       <div className="px-5 mb-8">
         <button onClick={onOpenRooms} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-            <Radio size={15} style={{ color: currentTrack.c2 }} />
+            <Cast size={15} style={{ color: currentTrack.c2 }} />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("room.entry")}</div>
@@ -593,11 +599,13 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
         </button>
       </div>
 
-      {/* Продолжить */}
+      {/* Продолжить — срез (6, 10), а не (2, 8): раньше он пересекался с «Для
+          тебя» (0, 6), и один и тот же трек мог оказаться в обеих секциях сразу.
+          На маленьком демо-каталоге секция честно короче без загруженных треков */}
       <div className="myra-content-section px-5 mb-6">
         <SectionHeading title={t("home.continue")} action={t("home.all")} onAction={() => onNavigate("library")} />
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {recommendations.slice(2, 8).map(({ track: tr }) => (
+          {recommendations.slice(6, 10).map(({ track: tr }) => (
             <motion.div key={tr.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
               <div className="relative w-full rounded-[18px] overflow-hidden mb-2" style={{ aspectRatio: "1", boxShadow: currentTrack.id === tr.id ? `0 10px 34px ${tr.c2}50` : "0 6px 20px rgba(0,0,0,0.35)" }}>
                 <img src={tr.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -655,7 +663,7 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
             className="flex-1 bg-transparent outline-none"
             style={{ color: "var(--fg)", fontFamily: F.b }}
           />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={16} /></button>}
+          {query && <button onClick={() => setQuery("")} aria-label={t("a11y.clear")}><X size={16} /></button>}
         </div>
       </header>
 
@@ -692,9 +700,10 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
             <SectionHeading title={t("browse.trending")} sub={t("browse.chart")} />
             <div className="myra-chart-list">
             {CHARTS.map((c, i) => (
-              <div
+              <button
                 key={c.pos}
-                className="myra-chart-row flex items-center gap-3 cursor-pointer"
+                className="myra-chart-row flex items-center gap-3 w-full text-left"
+                aria-label={`${c.title} — ${c.artist}`}
                 onClick={() => onPlay({ ...TRACKS[(c.pos + 1) % TRACKS.length], id: c.pos + 100, title: c.title, artist: c.artist, album: "Charts", img: c.img })}
               >
                 <div className="w-7 text-center font-bold text-sm" style={{ color: c.pos <= 3 ? "#a78bfa" : "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{c.pos}</div>
@@ -708,7 +717,7 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
                 <div className="text-[11px] px-2 py-1 rounded-full font-semibold" style={{ fontFamily: F.m, color: c.delta > 0 ? "#34d399" : c.delta < 0 ? "#f87171" : "color-mix(in srgb, var(--fg) 30%, transparent)", background: c.delta > 0 ? "rgba(52,211,153,0.1)" : c.delta < 0 ? "rgba(248,113,113,0.1)" : "color-mix(in srgb, var(--wash) 05%, transparent)" }}>
                   {c.delta > 0 ? `+${c.delta}` : c.delta < 0 ? c.delta : "—"}
                 </div>
-              </div>
+              </button>
             ))}
             </div>
           </div>
@@ -813,27 +822,48 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
         <div className="myra-content-section px-5 pb-6">
           <SectionHeading title={t("rt.leaderboardTitle")} />
           <div className="myra-rating-list flex flex-col gap-1.5">
-            {rows.map((u, i) => (
-              <motion.div
-                key={u.you ? "you" : u.name}
-                layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileTap={u.you ? undefined : { scale: 0.98 }}
-                transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
-                className={`myra-rating-row${u.you ? " is-you" : ""}`}
-                onClick={() => { if (!u.you) onOpenPeer(u); }}
-              >
-                <div className="myra-rating-row-rank">{i + 1}</div>
-                <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
-                <div className="myra-rating-row-copy">
-                  <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
-                  <span>{valueFor(u)}</span>
-                </div>
-                {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
-                {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
-              </motion.div>
-            ))}
+            {rows.map((u, i) => {
+              // "Ты" — не кликабельная строка (некуда переходить), поэтому div;
+              // остальные строки реально открывают профиль соперника — button,
+              // а не div с onClick, чтобы работали клавиатура и screen reader
+              const rowContent = (
+                <>
+                  <div className="myra-rating-row-rank">{i + 1}</div>
+                  <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
+                  <div className="myra-rating-row-copy">
+                    <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
+                    <span>{valueFor(u)}</span>
+                  </div>
+                  {i < 3 && <Crown size={16} style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#fb923c", flexShrink: 0 }} />}
+                  {!u.you && <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 25%, transparent)", flexShrink: 0 }} />}
+                </>
+              );
+              return u.you ? (
+                <motion.div
+                  key="you"
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                  className="myra-rating-row is-you"
+                >
+                  {rowContent}
+                </motion.div>
+              ) : (
+                <motion.button
+                  key={u.name}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ delay: Math.min(i, 8) * 0.03, layout: SPRING }}
+                  className="myra-rating-row w-full text-left"
+                  onClick={() => onOpenPeer(u)}
+                >
+                  {rowContent}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
 
@@ -898,12 +928,12 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
       <div className="myra-library-search mx-5 mb-5">
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("lib.search")} />
-        {query && <button onClick={() => setQuery("")} aria-label="Clear"><X size={15} /></button>}
+        {query && <button onClick={() => setQuery("")} aria-label={t("a11y.clear")}><X size={15} /></button>}
       </div>
 
-      <div className="myra-library-tabs flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit">
+      <div role="tablist" aria-label={t("nav.library")} className="myra-library-tabs flex gap-1 mx-5 mb-6 p-1 rounded-full w-fit">
         {TABS.map(tb => (
-          <button key={tb.id} onClick={() => setTab(tb.id)} className="relative px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: tab === tb.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
+          <button key={tb.id} role="tab" aria-selected={tab === tb.id} onClick={() => setTab(tb.id)} className="relative px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap" style={{ fontFamily: F.b, color: tab === tb.id ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)" }}>
             {tab === tb.id && <motion.div layoutId="libtab" className="absolute inset-0 rounded-full" style={{ background: `${currentTrack.c2}cc` }} transition={SPRING} />}
             <span className="relative z-10">{tb.label}</span>
           </button>
@@ -923,7 +953,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                     className="hidden"
                     onChange={e => { if (e.target.files?.length) { onUploadFiles(e.target.files); e.target.value = ""; } }}
                   />
-                  <motion.div whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer mb-2" style={GLASS}>
+                  <motion.button whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="w-full flex items-center gap-3 p-3.5 rounded-2xl text-left mb-2" style={GLASS}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
                       <Upload size={16} style={{ color: currentTrack.c2 }} />
                     </div>
@@ -931,7 +961,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                       <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("cr.uploadTrack")}</div>
                       <div className="text-xs mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("cr.uploadTrackSub")}</div>
                     </div>
-                  </motion.div>
+                  </motion.button>
                 </>
               )}
               {visibleLocal.map(tr => (
@@ -942,7 +972,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   playing={playing}
                   onPlay={onPlay}
                   trailing={onDeleteLocal && (
-                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onDeleteLocal(tr.id)} className="myra-row-icon-button" aria-label="Delete">
+                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onDeleteLocal(tr.id)} className="myra-row-icon-button" aria-label={t("a11y.delete")}>
                       <Trash2 size={15} />
                     </motion.button>
                   )}
@@ -957,7 +987,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   onPlay={onPlay}
                   onArtist={onOpenArtist}
                   trailing={(
-                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => onLike(tr.id)} className="myra-row-icon-button" aria-label="Unlike">
+                    <motion.button whileTap={{ scale: 0.75 }} onClick={() => onLike(tr.id)} className="myra-row-icon-button" aria-label={t("a11y.unlike")}>
                       <Heart size={16} fill={tr.c2} stroke={tr.c2} />
                     </motion.button>
                   )}
@@ -994,7 +1024,8 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={e => { e.stopPropagation(); onDeletePlaylist?.(pl.id); }}
-                        className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={t("a11y.deletePlaylist")}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                         style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
                       >
                         <Trash2 size={14} style={{ color: "#f87171" }} />
@@ -1087,8 +1118,9 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
 
       <section className="myra-content-section px-5 mb-7">
         {/* Хиро-карточка прослушиваний — та же тёмная стеклянная поверхность
-            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки */}
-        <div className="myra-creator-hero" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
+            со свечением, что у Home/Release-карточек, вместо плоской GLASS-плашки.
+            button, а не div: карточка кликабельна (открывает статистику) */}
+        <button className="myra-creator-hero w-full text-left" style={{ "--creator-accent": c2 } as React.CSSProperties} onClick={openStatsGated}>
           <div className="myra-creator-hero-top">
             <div>
               <span className="myra-creator-hero-label">{t("cr.plays7")}</span>
@@ -1104,7 +1136,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           <div className="myra-creator-hero-days">
             {WEEKDAYS.map(d => <span key={d}>{d}</span>)}
           </div>
-        </div>
+        </button>
 
         {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
             общая стеклянная плашка с разделителями между колонками вместо трёх
@@ -1133,10 +1165,17 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           className="hidden"
           onChange={e => { if (e.target.files?.length) { onStartRelease(e.target.files); e.target.value = ""; } }}
         />
+        {/* Остаётся div (не button) — должен принимать onDrop/onDragOver;
+            role="button"+tabIndex+onKeyDown добавляют доступность с клавиатуры
+            для клика-по-выбору-файла, который раньше работал только мышью/тачем */}
         <div
           className="myra-creator-dropzone"
+          role="button"
+          tabIndex={0}
+          aria-label={t("cr.dropFile")}
           style={{ ...GLASS, border: dragOver ? `1.5px dashed ${c2}` : "1.5px dashed color-mix(in srgb, var(--wash) 16%, transparent)", background: dragOver ? `${c2}14` : GLASS.background }}
           onClick={() => fileRef.current?.click()}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) onStartRelease(e.dataTransfer.files); }}
@@ -1320,6 +1359,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           label={t("pr.achievements")}
           done={achDone}
           total={achTotal}
+          progressText={t("ach.progress", achDone, achTotal)}
           onClick={onOpenAchievements}
         />
 
@@ -1346,10 +1386,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Друзья и Созвук */}
         <div className="myra-card-quiet rounded-2xl overflow-hidden">
-          <AccordionTrigger icon={Users} accent={ACCENT_FRIENDS} label={t("pr.blendRow")} open={blendOpen} onClick={() => setBlendOpen(o => !o)} />
+          <AccordionTrigger icon={Users} accent={ACCENT_FRIENDS} label={t("pr.blendRow")} open={blendOpen} onClick={() => setBlendOpen(o => !o)} panelId="pr-blend-panel" />
           <AnimatePresence>
             {blendOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+              <motion.div id="pr-blend-panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                 {FRIENDS.length === 0 ? (
                   <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)" }}>
                     <div className="flex-1">
@@ -1412,10 +1452,10 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
         {/* Аккордеон реальных настроек */}
         <div className="myra-card-quiet rounded-2xl overflow-hidden">
-          <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} />
+          <AccordionTrigger icon={SlidersHorizontal} accent={ACCENT_SETTINGS} label={t("pr.settingsGroup")} open={settingsOpen} onClick={() => setSettingsOpen(o => !o)} panelId="pr-settings-panel" />
           <AnimatePresence>
             {settingsOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+              <motion.div id="pr-settings-panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                 <div className="flex flex-col gap-1.5 px-2 pb-2" style={{ borderTop: "1px solid color-mix(in srgb, var(--wash) 06%, transparent)", paddingTop: 8 }}>
                   <SettingRow icon={<Zap size={15} />} label={t("pr.simpleFx")} sub={t("pr.simpleFxSub")}>
                     <Toggle on={simpleFx} onChange={() => { onToggleSimpleFx(); toast(simpleFx ? t("pr.simpleFxOff") : t("pr.simpleFxOn")); }} color={c2} />
@@ -1423,9 +1463,15 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
                   {/* Перелив (кроссфейд) переехал в плеер — к остальным настройкам воспроизведения.
                       Тема — цикл из трёх: неон открывается только с Plus/Pro, поэтому чип вместо тумблера */}
                   <SettingRow icon={theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Sparkles size={15} style={{ color: "#a5b4fc" }} />} label={t("pr.theme")}>
-                    <div className="text-xs px-2.5 py-1 rounded-full cursor-pointer" onClick={toggleTheme} style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}>
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      aria-label={`${t("pr.theme")}: ${theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}`}
+                      className="text-xs px-2.5 py-1 rounded-full"
+                      style={{ background: `${c2}1e`, color: c2, fontFamily: F.m }}
+                    >
                       {theme === "dark" ? t("pr.themeDark") : theme === "light" ? t("pr.themeLight") : t("pr.themeNeon")}
-                    </div>
+                    </button>
                   </SettingRow>
                 </div>
               </motion.div>
@@ -1519,14 +1565,17 @@ function NavigationCard({ icon, accent, label, sub, onClick, trailing, ariaLabel
 
 /** Триггер аккордеона (Настройки/Друзья) — та же оболочка, что у NavigationCard,
     но со стрелкой-индикатором раскрытия вместо перехода на другой экран */
-function AccordionTrigger({ icon, accent, label, open, onClick }: {
-  icon: LucideIcon; accent: string; label: string; open: boolean; onClick: () => void;
+function AccordionTrigger({ icon, accent, label, open, onClick, panelId }: {
+  icon: LucideIcon; accent: string; label: string; open: boolean; onClick: () => void; panelId: string;
 }) {
   return (
-    <button onClick={onClick} aria-expanded={open} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+    <button onClick={onClick} aria-expanded={open} aria-controls={panelId} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{label}</div>
-      <motion.div animate={{ rotate: open ? 90 : 0 }}><ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
+      {/* ChevronDown, а не ChevronRight: раскрывается на этой же странице, а
+          не переходит на другой экран — стрелка не должна повторять
+          NavigationCard, иначе аккордеон в закрытом виде от него не отличить */}
+      <motion.div animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} /></motion.div>
     </button>
   );
 }
@@ -1538,7 +1587,7 @@ function StatusCard({ icon, accent, label, statusText, statusColor, valueChip, l
   valueChip: string; locked?: boolean; onClick: () => void;
 }) {
   return (
-    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={`${label}: ${valueChip}`} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 min-w-0">
         <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
@@ -1580,19 +1629,21 @@ function SegmentedSetting({ icon, accent, label, options, value, onChange }: {
 
 /** Карточка прогресса (Достижения) — вместо голого текста «Открыто X из Y»
     настоящая полоса прогресса, посчитанная из тех же done/total */
-function ProgressCard({ icon, accent, label, done, total, onClick }: {
-  icon: LucideIcon; accent: string; label: string; done: number; total: number; onClick: () => void;
+function ProgressCard({ icon, accent, label, done, total, progressText, onClick }: {
+  icon: LucideIcon; accent: string; label: string; done: number; total: number; progressText: string; onClick: () => void;
 }) {
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   return (
-    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={label} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
+    <motion.button whileTap={{ scale: 0.99 }} onClick={onClick} aria-label={`${label}: ${progressText}`} className="myra-card-quiet w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left">
       <IconBadge icon={icon} accent={accent} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="text-sm" style={{ fontFamily: F.b }}>{label}</div>
           <div className="text-xs flex-shrink-0" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.m }}>{done}/{total}</div>
         </div>
-        <div className="myra-progress-track mt-2" style={{ "--icon-accent": accent } as React.CSSProperties} role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
+        {/* Отдельный aria-label на треке: скринридер должен получить понятное
+            описание прогресса ("Открыто 7 из 20"), а не голое aria-valuenow */}
+        <div className="myra-progress-track mt-2" style={{ "--icon-accent": accent } as React.CSSProperties} role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-valuetext={progressText} aria-label={progressText}>
           <div className="myra-progress-fill" style={{ width: `${pct}%` }} />
         </div>
       </div>
@@ -1619,8 +1670,8 @@ function AccountSummaryCard({ c2, avatar, userName, handle, roleIcon: RoleIcon, 
           <RoleIcon size={12} style={{ color: "#fff" }} />
         </div>
       </motion.div>
-      <div className="myra-profile-name">{userName}</div>
-      <div className="text-xs mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
+      <div className="myra-profile-name break-words">{userName}</div>
+      <div className="text-xs mt-1.5 break-words" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
       {/* Бейджи — эксклюзивные для роли + Pro/Plus, «Меценат» и «Разработчик»;
           это и есть честный «статус подписки/аккаунта» — без выдуманных полей */}
       <div className="myra-profile-badges">

@@ -7,6 +7,10 @@ export type Lang = "ru" | "en";
 const STR: Record<string, { ru: string; en: string }> = {
   // Общее — переиспользуется в разных шторках/экранах
   "sheet.close": { ru: "Закрыть", en: "Close" },
+  "a11y.clear":  { ru: "Очистить", en: "Clear" },
+  "a11y.delete": { ru: "Удалить", en: "Delete" },
+  "a11y.unlike": { ru: "Убрать из любимого", en: "Remove from favorites" },
+  "a11y.deletePlaylist": { ru: "Удалить плейлист", en: "Delete playlist" },
 
   // Навигация
   "nav.home":    { ru: "Главная",   en: "Home" },
