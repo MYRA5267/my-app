@@ -516,8 +516,8 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
       {/* Дека */}
       <div className="myra-content-section myra-discovery-section px-5 mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.discover")}</h2>
+        <div className="myra-section-heading" style={{ alignItems: "center" }}>
+          <h2>{t("home.discover")}</h2>
           <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)", fontFamily: F.m }}>{t("home.swipeHint")}</span>
         </div>
         <DiscoveryDeck onPlay={onPlay} onLike={onLikeTrack} tracks={recommendations.map(item => item.track)} />
@@ -551,9 +551,9 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           ниже, которая всегда на месте (просто пуста без бэкенда/приглашённых) */}
       {supabaseEnabled && (
         <div className="px-5 mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("soc.feedTitle")}</h2>
-            <button onClick={onOpenPeopleSearch} className="text-xs flex items-center gap-1" style={{ color: currentTrack.c2, fontFamily: F.b }}>
+          <div className="myra-section-heading" style={{ alignItems: "center" }}>
+            <h2>{t("soc.feedTitle")}</h2>
+            <button onClick={onOpenPeopleSearch} style={{ color: currentTrack.c2, fontFamily: F.b }}>
               <Search size={12} /> {t("soc.findPeople")}
             </button>
           </div>
@@ -594,10 +594,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
 
       {/* Продолжить */}
       <div className="myra-content-section px-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 style={{ fontFamily: F.d, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{t("home.continue")}</h2>
-          <button onClick={() => onNavigate("library")} className="text-xs flex items-center gap-0.5" style={{ color: currentTrack.c2, fontFamily: F.b }}>{t("home.all")} <ChevronRight size={13} /></button>
-        </div>
+        <SectionHeading title={t("home.continue")} action={t("home.all")} onAction={() => onNavigate("library")} />
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
           {recommendations.slice(2, 8).map(({ track: tr }) => (
             <motion.div key={tr.id} whileTap={{ scale: 0.95 }} className="flex-shrink-0 cursor-pointer group" style={{ width: 108 }} onClick={() => onPlay(tr)}>
@@ -877,8 +874,11 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
 
   return (
     <Page className="myra-experience-page myra-library-page">
-      <header className="myra-library-header px-5 pt-7 pb-5 flex items-start justify-between">
-        <div>
+      <header className="myra-library-header relative px-5 pt-7 pb-5 flex items-start justify-between" style={{ overflow: "hidden" }}>
+        {/* Очень слабый фирменный свет только в заголовке — списки ниже без
+            тяжёлых фоновых эффектов (см. план, раздел 6) */}
+        <DetailBackdrop variant="soft" accent={currentTrack.c2} active={playing} />
+        <div className="relative z-10">
           <span className="myra-page-eyebrow">MYRA COLLECTION</span>
           <h1>{t("nav.library")}</h1>
           <p>{t("lib.subtitle")}</p>
@@ -1267,6 +1267,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           теперь живут в собственной карточке со свечением под цвет текущего трека,
           а не голым текстом на фоне страницы (тот же язык, что у hero Главной) */}
       <div className="myra-content-section myra-profile-hero mx-5 mt-6 mb-6 px-5 pt-8 pb-7 text-center" style={{ "--profile-accent": c2 } as React.CSSProperties}>
+        <DetailBackdrop variant="soft" accent={c2} />
         <span className="myra-page-eyebrow">MYRA PROFILE</span>
         <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING} className="relative inline-block mt-1" onClick={onAvatarTap}>
           <img src={avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover mx-auto" style={{ border: `2px solid ${c2}`, boxShadow: `0 0 40px ${c2}50` }} />

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, REPORT_REASONS, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, Sheet, ConfirmSheet, Aurora, TiltCard, EQ, Toggle, copyText, genInviteCode, ON_DARK, onDark, THEMES, InteractiveChart } from "./lib";
+import { DetailBackdrop } from "./detail";
 import { useLang } from "./i18n";
 import { monthDays, splitAmountByShares, minutesOf, currentMonthKey, type ArtistShare } from "./stats";
 import { buildAchievements, ACHIEVEMENTS, type AchievementCounters } from "./achievements";
@@ -603,6 +604,9 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           оверлей поверх обложки + акцент альбома через CSS custom property */}
       <div className="myra-album-hero relative" style={{ "--album-accent": c2 } as React.CSSProperties}>
         <img src={cover.img} alt="" className="w-full h-full object-cover" />
+        {/* Ненавязчивый DETAIL поверх обложки — под тёмным градиентом (::after),
+            поэтому не спорит с реальным фото альбома, только добавляет свечение по краям */}
+        <DetailBackdrop variant="blur" accent={c2} active={playing} />
         <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>

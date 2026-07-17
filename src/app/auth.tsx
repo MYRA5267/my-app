@@ -3,8 +3,9 @@ import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
-import { F, GLASS, SPRING, Aurora, Waveform, useTheme } from "./lib";
+import { F, GLASS, SPRING, Waveform, useTheme } from "./lib";
 import { MyraWordmark } from "./logo";
+import { DetailBackdrop } from "./detail";
 import { useLang } from "./i18n";
 import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
 
@@ -138,7 +139,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
           style={{ filter: "var(--cover-filter)", transform: "scale(1.2)" }}
         />
       </AnimatePresence>
-      <Aurora c2={S.c2} opacity={0.55} />
+      <DetailBackdrop variant="soft" accent={S.c2} />
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
