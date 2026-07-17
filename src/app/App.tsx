@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, svgCover, LEADERBOARD_PEERS, LOCAL_PALETTE, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle, isWeakEnvironment, type ThemeName } from "./lib";
+import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark, deriveHandle } from "./lib";
+import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
+import { useSleepTimer } from "./useSleepTimer";
+import { useMediaSession } from "./useMediaSession";
 import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -88,45 +91,12 @@ function useEverOpened(open: boolean) {
 function AppInner() {
   const { t, lang } = useLang();
 
-  const [theme, setTheme] = useState<ThemeName>(() => ls.get<ThemeName>("theme", "dark"));
   // Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): цикл тем
   // включает его только при активной подписке, иначе честный тост вместо темы
   const neonAllowedRef = useRef(false);
-  const toggleTheme = useCallback(() => {
-    setTheme(th => {
-      let next: ThemeName = th === "dark" ? "light" : th === "light" ? "neon" : "dark";
-      if (next === "neon" && !neonAllowedRef.current) {
-        toast(t("pr.themeLocked"));
-        next = "dark";
-      }
-      ls.set("theme", next);
-      return next;
-    });
-  }, [t]);
-
-  // Упрощённая графика: слабые Android-устройства (и любой Android WebView —
-  // у него компоновка backdrop-filter объективно хуже Chrome, независимо от
-  // мощности процессора) роняют слои композитора — мигающие/пропадающие
-  // элементы под грузом backdrop-filter и блюров
-  const [simpleFx, setSimpleFxState] = useState(() => {
-    // Явный выбор пользователя всегда важнее автоэвристики
-    try { if (localStorage.getItem("myra.simpleFx") !== null) return ls.get("simpleFx", false); } catch { /* приватный режим */ }
-    return isWeakEnvironment();
-  });
-  const toggleSimpleFx = useCallback(() => {
-    setSimpleFxState((s: boolean) => { ls.set("simpleFx", !s); return !s; });
-  }, []);
-
-  // Десктопный сайдбар маунтится только на широких экранах: hidden lg:flex
-  // прятал его CSS-ом, но React-поддерево (со своей волной и rAF-циклом)
-  // продолжало жить и работать вхолостую на каждом телефоне
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const on = () => setIsDesktop(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
+  const { theme, setTheme, toggleTheme } = useThemeCycle(neonAllowedRef);
+  const { simpleFx, toggleSimpleFx } = useSimpleFx();
+  const isDesktop = useIsDesktop();
 
   const [crossfade, setCrossfade] = useState(() => ls.get("crossfade", true));
   const fadeRef = useRef(crossfade);
@@ -269,7 +239,6 @@ function AppInner() {
   const openWrapped = useCallback(() => setWrappedOpen(true), []);
   const openStats = useCallback(() => setStatsOpen(true), []);
   const [roomOpen, setRoomOpen] = useState(false);
-  const [sleepLeft, setSleepLeft] = useState<number | null>(null);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
 
   const [downloads, setDownloads] = useState<Map<number, string>>(new Map());
@@ -458,6 +427,7 @@ function AppInner() {
   const loadedRef = useRef(false);
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
+  const { sleepLeft, handleSleep } = useSleepTimer(audio.pause);
 
   // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI.
   // Hi-Res (индекс 2) — настоящая, а не только косметическая привилегия Pro/Plus:
@@ -658,74 +628,17 @@ function AppInner() {
   const handleNext = useCallback(() => step(1), [step]);
   const handlePrev = useCallback(() => step(-1), [step]);
 
-  // ─── Media Session: управление из шторки уведомлений и с локскрина ─────────
-  // Телефон показывает "сейчас играет" с обложкой и кнопками системно — без
-  // этого музыка из MYRA жила только внутри открытого приложения. Обработчики
-  // через ref: сами колбэки пересоздаются, а системе нужны живые ссылки
-  const mediaCtlRef = useRef({ toggle: () => {}, next: () => {}, prev: () => {}, seek: (_pct: number) => {}, duration: 0 });
-  useEffect(() => {
-    mediaCtlRef.current = { toggle: togglePlay, next: handleNext, prev: handlePrev, seek: audio.seek, duration: audio.duration };
-  }, [togglePlay, handleNext, handlePrev, audio.seek, audio.duration]);
-
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return; // старые WebView — просто без системной карточки
-    const ms = navigator.mediaSession;
-    ms.setActionHandler("play", () => mediaCtlRef.current.toggle());
-    ms.setActionHandler("pause", () => mediaCtlRef.current.toggle());
-    ms.setActionHandler("nexttrack", () => mediaCtlRef.current.next());
-    ms.setActionHandler("previoustrack", () => mediaCtlRef.current.prev());
-    // seekto — скраббер на локскрине/шторке уведомлений; без хендлера он есть,
-    // но не двигает воспроизведение. Не все системы шлют его — оборачиваем в try
-    try {
-      ms.setActionHandler("seekto", (details) => {
-        const dur = mediaCtlRef.current.duration;
-        if (details.seekTime == null || !dur) return;
-        mediaCtlRef.current.seek((details.seekTime / dur) * 100);
-      });
-    } catch {
-      // "seekto" не поддержан этой платформой — остальные экшены всё равно работают
-    }
-    return () => {
-      ms.setActionHandler("play", null);
-      ms.setActionHandler("pause", null);
-      ms.setActionHandler("nexttrack", null);
-      ms.setActionHandler("previoustrack", null);
-      try { ms.setActionHandler("seekto", null); } catch { /* см. выше */ }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title,
-      artist: currentTrack.artist,
-      album: currentTrack.album,
-      // Обложки — data-URI (svg/png), системная карточка Android их понимает
-      artwork: [{ src: currentTrack.img, sizes: "500x500" }],
-    });
-  }, [currentTrack]);
-
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    navigator.mediaSession.playbackState = audio.playing ? "playing" : "paused";
-  }, [audio.playing]);
-
-  // Позиция для системного скраббера — без неё локскрин либо не показывает
-  // прогресс, либо показывает статичный. duration=0 (трек ещё грузится/sim-режим
-  // без реального файла) — setPositionState с нулевой длительностью кидает исключение
-  useEffect(() => {
-    if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
-    if (!audio.duration || !isFinite(audio.duration)) return;
-    try {
-      navigator.mediaSession.setPositionState({
-        duration: audio.duration,
-        position: Math.min((audio.progress / 100) * audio.duration, audio.duration),
-        playbackRate: 1,
-      });
-    } catch {
-      // позиция и длительность могут на мгновение разойтись при смене трека — не критично
-    }
-  }, [audio.duration, audio.progress]);
+  // Media Session — управление из шторки уведомлений и с локскрина (см. useMediaSession.ts)
+  useMediaSession({
+    currentTrack,
+    playing: audio.playing,
+    duration: audio.duration,
+    progress: audio.progress,
+    toggle: togglePlay,
+    next: handleNext,
+    prev: handlePrev,
+    seek: audio.seek,
+  });
 
   // «Прилив» (личный поток): умный подбор без повторов + причина выбора
   const likedRef = useRef(likedIds); likedRef.current = likedIds;
@@ -924,25 +837,6 @@ function AppInner() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  // Тик раз в 30 с, а не каждую секунду: UI показывает только минуты, а
-  // посекундный setState перерисовывал всё дерево (и пересоздавал интервал)
-  const sleepActive = sleepLeft !== null;
-  useEffect(() => {
-    if (!sleepActive) return;
-    const iv = setInterval(() => {
-      setSleepLeft(s => {
-        if (s === null) return null;
-        if (s <= 30) {
-          audio.pause();
-          toast(t("pl.sleepDone"));
-          return null;
-        }
-        return s - 30;
-      });
-    }, 30_000);
-    return () => clearInterval(iv);
-  }, [sleepActive, audio, t]);
-
   const toggleLike = useCallback((id: number) => {
     setLikedIds(prev => {
       const next = new Set(prev);
@@ -1090,10 +984,6 @@ function AppInner() {
     handleLogout();
     toast(t("acc.deleted"));
   }, [handleLogout, t, uid]);
-
-  const handleSleep = useCallback((minutes: number | null) => {
-    setSleepLeft(minutes === null ? null : minutes * 60);
-  }, []);
 
   // Тема оборачивает и онбординг, и приложение; Toaster общий
   const themedRoot = (children: React.ReactNode) => (
