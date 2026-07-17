@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, useAudio, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark } from "./lib";
+import { F, GLASS, SPRING, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark } from "./lib";
 import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
 import { useSleepTimer } from "./useSleepTimer";
 import { useMediaSession } from "./useMediaSession";
@@ -14,7 +14,8 @@ import { useLocalTracks } from "./useLocalTracks";
 import { useSocialLayer } from "./useSocialLayer";
 import { useSubscription } from "./useSubscription";
 import { useIdentity } from "./useIdentity";
-import { smartNext, smartRecommendations, pushHistory } from "./smart";
+import { usePlayerQueue } from "./usePlayerQueue";
+import { smartRecommendations } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -351,9 +352,17 @@ function AppInner() {
     logActivity("act.withdrawDone", amt);
   }, [logActivity]);
 
-  const loadedRef = useRef(false);
-  const nextRef = useRef<() => void>(() => {});
-  const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
+  // Реальный счётчик "начал слушать трек" — для профиля и (если это свой трек) студии
+  const registerPlay = useCallback((tr: Track) => {
+    setTotalPlays(bumpTotalPlays());
+    setStats(prev => markTrackPlayed(prev, tr.id));
+    if (tr.local) setMyPlays(logMyTrackPlay(tr.id));
+  }, []);
+
+  const {
+    audio, queue, shuffle, setShuffle, repeat, setRepeat,
+    playTrack, togglePlay, handleNext, handlePrev, playRadio, startWave,
+  } = usePlayerQueue({ currentTrack, setCurrentTrack, myTracks, resolveUrl, registerPlay, likedIds, followed, fadeRef });
   const { sleepLeft, handleSleep } = useSleepTimer(audio.pause);
 
   // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI.
@@ -404,74 +413,6 @@ function AppInner() {
     (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, roomOpen, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length, audio, qualityIdx };
   }
 
-  // Реальный счётчик "начал слушать трек" — для профиля и (если это свой трек) студии
-  const registerPlay = useCallback((tr: Track) => {
-    setTotalPlays(bumpTotalPlays());
-    setStats(prev => markTrackPlayed(prev, tr.id));
-    if (tr.local) setMyPlays(logMyTrackPlay(tr.id));
-  }, []);
-
-  const playTrack = useCallback((tr: Track) => {
-    setCurrentTrack(prev => {
-      if (prev.id === tr.id && loadedRef.current) {
-        audio.toggle();
-        return prev;
-      }
-      loadedRef.current = true;
-      audio.load(resolveUrl(tr));
-      pushHistory(tr.id);
-      registerPlay(tr);
-      return tr;
-    });
-  }, [audio, resolveUrl, registerPlay]);
-
-  const togglePlay = useCallback(() => {
-    if (!loadedRef.current) {
-      loadedRef.current = true;
-      audio.load(resolveUrl(currentTrack));
-      pushHistory(currentTrack.id);
-      // Первый запуск через кнопку play — такое же прослушивание, как тап по
-      // треку: без registerPlay терялись статистика и ачивка «Первые ноты»
-      registerPlay(currentTrack);
-    } else {
-      audio.toggle();
-    }
-  }, [audio, currentTrack, resolveUrl, registerPlay]);
-
-  // Очередь = локальные файлы + каталог — пересобираем, только когда реально меняются свои треки
-  const queue = useMemo(() => (myTracks.length ? [...myTracks, ...TRACKS] : TRACKS), [myTracks]);
-  const queueRef = useRef<Track[]>(queue);
-  queueRef.current = queue;
-
-  // Перемешивание и повтор — настоящие, а не декоративные тумблеры: shuffle
-  // меняет и ручной next, и автопереход; repeat заново запускает текущий трек
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const shuffleRef = useRef(shuffle); shuffleRef.current = shuffle;
-  const repeatRef = useRef(repeat); repeatRef.current = repeat;
-
-  const step = useCallback((dir: 1 | -1) => {
-    setCurrentTrack(prev => {
-      const q = queueRef.current;
-      let next: Track;
-      if (shuffleRef.current && q.length > 1) {
-        const pool = q.filter(tr => tr.id !== prev.id);
-        next = pool[Math.floor(Math.random() * pool.length)];
-      } else {
-        const idx = q.findIndex(tr => tr.id === prev.id);
-        next = q[(idx + dir + q.length) % q.length] ?? q[0];
-      }
-      loadedRef.current = true;
-      audio.load(resolveUrl(next));
-      pushHistory(next.id);
-      registerPlay(next);
-      return next;
-    });
-  }, [audio, resolveUrl, registerPlay]);
-
-  const handleNext = useCallback(() => step(1), [step]);
-  const handlePrev = useCallback(() => step(-1), [step]);
-
   // Media Session — управление из шторки уведомлений и с локскрина (см. useMediaSession.ts)
   useMediaSession({
     currentTrack,
@@ -484,55 +425,7 @@ function AppInner() {
     seek: audio.seek,
   });
 
-  // «Прилив» (личный поток): умный подбор без повторов + причина выбора
-  const likedRef = useRef(likedIds); likedRef.current = likedIds;
-  const followedRef = useRef(followed); followedRef.current = followed;
-  const langRef = useRef(lang); langRef.current = lang;
-  const playWave = useCallback((silent = false) => {
-    setCurrentTrack(prev => {
-      const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, prev.id, langRef.current);
-      loadedRef.current = true;
-      audio.load(resolveUrl(track));
-      pushHistory(track.id);
-      registerPlay(track);
-      if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
-      return track;
-    });
-  }, [audio, resolveUrl, registerPlay]);
-
-  // «Течение» — радио от текущего трека: случайный трек того же жанра.
-  // Раньше кнопка молча дублировала «Прилив», хотя называлась иначе
-  const playRadio = useCallback(() => {
-    setCurrentTrack(prev => {
-      const sameGenre = queueRef.current.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
-      const pool = sameGenre.length ? sameGenre : queueRef.current.filter(tr => tr.id !== prev.id);
-      if (!pool.length) return prev;
-      const next = pool[Math.floor(Math.random() * pool.length)];
-      loadedRef.current = true;
-      audio.load(resolveUrl(next));
-      pushHistory(next.id);
-      registerPlay(next);
-      toast(t("home.radioToast", next.title, next.artist));
-      return next;
-    });
-  }, [audio, resolveUrl, registerPlay, t]);
-
   const openRooms = useCallback(() => setRoomOpen(true), []);
-
-  // Автопереход: повтор → тот же трек заново, перемешивание → случайный,
-  // иначе умная волна без повторов. Ручной next — по очереди (или случайно)
-  useEffect(() => {
-    nextRef.current = () => {
-      if (repeatRef.current) {
-        // после ended элемент на паузе — заново load запускает воспроизведение
-        setCurrentTrack(prev => { audio.load(resolveUrl(prev)); registerPlay(prev); return prev; });
-        return;
-      }
-      if (shuffleRef.current) { step(1); return; }
-      playWave(true);
-    };
-    playWaveRef.current = () => playWave();
-  }, [playWave, step, audio, resolveUrl, registerPlay]);
 
   // Пауза фоновых анимаций, когда приложение свёрнуто — экономия батареи
   useEffect(() => {
@@ -561,11 +454,7 @@ function AppInner() {
     });
   }, []);
 
-  // Стабильные обёртки: playWave пересоздаётся при смене зависимостей, а
-  // мемоизации HomeScreen нужен неизменный проп — иначе React.memo бесполезен
-  const playWaveRef = useRef<() => void>(() => {});
   const navigateTab = useCallback((id: string) => setTab(id as Tab), [setTab]);
-  const startWave = useCallback(() => playWaveRef.current(), []);
   // Стабильные колбэки для BottomIsland: инлайновые пересоздавались каждый
   // рендер и полностью обесценивали его React.memo
   const openPlayer = useCallback(() => setPlayerOpen(true), []);
