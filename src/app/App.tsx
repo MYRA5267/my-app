@@ -12,6 +12,7 @@ import { useDownloads } from "./useDownloads";
 import { usePlaylists } from "./usePlaylists";
 import { useLocalTracks } from "./useLocalTracks";
 import { useSocialLayer } from "./useSocialLayer";
+import { useSubscription } from "./useSubscription";
 import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -34,7 +35,7 @@ import type { UserRole } from "./auth";
 import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
-  supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, deleteAccountRemote,
+  supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, fetchReceivedDonationsTotal, deleteAccountRemote,
 } from "./supabase";
 import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
@@ -141,34 +142,10 @@ function AppInner() {
     toggleRealFollow, clearSocial,
   } = useSocialLayer(uid);
 
-  // Подписка: none → active → grace (отменена, но действует до конца периода).
-  // RLS специально не даёт клиенту самому ставить 'active' напрямую — это
-  // делает только Edge Function set-subscription (см. supabase.ts)
-  const [cpStatus, setCpStatus] = useState<"none" | "active" | "grace">(() => {
-    const raw = ls.get<"none" | "active" | "grace" | boolean>("cpStatus", ls.get("creatorPlus", false) ? "active" : "none");
-    return raw === true ? "active" : raw === false ? "none" : raw;
-  });
-  const setCp = useCallback((s: "none" | "active" | "grace") => {
-    setCpStatus(s);
-    ls.set("cpStatus", s);
-    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(s).catch(err => console.warn("setSubscriptionStatus:", err));
-  }, []);
-  const creatorPlus = cpStatus !== "none";
-  // MYRA Plus — бесплатный план слушателя (Pro оставлен артистам)
-  const [plusActive, setPlusActiveState] = useState(() => ls.get("plusActive", false));
-  const setPlusActive = useCallback((v: boolean) => {
-    setPlusActiveState(v);
-    ls.set("plusActive", v);
-    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(v ? "active" : "none").catch(err => console.warn("setSubscriptionStatus:", err));
-  }, []);
   const [userRole, setUserRole] = useState<UserRole>(() => ls.get<UserRole>("userRole", "listener"));
   const setRole = useCallback((r: UserRole) => { setUserRole(r); ls.set("userRole", r); }, []);
   // Студия — только артистам: MYRA Pro больше не открывает её слушателям
   const showStudio = userRole === "artist";
-  // Единая проверка апгрейда своей роли — Pro для артиста, Plus для слушателя.
-  // На неё завязаны реальные ограничения бесплатного тарифа (качество, офлайн-лимит),
-  // а не только бейджи и текст — иначе Free и Pro/Plus не отличались бы ничем, кроме подписи
-  const hasUpgrade = userRole === "artist" ? creatorPlus : plusActive;
   // Режим разработчика — для нас, создателей: включается 7 тапами по аватару в профиле
   const [devMode, setDevModeState] = useState(() => ls.get("devMode", false));
   const [devPanelOpen, setDevPanelOpen] = useState(false);
@@ -218,6 +195,13 @@ function AppInner() {
   const logActivity = useCallback((key: string, ...args: (string | number)[]) => {
     setActivity(pushActivity(key, ...args));
   }, []);
+
+  const {
+    cpStatus, creatorPlus, plusActive, hasUpgrade, hasAnyUpgrade,
+    setPlusActive, activateCreatorPlus, cancelCreatorPlusSub, resumeCreatorPlus,
+    activatePlus, deactivatePlus, clearSubscription,
+    setCp,
+  } = useSubscription({ userRole, uid, onboarded, logActivity });
 
   const { downloads, resolveUrl, downloadTrack, clearDownloads } = useDownloads({ hasUpgrade, logActivity });
   const {
@@ -323,12 +307,6 @@ function AppInner() {
     // запуск — момент «наступил новый месяц» не повторяется внутри сессии
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboarded, t]);
-
-  const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
-  const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
-  const resumeCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpResumed"); }, [logActivity]);
-  const activatePlus = useCallback(() => { setPlusActive(true); logActivity("act.plusActivated"); }, [setPlusActive, logActivity]);
-  const deactivatePlus = useCallback(() => { setPlusActive(false); }, [setPlusActive]);
 
   // Серия дней подряд — считаем один раз при заходе в приложение
   useEffect(() => {
@@ -474,18 +452,6 @@ function AppInner() {
     })();
   }, [setEmail, t]);
 
-  // Статус Pro/Plus — правда живёт на сервере (см. Edge Function set-subscription);
-  // подтягиваем один раз, когда есть и сессия, и завершённый онбординг, чтобы
-  // подписка была видна с любого устройства, а не только с того, где её оформили
-  useEffect(() => {
-    if (!supabaseEnabled || !uid || !onboarded) return;
-    fetchSubscriptionStatus(uid).then(status => {
-      if (status === null) return;
-      if (userRole === "artist") { setCpStatus(status); ls.set("cpStatus", status); }
-      else { const active = status === "active"; setPlusActiveState(active); ls.set("plusActive", active); }
-    });
-  }, [uid, onboarded, userRole]);
-
   // Реально полученные донаты (from RealArtistSheet, to_user_id = uid) — не
   // тот же счётчик, что локальный симулированный balance/withdraw ниже:
   // подтягиваем при каждом заходе в Студию, чтобы сумма была свежей
@@ -497,7 +463,6 @@ function AppInner() {
 
   // Апгрейд любого типа открывает неоновую тему; при его потере тема честно
   // откатывается — иначе отключивший Plus навсегда остался бы с эксклюзивом
-  const hasAnyUpgrade = plusActive || cpStatus === "active" || cpStatus === "grace";
   neonAllowedRef.current = hasAnyUpgrade;
   useEffect(() => {
     if (theme === "neon" && !hasAnyUpgrade) { setTheme("dark"); ls.set("theme", "dark"); }
@@ -727,8 +692,7 @@ function AppInner() {
     setLikedIds(new Set());
     setFollowed(new Set());
     clearPlaylists();
-    setCpStatus("none");
-    setPlusActiveState(false);
+    clearSubscription();
     setDevModeState(false);
     setDevPanelOpen(false);
     setAdminSupportOpen(false);
@@ -754,7 +718,7 @@ function AppInner() {
     setDonationLedger({});
     setSplitOpen(false);
     toast(t("pr.loggedOut"));
-  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists, clearSocial]);
+  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists, clearSocial, clearSubscription]);
 
   // В отличие от остальных фоновых синхронизаций (донаты, подписки), здесь
   // нельзя молча проглотить ошибку и продолжить как ни в чём не бывало:
