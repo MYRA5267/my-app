@@ -77,6 +77,8 @@ export const DetailBackdrop = React.memo(function DetailBackdrop({
         <img
           src={DETAIL_SRC}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="myra-detail-photo"
           style={{ opacity: photoOk ? undefined : 0 }}
           onLoad={() => setPhotoOk(true)}

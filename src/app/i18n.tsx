@@ -5,6 +5,9 @@ export type Lang = "ru" | "en";
 
 // {0}, {1} — подстановки аргументов
 const STR: Record<string, { ru: string; en: string }> = {
+  // Общее — переиспользуется в разных шторках/экранах
+  "sheet.close": { ru: "Закрыть", en: "Close" },
+
   // Навигация
   "nav.home":    { ru: "Главная",   en: "Home" },
   "nav.browse":  { ru: "Обзор",     en: "Browse" },

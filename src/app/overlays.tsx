@@ -229,7 +229,7 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
       <div className="myra-artist-hero relative" style={{ "--artist-accent": artist.c2 } as React.CSSProperties}>
         <img src={artist.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         <div className="myra-artist-identity absolute bottom-3 left-6 right-6">
@@ -360,7 +360,7 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
     <Sheet open={!!artistId} onClose={onClose} z={55} wide>
       <div className="myra-artist-hero myra-real-artist-hero relative" style={{ "--artist-accent": REAL_ARTIST_C2 } as React.CSSProperties}>
         <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${REAL_ARTIST_C2}33, #07070f 75%)` }} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         <div className="myra-artist-identity absolute bottom-4 left-6 right-6 flex items-end gap-3">
@@ -528,7 +528,7 @@ export function PeopleSearchSheet({ open, onClose, followingIds, onToggleFollow,
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-5">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em" }}>{t("soc.searchTitle")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -607,7 +607,7 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
         {/* Ненавязчивый DETAIL поверх обложки — под тёмным градиентом (::after),
             поэтому не спорит с реальным фото альбома, только добавляет свечение по краям */}
         <DetailBackdrop variant="blur" accent={c2} active={playing} />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         <div className="myra-album-identity absolute bottom-5 left-6 right-6">
@@ -689,7 +689,7 @@ export function PlaylistSheet({ playlistId, onClose, onPlay, currentTrack, playi
       {/* Тот же хиро-приём, что у AlbumSheet/ArtistSheet — акцент из первого трека */}
       <div className="myra-playlist-hero relative" style={{ "--playlist-accent": accent } as React.CSSProperties}>
         <img src={pl.img} alt="" className="w-full h-full object-cover" />
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
         {customPlIds?.has(pl.id) && (
@@ -786,7 +786,7 @@ export function BlendSheet({ friend, onClose, onPlay, currentTrack, playing, ava
         {/* Тёмное хиро вместо Aurora на всю шторку — слияние аватаров
             и процент совпадения теперь живут в одной карточке-«обложке» */}
         <div className="myra-sheet-hero p-6 mb-6" style={{ "--sheet-accent": c2 } as React.CSSProperties}>
-          <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(0,0,0,0.35)", color: ON_DARK }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "rgba(0,0,0,0.35)", color: ON_DARK }}>
             <X size={16} />
           </button>
 
@@ -922,7 +922,7 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               <span className="myra-page-eyebrow">MYRA ACCOUNT</span>
               <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>{t("acc.title")}</div>
             </div>
-            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+            <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
               <X size={16} />
             </button>
           </div>
@@ -1178,7 +1178,7 @@ export function CreatorPlusSheet({ open, onClose, status, onActivate, onCancelSu
   return (
     <Sheet open={open} onClose={onClose} z={65}>
       <div className="relative px-6 pt-8 pb-8">
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
@@ -1294,7 +1294,7 @@ export function ListenerPlusSheet({ open, onClose, active, onActivate, onDeactiv
   return (
     <Sheet open={open} onClose={onClose} z={65}>
       <div className="relative px-6 pt-8 pb-8">
-        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center z-20" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
           <X size={16} />
         </button>
 
@@ -1489,7 +1489,7 @@ export function WrappedModal({ open, onClose, minutes, topArtistName, topArtistI
               ))}
             </div>
 
-            <button onClick={onClose} className="absolute top-8 right-4 w-9 h-9 rounded-full flex items-center justify-center z-40" style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(10px)" }}>
+            <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-8 right-4 w-9 h-9 rounded-full flex items-center justify-center z-40" style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(10px)" }}>
               <X size={16} />
             </button>
 
@@ -1594,7 +1594,7 @@ export function SplitSheet({ open, onClose, shares, monthKey, donatedTotal, dona
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-1">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{t("sp.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -1782,7 +1782,7 @@ export function AchievementsSheet({ open, onClose, counters, c2 }: {
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-1">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" }}>{t("ach.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -1852,7 +1852,7 @@ export function StudioStatsSheet({ open, onClose, c2, myTracks, myPlaysByTrack, 
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-6">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("st.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -1947,7 +1947,7 @@ export function ReleaseFormSheet({ open, file, defaultCover, onClose, onPublish 
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-6">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>{t("cr.releaseFormTitle")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -2062,7 +2062,7 @@ export function ImportSheet({ open, onClose, onImported }: {
       <div className="px-6 pt-7 pb-8">
         <div className="flex items-center justify-between mb-1.5">
           <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("im2.title")}</div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -2232,7 +2232,7 @@ export function SupportSheet({ open, onClose, uid }: { open: boolean; onClose: (
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--wash) 7%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
@@ -2336,7 +2336,7 @@ export function ReportSheet({ open, onClose, uid, targetType, targetId }: {
             </div>
             <div style={{ fontFamily: F.d, fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>{t("report.title")}</div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
+          <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--wash) 07%, transparent)" }}>
             <X size={16} />
           </button>
         </div>
