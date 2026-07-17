@@ -11,6 +11,7 @@ import { useMediaSession } from "./useMediaSession";
 import { useDownloads } from "./useDownloads";
 import { usePlaylists } from "./usePlaylists";
 import { useLocalTracks } from "./useLocalTracks";
+import { useSocialLayer } from "./useSocialLayer";
 import { smartNext, smartRecommendations, pushHistory } from "./smart";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
@@ -34,7 +35,6 @@ import { enqueueSyncOp, flushSyncQueue, isNetworkError } from "./syncQueue";
 const OnboardingFlow = lazy(() => import("./auth").then(m => ({ default: m.OnboardingFlow })));
 import {
   supabaseEnabled, getSession, onAuthStateChange, fetchProfile, upsertProfile, signOutRemote, recordDonation, setSubscriptionStatus, fetchSubscriptionStatus, fetchReceivedDonationsTotal, deleteAccountRemote,
-  fetchFollowingIds, followUser, unfollowUser, fetchFriendsFeed, type PublicProfile, type FriendFeedItem,
 } from "./supabase";
 import { HomeScreen, BrowseScreen, RatingScreen, LibraryScreen, CreatorScreen, ProfileScreen } from "./screens";
 import { FullPlayer, BottomIsland, navItems } from "./player";
@@ -135,44 +135,11 @@ function AppInner() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  // ─── Соцслой: реальные подписки между аккаунтами (не путать с toggleFollow
-  // ниже — тем локальным (localStorage), который работает только с 8 демо-
-  // артистами каталога) ───────────────────────────────────────────────────
-  const [followingIds, setFollowingIds] = useState<string[]>([]);
-  const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
-  const [friendsFeed, setFriendsFeed] = useState<FriendFeedItem[]>([]);
-  const [realProfile, setRealProfile] = useState<PublicProfile | null>(null);
-  const [peopleSearchOpen, setPeopleSearchOpen] = useState(false);
-
-  // Подтягиваем список реальных подписок один раз, когда есть сессия
-  // (аналогично статусу подписки Pro/Plus ниже)
-  useEffect(() => {
-    if (!supabaseEnabled || !uid) { setFollowingIds([]); return; }
-    fetchFollowingIds(uid).then(setFollowingIds);
-  }, [uid]);
-
-  // Лента подписок — недавние реальные релизы людей, на которых подписан
-  // пользователь; перезагружается при каждом изменении списка подписок
-  useEffect(() => {
-    if (!supabaseEnabled || !followingIds.length) { setFriendsFeed([]); return; }
-    fetchFriendsFeed(followingIds).then(setFriendsFeed);
-  }, [followingIds]);
-
-  // Реальная подписка/отписка между аккаунтами — обновление оптимистичное:
-  // если сервер откажет, откатываем список обратно и сообщаем об этом
-  const toggleRealFollow = useCallback(async (targetId: string) => {
-    const myId = uidRef.current;
-    if (!myId) return;
-    const isFollowing = followingIds.includes(targetId);
-    setFollowingIds(prev => (isFollowing ? prev.filter(id => id !== targetId) : [...prev, targetId]));
-    const { error } = isFollowing ? await unfollowUser(myId, targetId) : await followUser(myId, targetId);
-    if (error) {
-      setFollowingIds(prev => (isFollowing ? [...prev, targetId] : prev.filter(id => id !== targetId)));
-      toast.error(t("soc.followError"));
-      return;
-    }
-    toast(isFollowing ? t("soc.unfollowedToast") : t("soc.followedToast"));
-  }, [followingIds, t]);
+  const {
+    followingSet, friendsFeed, realProfile, setRealProfile,
+    peopleSearchOpen, setPeopleSearchOpen, openPeopleSearch,
+    toggleRealFollow, clearSocial,
+  } = useSocialLayer(uid);
 
   // Подписка: none → active → grace (отменена, но действует до конца периода).
   // RLS специально не даёт клиенту самому ставить 'active' напрямую — это
@@ -704,7 +671,6 @@ function AppInner() {
   // мемоизации HomeScreen нужен неизменный проп — иначе React.memo бесполезен
   const playWaveRef = useRef<() => void>(() => {});
   const navigateTab = useCallback((id: string) => setTab(id as Tab), [setTab]);
-  const openPeopleSearch = useCallback(() => setPeopleSearchOpen(true), []);
   const startWave = useCallback(() => playWaveRef.current(), []);
   // Стабильные колбэки для BottomIsland: инлайновые пересоздавались каждый
   // рендер и полностью обесценивали его React.memo
@@ -781,17 +747,14 @@ function AppInner() {
     prevLevelRef.current = null;
     // Соцслой — тоже полностью сброшен, иначе подписки предыдущего аккаунта
     // этого устройства всплыли бы у следующего, вошедшего на нём же
-    setFollowingIds([]);
-    setFriendsFeed([]);
-    setRealProfile(null);
-    setPeopleSearchOpen(false);
+    clearSocial();
     // Прозрачный сплит: ls.clear() выше стёр ключ на диске, но состояние в
     // памяти пережило бы логаут — донаты прошлого аккаунта не должны
     // показываться следующему
     setDonationLedger({});
     setSplitOpen(false);
     toast(t("pr.loggedOut"));
-  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists]);
+  }, [audio, t, clearLocalTracks, clearDownloads, clearPlaylists, clearSocial]);
 
   // В отличие от остальных фоновых синхронизаций (донаты, подписки), здесь
   // нельзя молча проглотить ошибку и продолжить как ни в чём не бывало:
