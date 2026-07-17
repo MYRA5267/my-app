@@ -20,6 +20,16 @@
     window.location.reload();
   });
 
+  // Service worker — только офлайн-подстраховка (см. public/sw.js), только в
+  // проде: в dev он мешал бы HMR, а под Electron (file://) регистрация просто
+  // тихо падает сама (не secure context) — оборачивать в доп. проверки незачем.
+  // Путь относительный — совместим с base:"./" при деплое из под-пути GitHub Pages.
+  if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
   createRoot(document.getElementById("root")!).render(
     <SentryErrorBoundary fallback={ErrorFallback}>
       <App />
