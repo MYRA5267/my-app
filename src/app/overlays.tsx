@@ -5,7 +5,7 @@ import {
   GripVertical, Shuffle, Import as ImportIcon, FileUp, ClipboardPaste, ImagePlus, Send,
   Zap, LineChart, Headset, TrendingUp, Users, HelpCircle, Star, Lock, Sparkles, ArrowDownToLine, Search, Flag,
   FileText, ShieldCheck,
-} from "lucide-react";
+} from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { artistByName, tracksOf, AVATARS, TRACKS as ALL_TRACKS, PLAYLISTS, LEADERBOARD_PEERS, TASTE_GENRES, REPORT_REASONS, ls, svgAvatar, trackFromRow, type Track, type Friend } from "./data";

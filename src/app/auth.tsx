@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
-import { F, GLASS, SPRING, Waveform, useTheme } from "./lib";
-import { MyraWordmark } from "./logo";
-import { DetailBackdrop } from "./detail";
+import { F, GLASS, SPRING, useTheme } from "./lib";
+import { MyraBrandLockup } from "./logo";
+import { MyraGlyph } from "./myraIcons";
+import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
 import { supabaseEnabled, signUpWithEmail, signInWithEmail, getSession, upsertProfile, fetchProfile, resendConfirmation } from "./supabase";
 
@@ -26,9 +27,9 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const SLIDES = [
-    { title: t("ob.s1t"), sub: t("ob.s1s"), c2: "#8b5cf6", img: TRACKS[0].img },
-    { title: t("ob.s2t"), sub: t("ob.s2s"), c2: "#34d399", img: TRACKS[1].img },
-    { title: t("ob.s3t"), sub: t("ob.s3s"), c2: "#f472b6", img: TRACKS[5].img },
+    { title: t("ob.s1t"), sub: t("ob.s1s"), c2: "#f0b08a", img: TRACKS[0].img },
+    { title: t("ob.s2t"), sub: t("ob.s2s"), c2: "#c17c96", img: TRACKS[1].img },
+    { title: t("ob.s3t"), sub: t("ob.s3s"), c2: "#b390c5", img: TRACKS[5].img },
   ];
 
   const finishName = name.trim() || (lang === "ru" ? "Алекс" : "Alex");
@@ -145,7 +146,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
 
       {/* Верх: лого + тема + язык */}
       <div className="myra-onboarding-header relative z-10 flex items-center justify-between px-7 pt-9">
-        <MyraWordmark height={24} style={{ color: "var(--fg)" }} />
+        <MyraBrandLockup />
         <div className="flex items-center gap-2">
           <motion.button whileTap={{ scale: 0.88 }} onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ ...GLASS }}>
             {theme === "dark" ? <Moon size={15} /> : <Sun size={15} />}
@@ -165,7 +166,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
           <small>MYRA IMMERSIVE AUDIO</small>
           <strong>{S.title}</strong>
           <p>{S.sub}</p>
-          <Waveform progress={38} color={S.c2} height={38} seed={slide * 4 + 5} bars={52} dim />
+          <DetailWave progress={38} accent={S.c2} height={38} compact />
         </div>
       </aside>
 
@@ -175,7 +176,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
           {step === "slides" && (
             <motion.div key={"slide" + slide} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
               <div className="mb-8">
-                <Waveform progress={38} color={S.c2} height={40} seed={slide * 4 + 5} bars={48} dim />
+                <DetailWave progress={38} accent={S.c2} height={40} compact />
               </div>
               <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 36, letterSpacing: "-0.04em", lineHeight: 1.05 }} className="mb-4">{S.title}</h1>
               <p className="text-base mb-9" style={{ color: "color-mix(in srgb, var(--fg) 55%, transparent)", lineHeight: 1.55 }}>{S.sub}</p>
@@ -194,7 +195,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                     className="flex items-center gap-2 pl-6 pr-5 py-3.5 rounded-full text-sm font-bold"
                     style={{ background: `linear-gradient(135deg, ${S.c2}, ${S.c2}99)`, boxShadow: `0 12px 40px ${S.c2}44` }}
                   >
-                    {slide < 2 ? t("ob.next") : t("ob.start")} <ArrowRight size={15} />
+                    {slide < 2 ? t("ob.next") : t("ob.start")} <MyraGlyph name="arrow" size={15} />
                   </motion.button>
                 </div>
               </div>
@@ -210,7 +211,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
               <div className="flex gap-1 p-1 rounded-full mb-6 w-fit" style={GLASS}>
                 {(["signup", "login"] as const).map(m => (
                   <button key={m} onClick={() => setMode(m)} className="relative px-5 py-2 rounded-full text-xs font-semibold" style={{ color: mode === m ? "#fff" : "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>
-                    {mode === m && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="absolute inset-0 rounded-full" style={{ background: "#8b5cf6" }} />}
+                    {mode === m && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="absolute inset-0 rounded-full myra-brand-fill" />}
                     <span className="relative z-10">{m === "signup" ? t("au.signup") : t("au.login")}</span>
                   </button>
                 ))}
@@ -237,7 +238,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                 </div>
               </div>
 
-              <motion.button whileTap={{ scale: 0.97 }} onClick={submitAuth} className="w-full py-4 rounded-full text-sm font-bold mb-5" style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", boxShadow: "0 12px 40px rgba(139,92,246,0.4)", fontFamily: F.b }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={submitAuth} className="myra-primary-cta w-full py-4 rounded-full text-sm font-bold mb-5" style={{ fontFamily: F.b }}>
                 {mode === "signup" ? t("au.doSignup") : t("au.doLogin")}
               </motion.button>
 
@@ -280,9 +281,9 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                   whileTap={{ scale: 0.94 }}
                   onClick={() => { if (picked.size >= 3) setStep("role"); }}
                   className="flex items-center gap-2 pl-6 pr-5 py-3.5 rounded-full text-sm font-bold transition-opacity"
-                  style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", opacity: picked.size >= 3 ? 1 : 0.35, fontFamily: F.b }}
+                  style={{ background: "var(--myra-brand-gradient)", opacity: picked.size >= 3 ? 1 : 0.35, fontFamily: F.b }}
                 >
-                  {t("ta.continue")} <ArrowRight size={15} />
+                  {t("ta.continue")} <MyraGlyph name="arrow" size={15} />
                 </motion.button>
               </div>
             </motion.div>
@@ -332,7 +333,7 @@ export function OnboardingFlow({ onDone }: { onDone: (name: string, role: UserRo
                 whileTap={{ scale: resendCooldown ? 1 : 0.97 }}
                 onClick={resendEmail}
                 className="w-full py-4 rounded-full text-sm font-bold mb-4 transition-opacity"
-                style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", fontFamily: F.b, opacity: resendCooldown ? 0.5 : 1 }}
+                style={{ background: "var(--myra-brand-gradient)", fontFamily: F.b, opacity: resendCooldown ? 0.5 : 1 }}
               >
                 {t("au.resend")}{resendCooldown ? ` · ${resendCooldown}s` : ""}
               </motion.button>

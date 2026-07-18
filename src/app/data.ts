@@ -367,7 +367,12 @@ export const ls = {
   },
   clear() {
     try {
-      Object.keys(localStorage).filter(k => k.startsWith("myra.")).forEach(k => localStorage.removeItem(k));
+      // Storage — не обычный объект: в новых браузерах/Node его ключи не
+      // обязаны попадать в Object.keys(). Идём через стандартные length/key.
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("myra.")) localStorage.removeItem(key);
+      }
     } catch { /* приватный режим */ }
   },
 };

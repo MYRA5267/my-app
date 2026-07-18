@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, Users, Copy, LogOut, X, Radio, KeyRound } from "lucide-react";
+import { Play, Pause, Users, Copy, LogOut, X, Radio, KeyRound } from "./myraIcons";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { type Track } from "./data";
-import { F, GLASS, SPRING, Sheet, Aurora, Waveform, EQ, copyText } from "./lib";
+import { F, GLASS, SPRING, Sheet, Aurora, EQ, copyText } from "./lib";
+import { DetailWave } from "./detail";
 import { useLang } from "./i18n";
 import { supabaseEnabled } from "./supabase";
 import { makeRoomCode, isValidRoomCode, connectRoom, broadcastRoomState, disconnectRoom, type RoomHandle, type RoomState } from "./rooms";
@@ -202,7 +203,7 @@ export function RoomSheet({ open, onClose, currentTrack, playing, progress, onTo
                     {playing && <EQ color={currentTrack.c2} size={10} />}
                   </div>
                   <div className="text-xs truncate mb-2" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{currentTrack.artist}</div>
-                  <Waveform progress={progress} color={currentTrack.c2} height={22} seed={currentTrack.id + 3} bars={40} dim playing={playing} onSeek={isHost ? onSeek : undefined} />
+                  <DetailWave progress={progress} accent={currentTrack.c2} height={26} compact playing={playing} onSeek={isHost ? onSeek : undefined} />
                 </div>
                 {isHost && (
                   <motion.button whileTap={{ scale: 0.85 }} onClick={onToggle} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}aa)` }}>

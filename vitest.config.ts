@@ -14,6 +14,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    setupFiles: ["./tests/setup.ts"],
     // tests/e2e/* — Playwright-спеки (playwright.config.ts, testDir tests/e2e):
     // Vitest не должен их исполнять — у Playwright свой раннер, и его
     // test.beforeEach() падает вне контекста Playwright Test.

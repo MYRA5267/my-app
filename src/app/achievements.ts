@@ -3,7 +3,7 @@
 // только в момент открытия (тост + запись в уведомлениях). Полный список видят
 // только создатели в панели разработчика. Прогресс хранится в ls "achUnlocked".
 
-import { Play, Flame, Zap, Trophy, Sparkles, Heart, Music2, Mic2, Gift, Crown } from "lucide-react";
+import { Play, Flame, Zap, Trophy, Sparkles, Heart, Music2, Mic2, Gift, Crown } from "./myraIcons";
 
 export interface AchievementCounters {
   totalPlays: number;

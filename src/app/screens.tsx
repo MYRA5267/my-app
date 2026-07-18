@@ -6,15 +6,16 @@ import {
   Blend as BlendIcon, Crown, Trash2, FileAudio, Sun, Sparkles,
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
   SlidersHorizontal, CircleUserRound, Cast, ChevronDown, type LucideIcon,
-} from "lucide-react";
+} from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, CHARTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
-import { F, GLASS, SPRING, TiltCard, Aurora, ParticleWave, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
-import { DetailBackdrop } from "./detail";
+import { F, GLASS, SPRING, TiltCard, Aurora, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
+import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang, type Lang } from "./i18n";
 import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
-import { MyraWordmark } from "./logo";
+import { MyraBrandLockup } from "./logo";
+import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 import type { SmartPick } from "./smart";
@@ -197,7 +198,7 @@ function SectionHeading({ title, sub, action, onAction }: { title: string; sub?:
         {sub && <p>{sub}</p>}
       </div>
       {action && onAction && (
-        <button onClick={onAction}>{action}<ChevronRight size={15} /></button>
+        <button onClick={onAction}>{action}<MyraGlyph name="arrow" size={15} /></button>
       )}
     </div>
   );
@@ -209,12 +210,13 @@ const ReleaseCard = React.memo(function ReleaseCard({ track, reason, active, pla
 }) {
   return (
     <article className={`myra-release-card${active ? " is-active" : ""}`} style={{ "--release-accent": track.c2 } as React.CSSProperties}>
+      <span className="myra-release-orbit" aria-hidden="true" />
       <button className="myra-release-cover" onClick={() => onPlay(track)} aria-label={`${track.title} — ${track.artist}`}>
         <img src={track.img} alt="" loading="lazy" decoding="async" />
         <span className="myra-release-shade" />
-        {reason && <span className="myra-release-reason"><Sparkles size={11} />{reason}</span>}
+        {reason && <span className="myra-release-reason"><MyraGlyph name="spark" size={11} />{reason}</span>}
         <span className="myra-release-play">
-          {active && playing ? <EQ color="#fff" size={13} /> : <Play size={18} fill="currentColor" strokeWidth={0} />}
+          {active && playing ? <EQ color="#fff" size={13} /> : <MyraGlyph name="play" size={18} strokeWidth={2.15} />}
         </span>
       </button>
       <div className="myra-release-meta">
@@ -234,7 +236,7 @@ const PremiumTrackRow = React.memo(function PremiumTrackRow({ track, active, pla
     <div className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(track)}>
       <div className="myra-track-row-cover">
         <img src={track.img} alt="" loading="lazy" decoding="async" />
-        <span>{active && playing ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
+        <span>{active && playing ? <EQ color="#fff" size={11} /> : <MyraGlyph name="play" size={13} strokeWidth={2.15} />}</span>
       </div>
       <div className="myra-track-row-copy">
         <strong>{track.title}</strong>
@@ -330,13 +332,13 @@ function FriendFeedRow({ item, playingId, onToggle, onOpenProfile }: {
 // Волна hero-карточки подписана на прогресс через контекст — прогресс не
 // попадает в пропсы HomeScreen, и главная не перерисовывается каждый тик.
 // Поток частиц вместо баров: органичнее и дешевле для WebView-композитора
-function HeroWave({ playing }: { playing: boolean }) {
+function HeroWave({ playing, accent, buffered }: { playing: boolean; accent: string; buffered: number }) {
   const progress = useProgress();
-  return <ParticleWave progress={progress} playing={playing} color="#c4b5fd" height={44} />;
+  return <DetailWave progress={progress} buffered={buffered} playing={playing} accent={accent} height={74} />;
 }
 
-export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid, recommendations }: {
-  onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; onNavigate: (tab: string) => void;
+export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack, playing, buffered, onNavigate, onOpenBlend, onOpenRooms, onPlayWave, onPlayRadio, onLikeTrack, onPauseMain, onOpenArtist, onOpenRealArtist, avatar, activity, friendsFeed, onOpenPeopleSearch, onOpenRealProfile, uid, recommendations }: {
+  onPlay: (t: Track) => void; currentTrack: Track; playing: boolean; buffered: number; onNavigate: (tab: string) => void;
   onOpenBlend: (f: Friend) => void; onOpenRooms: () => void; onPlayWave: () => void; onPlayRadio: () => void;
   onLikeTrack: (id: number) => void; onPauseMain: () => void; onOpenArtist: (name: string) => void;
   onOpenRealArtist: (id: string) => void; avatar: string;
@@ -373,22 +375,22 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
     toast(t("bl.invited", link));
   };
 
-  const QUICK = [
-    { label: t("home.liked"),  icon: Heart,      act: () => onNavigate("library") },
-    { label: t("home.charts"), icon: TrendingUp, act: () => onNavigate("rating") },
-    { label: t("home.radio"),  icon: Radio,      act: onPlayRadio },
-    { label: t("home.blend"),  icon: BlendIcon,  act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
+  const QUICK: { label: string; glyph: MyraGlyphName; act: () => void }[] = [
+    { label: t("home.liked"),  glyph: "heart", act: () => onNavigate("library") },
+    { label: t("home.charts"), glyph: "chart", act: () => onNavigate("rating") },
+    { label: t("home.radio"),  glyph: "radio", act: onPlayRadio },
+    { label: t("home.blend"),  glyph: "blend", act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
   ];
 
   return (
     <Page className="myra-experience-page myra-home-page">
       {/* Верхняя панель */}
       <div className="myra-page-header px-5 pt-6 pb-5 flex items-center justify-between">
-        <div className="lg:hidden" style={{ color: "var(--fg)" }}><MyraWordmark height={22} /></div>
-        <div className="hidden lg:block" style={{ fontFamily: F.d, fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{t("nav.home")}</div>
+        <div className="lg:hidden"><MyraBrandLockup /></div>
+        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 01</span>{t("nav.home")}</div>
         <div className="flex gap-2 relative items-center">
-          <motion.button whileTap={{ scale: 0.85 }} onClick={toggleNotifs} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ ...GLASS, background: notifOpen ? `${currentTrack.c2}30` : GLASS.background }}>
-            <Bell size={16} />
+          <motion.button whileTap={{ scale: 0.85 }} onClick={toggleNotifs} className="myra-header-action w-10 h-10 rounded-full flex items-center justify-center relative">
+            <MyraGlyph name="bell" size={17} />
             {hasUnread && <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full" style={{ background: currentTrack.c2 }} />}
           </motion.button>
           <motion.button whileTap={{ scale: 0.9 }} aria-label={t("nav.profile")} className="w-10 h-10 rounded-full flex-shrink-0" onClick={() => onNavigate("profile")}>
@@ -452,10 +454,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <DetailBackdrop variant="soft" accent="#8b5cf6" active={waveActive} />
           <div className="myra-home-flow-main relative z-10 flex items-center justify-between p-6">
             <div className="myra-home-flow-copy">
-              <div className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "#a78bfa", fontFamily: F.m }}>{t("home.flow")}</div>
+              <div className="myra-flow-kicker text-[10px] uppercase tracking-[0.2em] mb-2">{t("home.flow")}</div>
               <h1>{t("home.headline")}</h1>
               <p>{t("home.headlineSub")}</p>
-              <div className="myra-home-flow-label"><Sparkles size={13} />{t("home.aiSub")}</div>
+              <div className="myra-home-flow-label"><MyraGlyph name="spark" size={13} />{t("home.aiSub")}</div>
             </div>
             <div className="myra-home-flow-art" style={{ "--flow-color": currentTrack.c2 } as React.CSSProperties}>
               <img src={currentTrack.img} alt="" />
@@ -465,15 +467,15 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
             </div>
           </div>
           <div className="relative z-10 px-6 pb-5">
-            <HeroWave playing={playing} />
+            <HeroWave playing={playing} accent={currentTrack.c2} buffered={buffered} />
           </div>
         </TiltCard>
       </div>
 
       {/* Поиск */}
       <div className="px-5 mb-7">
-        <button onClick={() => onNavigate("browse")} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
-          <Search size={15} style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", flexShrink: 0 }} />
+        <button onClick={() => onNavigate("browse")} className="myra-home-search w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left">
+          <MyraGlyph name="search" size={17} />
           <span className="text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("home.search")}</span>
         </button>
       </div>
@@ -481,7 +483,6 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       {/* Быстрые действия */}
       <div className="myra-quick-grid px-5 mb-8 grid grid-cols-4 gap-2.5">
         {QUICK.map((q, i) => {
-          const Icon = q.icon;
           return (
             <motion.button
               key={q.label}
@@ -490,10 +491,9 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
               transition={{ delay: 0.05 + i * 0.05, ...SPRING }}
               whileTap={{ scale: 0.93 }}
               onClick={q.act}
-              className="flex flex-col items-center gap-2 py-4 rounded-[20px]"
-              style={GLASS}
+              className="myra-quick-action flex flex-col items-center gap-2 py-4 rounded-[20px]"
             >
-              <Icon size={18} style={{ color: currentTrack.c2 }} />
+              <span className="myra-quick-glyph"><MyraGlyph name={q.glyph} size={19} /></span>
               <span className="text-[11px] font-medium" style={{ color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b }}>{q.label}</span>
             </motion.button>
           );
@@ -559,7 +559,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
           <div className="myra-section-heading" style={{ alignItems: "center" }}>
             <h2>{t("soc.feedTitle")}</h2>
             <button onClick={onOpenPeopleSearch} style={{ color: currentTrack.c2, fontFamily: F.b }}>
-              <Search size={12} /> {t("soc.findPeople")}
+              <MyraGlyph name="search" size={13} /> {t("soc.findPeople")}
             </button>
           </div>
           {friendsFeed.length === 0 ? (
@@ -590,7 +590,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       <div className="px-5 mb-8">
         <button onClick={onOpenRooms} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left" style={GLASS}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-            <Cast size={15} style={{ color: currentTrack.c2 }} />
+            <MyraGlyph name="rooms" size={17} />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("room.entry")}</div>
@@ -654,7 +654,7 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
         <h1>{t("browse.eyebrow")}</h1>
         <p>{t("browse.subtitle")}</p>
         <div className="myra-search-field mt-5 flex items-center gap-3 px-4 py-3.5 rounded-[18px]">
-          <Search size={19} />
+          <MyraGlyph name="search" size={20} />
           <input
             autoFocus={autoFocus}
             value={query}
@@ -915,18 +915,18 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
           <p>{t("lib.subtitle")}</p>
         </div>
         <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCreateOpen(true)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}99)` }}>
-          <Plus size={16} />
+          <MyraGlyph name="plus" size={17} />
         </motion.button>
       </header>
 
       <section className="myra-library-overview mx-5 mb-5" style={{ "--library-accent": currentTrack.c2 } as React.CSSProperties}>
-        <div><Heart size={18} /><strong>{liked.length}</strong><span>{t("lib.saved")}</span></div>
-        <div><FileAudio size={18} /><strong>{myTracks.length}</strong><span>{t("lib.local")}</span></div>
-        <div><Music2 size={18} /><strong>{playlists.length}</strong><span>{t("lib.playlists")}</span></div>
+        <div><MyraGlyph name="heart" size={19} /><strong>{liked.length}</strong><span>{t("lib.saved")}</span></div>
+        <div><MyraGlyph name="download" size={19} /><strong>{myTracks.length}</strong><span>{t("lib.local")}</span></div>
+        <div><MyraGlyph name="library" size={19} /><strong>{playlists.length}</strong><span>{t("lib.playlists")}</span></div>
       </section>
 
       <div className="myra-library-search mx-5 mb-5">
-        <Search size={16} />
+        <MyraGlyph name="search" size={17} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("lib.search")} />
         {query && <button onClick={() => setQuery("")} aria-label={t("a11y.clear")}><X size={15} /></button>}
       </div>
@@ -955,7 +955,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   />
                   <motion.button whileTap={{ scale: 0.98 }} onClick={() => uploadRef.current?.click()} className="w-full flex items-center gap-3 p-3.5 rounded-2xl text-left mb-2" style={GLASS}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
-                      <Upload size={16} style={{ color: currentTrack.c2 }} />
+                      <MyraGlyph name="download" size={17} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold" style={{ fontFamily: F.b }}>{t("cr.uploadTrack")}</div>
@@ -1142,9 +1142,9 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             общая стеклянная плашка с разделителями между колонками вместо трёх
             отдельных карточек */}
         <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
-          <button onClick={openStatsGated}><Users size={18} /><strong>0</strong><span>{t("cr.fans")}</span></button>
-          <button onClick={() => setWdOpen(true)}><Wallet size={18} /><strong>{balance.toLocaleString("ru-RU")}₽</strong><span>{t("cr.donations")}</span></button>
-          <button onClick={openStatsGated}><Music2 size={18} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
+          <button onClick={openStatsGated}><MyraGlyph name="profile" size={19} /><strong>0</strong><span>{t("cr.fans")}</span></button>
+          <button onClick={() => setWdOpen(true)}><MyraGlyph name="spark" size={19} /><strong>{balance.toLocaleString("ru-RU")}₽</strong><span>{t("cr.donations")}</span></button>
+          <button onClick={openStatsGated}><MyraGlyph name="library" size={19} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
         </div>
 
         {supabaseEnabled && realDonationsTotal > 0 && (
@@ -1328,8 +1328,8 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
       {/* MYRA Plus — бесплатный уровень, виден только слушателям (Pro — у артистов в Студии) */}
       {userRole === "listener" && (
         <div className="px-5 mb-6">
-          <TiltCard max={6} onClick={onOpenPlus} className="rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(6,38,27,0.9), rgba(6,78,59,0.55))", border: "1px solid rgba(52,211,153,0.3)" }}>
-            <Aurora c2="#34d399" opacity={0.7} />
+          <TiltCard max={6} onClick={onOpenPlus} className="myra-profile-plus-card rounded-[24px] overflow-hidden relative cursor-pointer" style={{ height: 104, background: "linear-gradient(135deg, rgba(6,38,27,0.9), rgba(6,78,59,0.55))", border: "1px solid rgba(52,211,153,0.3)" }}>
+            <Aurora c2="#d98968" opacity={0.58} />
             <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "#6ee7b7", fontFamily: F.m }}>MYRA Plus</div>
@@ -1345,9 +1345,9 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
       {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
       <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
-        <div><Users size={18} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
-        <div><Heart size={18} /><strong>0</strong><span>{t("pr.fans")}</span></div>
-        <div><BarChart3 size={18} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
+        <div><MyraGlyph name="profile" size={19} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
+        <div><MyraGlyph name="heart" size={19} /><strong>0</strong><span>{t("pr.fans")}</span></div>
+        <div><MyraGlyph name="chart" size={19} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
       </section>
 
       <div className="px-5 flex flex-col gap-1.5">

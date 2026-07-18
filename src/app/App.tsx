@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
-import { SkipBack, SkipForward, Play, Pause } from "lucide-react";
+import { SkipBack, SkipForward, Play, Pause } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
 import { TRACKS, AVATARS, PLAYLISTS, ls, LEADERBOARD_PEERS, type Track, type Friend, type Playlist } from "./data";
-import { F, GLASS, SPRING, DynamicBg, Waveform, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark } from "./lib";
+import { F, GLASS, SPRING, DynamicBg, EQ, THEMES, ThemeCtx, ProgressCtx, ON_DARK, onDark } from "./lib";
+import { DetailWave } from "./detail";
 import { useThemeCycle, useSimpleFx, useIsDesktop } from "./useAppEnvironment";
 import { useSleepTimer } from "./useSleepTimer";
 import { useMediaSession } from "./useMediaSession";
@@ -24,7 +25,7 @@ import {
   type ProfileStats, type ActivityItem, type MyPlays, type DonationLedger,
 } from "./stats";
 import { ACHIEVEMENTS, type AchievementCounters } from "./achievements";
-import { MyraWordmark } from "./logo";
+import { MyraBrandLockup } from "./logo";
 // Ленивые чанки: дев-панель с админ-инбоксом нужна двум создателям, live-сессии
 // недостижимы без реальных друзей, онбординг после входа — мёртвый груз.
 // Маунт «после первого открытия» (см. useEverOpened) гарантирует, что чанк не
@@ -364,10 +365,15 @@ function AppInner() {
     playTrack, togglePlay, handleNext, handlePrev, playRadio, startWave,
   } = usePlayerQueue({ currentTrack, setCurrentTrack, myTracks, resolveUrl, registerPlay, likedIds, followed, fadeRef });
   const { sleepLeft, handleSleep } = useSleepTimer(audio.pause);
+  const lastAudioErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!audio.error || audio.error === lastAudioErrorRef.current) return;
+    lastAudioErrorRef.current = audio.error;
+    toast.error(audio.error);
+  }, [audio.error]);
 
-  // Качество звука — реально применяется к DSP-цепочке, не только меняет подпись в UI.
-  // Hi-Res (индекс 2) — настоящая, а не только косметическая привилегия Pro/Plus:
-  // без апгрейда потолок — FLAC (индекс 1)
+  // Выбранное качество хранится в профиле. Переключение реального потока
+  // заработает, когда каталог начнёт отдавать отдельные AAC/FLAC/Hi-Res URL.
   const [qualityIdx, setQualityIdxState] = useState(() => ls.get("qualityIdx", 1));
   const setQualityIdx = useCallback((idx: number) => { setQualityIdxState(idx); ls.set("qualityIdx", idx); }, []);
   useEffect(() => { audio.setQuality(qualityIdx); }, [qualityIdx, audio]);
@@ -409,7 +415,7 @@ function AppInner() {
   const avatar = customAvatar ?? AVATARS[avatarIdx] ?? AVATARS[0];
 
   // dev-хук для интеграционных проверок
-  if ((import.meta as any).env?.DEV) {
+  if ((import.meta as any).env?.DEV || location.hostname === "127.0.0.1" || location.hostname === "localhost") {
     (window as any).__myra = { tab, playerOpen, artistName, blendFriend: blendFriend?.name ?? null, roomOpen, accountOpen, creatorPlusOpen, wrappedOpen, statsOpen, playlistId, onboarded, myTracks: myTracks.length, audio, qualityIdx };
   }
 
@@ -535,9 +541,9 @@ function AppInner() {
   // Тема оборачивает и онбординг, и приложение; Toaster общий
   const themedRoot = (children: React.ReactNode) => (
     <ThemeCtx.Provider value={{ theme, toggleTheme }}>
-      <div className={`h-screen w-full${simpleFx ? " fx-simple" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
+      <div data-theme={theme} className={`h-screen w-full${simpleFx ? " fx-simple" : ""}`} style={{ ...(THEMES[theme] as React.CSSProperties), background: "var(--bg)", color: "var(--fg)", fontFamily: F.b, transition: "background 0.4s ease, color 0.4s ease" }}>
         <style>{GLOBAL_STYLE}</style>
-        <ProgressCtx.Provider value={Math.round(audio.progress)}>{children}</ProgressCtx.Provider>
+        <ProgressCtx.Provider value={audio.progress}>{children}</ProgressCtx.Provider>
         <Toaster
           position="top-center"
           gap={10}
@@ -629,6 +635,7 @@ function AppInner() {
         onPlay={playTrack}
         currentTrack={currentTrack}
         playing={audio.playing}
+        buffered={audio.buffered}
         onNavigate={navigateTab}
         onOpenBlend={setBlendFriend}
         onOpenRooms={openRooms}
@@ -731,21 +738,21 @@ function AppInner() {
   return themedRoot(
     <div className="myra-app-shell flex h-full w-full overflow-hidden relative">
       <DynamicBg track={currentTrack} />
+      <div className="myra-brand-atmosphere" aria-hidden="true"><i /><i /><i /></div>
 
       {/* Desktop sidebar */}
       {isDesktop && (
-      <aside className="myra-desktop-rail hidden lg:flex flex-col py-8 gap-1 flex-shrink-0 relative z-10">
-        <div className="myra-desktop-brand px-6 mb-9 flex items-center gap-2">
-          <MyraWordmark height={20} style={{ color: "var(--fg)" }} />
-          <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ fontFamily: F.m, color: currentTrack.c2, background: `${currentTrack.c2}18` }}>beta</span>
+      <aside className="myra-desktop-rail hidden lg:flex flex-col py-7 gap-1 flex-shrink-0 relative z-10">
+        <div className="myra-desktop-brand px-5 mb-8">
+          <MyraBrandLockup />
         </div>
         {navItems(showStudio).map(n => {
           const Icon = n.icon;
           const active = tab === n.id;
           return (
-            <button key={n.id} onClick={() => setTab(n.id as Tab)} className="myra-desktop-nav-item relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--fg)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
-              {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="absolute inset-0 rounded-2xl" style={{ background: `${currentTrack.c2}1a`, border: `1px solid ${currentTrack.c2}30` }} />}
-              <Icon size={17} className="relative z-10" style={{ color: active ? currentTrack.c2 : undefined }} />
+            <button key={n.id} onClick={() => setTab(n.id as Tab)} data-active={active || undefined} className="myra-desktop-nav-item relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--myra-pearl)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
+              {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="myra-desktop-nav-active absolute inset-0 rounded-2xl" />}
+              <span className="myra-desktop-nav-glyph relative z-10"><Icon size={18} /></span>
               <span className="relative z-10">{t(n.label)}</span>
             </button>
           );
@@ -753,6 +760,7 @@ function AppInner() {
         <div className="flex-1" />
         <div className="mx-3">
           <div className="myra-rail-player rounded-[20px] overflow-hidden cursor-pointer" onClick={() => setPlayerOpen(true)}>
+            <span className="myra-rail-player-label">NOW · DEEPLY YOURS</span>
             <div className="relative" style={{ height: 118 }}>
               <img src={currentTrack.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.45)" }} />
               <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${currentTrack.c1}ee, transparent)` }} />
@@ -763,7 +771,7 @@ function AppInner() {
               {audio.playing && <div className="absolute top-2.5 right-2.5"><EQ color={currentTrack.c2} size={10} /></div>}
             </div>
             <div className="p-3">
-              <Waveform progress={Math.round(audio.progress)} color={currentTrack.c2} onSeek={audio.seek} height={22} seed={currentTrack.id + 3} bars={40} dim playing={audio.playing} />
+              <DetailWave progress={audio.progress} buffered={audio.buffered} accent={currentTrack.c2} onSeek={audio.seek} height={34} compact playing={audio.playing} />
               <div className="flex items-center justify-between mt-2.5">
                 <motion.button whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); handlePrev(); }}><SkipBack size={14} style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }} /></motion.button>
                 <motion.button whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); togglePlay(); }} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${currentTrack.c2}, ${currentTrack.c2}aa)` }}>
@@ -825,6 +833,7 @@ function AppInner() {
               track={currentTrack}
               playing={audio.playing}
               progress={audio.progress}
+              buffered={audio.buffered}
               duration={audio.duration}
               volume={audio.volume}
               onVolume={audio.setVolume}

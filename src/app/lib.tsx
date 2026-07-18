@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useId, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { DoorOpen, Mic2, Repeat2, GitBranch, Flag, type LucideIcon } from "lucide-react";
+import { DoorOpen, Mic2, Repeat2, GitBranch, Flag, type LucideIcon } from "./myraIcons";
 import type { Track } from "./data";
 import { useLang } from "./i18n";
 import type { SectionKind, TrackSection } from "./structure";
@@ -205,15 +205,6 @@ export const fmtSec = (sec: number) => {
 
 // Два аудиоэлемента: при смене трека старый плавно затухает, новый нарастает.
 // getFade() читает настройку кроссфейда из профиля.
-/** Пресеты обработки под каждый уровень качества: срез верхних частот + компенсация громкости.
-    Честная симуляция через Web Audio API — реального перекодирования потока нет,
-    но звук на выходе действительно меняется, а не только подпись в UI. */
-const QUALITY_DSP = [
-  { freq: 7000,  gain: 0.92 }, // AAC 256 — заметно приглушённые верха, как у лёгкого lossy-сжатия
-  { freq: 20000, gain: 1 },    // FLAC — без обработки, полный диапазон
-  { freq: 20000, gain: 1.1 },  // Hi-Res 24-bit — чуть больше воздуха и громкости
-];
-
 // Плавающая точка на границах кроссфейда (k≈0/k≈1) и повторные прерывания могут
 // толкнуть .volume чуть за пределы [0,1] — браузер бросает RangeError на присвоении.
 const clampVol = (v: number) => Math.min(1, Math.max(0, v));
@@ -222,6 +213,9 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   const players = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null);
   const activeIdx = useRef(0);
   const fadeRaf = useRef<number | null>(null);
+  // Promise от play() может завершиться позже следующего клика. Номер запроса
+  // не даёт старому результату запустить неактуальный кроссфейд или ошибку.
+  const loadSeqRef = useRef(0);
   // Элементы активного кроссфейда — нужны stopFade(), чтобы при прерывании привести
   // оба к консистентному состоянию, а не оставить их на промежуточной громкости.
   const fadingOutRef = useRef<HTMLAudioElement | null>(null);
@@ -231,52 +225,50 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   endedRef.current = onEnded;
   const fadeRef = useRef(getFade);
   fadeRef.current = getFade;
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const filtersRef = useRef<[BiquadFilterNode, BiquadFilterNode] | null>(null);
-  const qualityGainsRef = useRef<[GainNode, GainNode] | null>(null);
-  const qualityRef = useRef(1);
-
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [buffered, setBuffered] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
-
-  // Резервный режим: если файл не грузится (нет сети), прогресс идёт по таймеру —
-  // волны, орб и текст всё равно живут.
-  const simRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const modeRef = useRef<"real" | "sim">("real");
-  const SIM_DURATION = 226;
+  const [status, setStatus] = useState<"idle" | "loading" | "buffering" | "playing" | "paused" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const active = () => players.current?.[activeIdx.current];
 
-  const stopSim = useCallback(() => {
-    if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
+  const syncBuffered = useCallback((a: HTMLAudioElement) => {
+    if (!Number.isFinite(a.duration) || a.duration <= 0 || !a.buffered.length) return;
+    let end = 0;
+    for (let i = 0; i < a.buffered.length; i++) end = Math.max(end, a.buffered.end(i));
+    const pct = end >= a.duration - 0.25 ? 100 : Math.min(100, (end / a.duration) * 100);
+    setBuffered(prev => Math.abs(prev - pct) < 0.08 ? prev : pct);
   }, []);
 
-  const startSim = useCallback(() => {
-    modeRef.current = "sim";
-    setDuration(SIM_DURATION);
-    setPlaying(true);
-    stopSim();
-    simRef.current = setInterval(() => {
-      setProgress(p => {
-        const np = p + (100 / SIM_DURATION) * 0.5;
-        if (np >= 100) { endedRef.current(); return 0; }
-        return np;
-      });
-    }, 500);
-  }, [stopSim]);
+  const syncPlayback = useCallback((a: HTMLAudioElement) => {
+    if (!Number.isFinite(a.duration) || a.duration <= 0) return;
+    const pct = Math.min(100, Math.max(0, (a.currentTime / a.duration) * 100));
+    setDuration(prev => Math.abs(prev - a.duration) < 0.01 ? prev : a.duration);
+    setProgress(prev => Math.abs(prev - pct) < 0.012 ? prev : pct);
+    syncBuffered(a);
+  }, [syncBuffered]);
+
+  const failPlayback = useCallback((cause?: unknown) => {
+    // Не изображаем воспроизведение, если реальный media element не запустился:
+    // прежний таймер двигал UI без звука и вводил пользователя в заблуждение.
+    setPlaying(false);
+    setStatus("error");
+    setError("Аудио не загрузилось. Проверьте соединение или источник трека.");
+    if (cause) console.warn("[MYRA audio]", cause);
+  }, []);
 
   const stopFade = () => {
     if (fadeRaf.current !== null) {
       cancelAnimationFrame(fadeRaf.current);
       fadeRaf.current = null;
-      // Кроссфейд прерван на середине — старый элемент осиротеет на частичной громкости,
-      // если его не остановить, а новый оставить не на целевой громкости. Снэпаем оба
-      // к тому же конечному состоянию, к которому они пришли бы при штатном завершении.
-      if (fadingOutRef.current) { fadingOutRef.current.pause(); fadingOutRef.current.src = ""; }
-      if (fadingInRef.current) fadingInRef.current.volume = clampVol(volRef.current);
     }
+    // Прерывание возможно и до первого кадра fade, пока play() нового элемента
+    // ещё только разрешает Promise. Поэтому состояние пары нормализуем всегда.
+    if (fadingOutRef.current) { fadingOutRef.current.pause(); fadingOutRef.current.src = ""; }
+    if (fadingInRef.current) fadingInRef.current.volume = clampVol(volRef.current);
     fadingOutRef.current = null;
     fadingInRef.current = null;
   };
@@ -286,83 +278,117 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     const pair: [HTMLAudioElement, HTMLAudioElement] = [mk(), mk()];
     players.current = pair;
 
-    // Реальная DSP-цепочка (не просто смена подписи): каждый плеер идёт через
-    // фильтр низких частот + компенсирующий gain, которые двигает setQuality
-    try {
-      const AudioCtxCls = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx: AudioContext = new AudioCtxCls();
-      audioCtxRef.current = ctx;
-      const chains = pair.map(a => {
-        const src = ctx.createMediaElementSource(a);
-        const filter = ctx.createBiquadFilter();
-        filter.type = "lowpass";
-        const preset = QUALITY_DSP[qualityRef.current] ?? QUALITY_DSP[1];
-        filter.frequency.value = preset.freq;
-        const gain = ctx.createGain();
-        gain.gain.value = preset.gain;
-        src.connect(filter).connect(gain).connect(ctx.destination);
-        return { filter, gain };
-      });
-      filtersRef.current = [chains[0].filter, chains[1].filter];
-      qualityGainsRef.current = [chains[0].gain, chains[1].gain];
-    } catch {
-      // Web Audio недоступен (старый браузер и т.п.) — просто играем без DSP
+    // Локальный read-only хук для проверки реального media state в браузере.
+    // На опубликованном домене его нет; состояние приложения он не меняет.
+    const localDebug = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+    if (localDebug) {
+      (window as any).__myraAudioDebug = () => pair.map((a, index) => ({
+        index,
+        active: index === activeIdx.current,
+        src: a.currentSrc || a.src,
+        paused: a.paused,
+        ended: a.ended,
+        readyState: a.readyState,
+        networkState: a.networkState,
+        currentTime: a.currentTime,
+        duration: a.duration,
+        errorCode: a.error?.code ?? null,
+        buffered: Array.from({ length: a.buffered.length }, (_, i) => [a.buffered.start(i), a.buffered.end(i)]),
+      }));
     }
+
+    // Внешние MP3 каталога не отдают CORS-заголовок. Поэтому оставляем прямой
+    // вывод HTMLAudioElement: подключение такого файла к MediaElementSource
+    // делает его немым по правилам Web Audio, хотя currentTime продолжает идти.
 
     const handlers = pair.map(a => {
       const isActive = () => a === active();
-      const onTime = () => { if (!isActive()) return; const p = a.duration ? (a.currentTime / a.duration) * 100 : 0; setProgress(prev => Math.abs(p - prev) < 0.35 && p > prev ? prev : p); };
-      const onMeta = () => { if (isActive()) setDuration(a.duration || 0); };
-      const onEnd = () => { if (isActive()) endedRef.current(); };
-      const onPlay = () => { if (isActive()) { modeRef.current = "real"; stopSim(); setPlaying(true); } };
-      const onPause = () => { if (isActive() && modeRef.current === "real" && fadeRaf.current === null) setPlaying(false); };
-      const onErr = () => { if (isActive() && a.src) startSim(); };
+      const onTime = () => { if (isActive()) syncPlayback(a); };
+      const onMeta = () => { if (isActive()) { syncPlayback(a); syncBuffered(a); } };
+      const onProgress = () => { if (isActive()) syncBuffered(a); };
+      const onLoadStart = () => { if (isActive()) setStatus("loading"); };
+      const onWaiting = () => { if (isActive() && !a.paused) setStatus("buffering"); };
+      const onCanPlay = () => { if (isActive()) { syncBuffered(a); setStatus(a.paused ? "paused" : "playing"); } };
+      const onEnd = () => { if (isActive()) { setPlaying(false); setProgress(100); endedRef.current(); } };
+      const onPlay = () => { if (isActive()) { setPlaying(true); setStatus("loading"); setError(null); } };
+      const onPlaying = () => { if (isActive()) { setPlaying(true); setStatus("playing"); } };
+      const onPause = () => { if (isActive() && fadeRaf.current === null && !a.ended) { setPlaying(false); setStatus("paused"); } };
+      const onErr = () => { if (isActive() && a.src) failPlayback(a.error); };
       a.addEventListener("timeupdate", onTime);
       a.addEventListener("loadedmetadata", onMeta);
+      a.addEventListener("durationchange", onMeta);
+      a.addEventListener("progress", onProgress);
+      a.addEventListener("loadstart", onLoadStart);
+      a.addEventListener("waiting", onWaiting);
+      a.addEventListener("canplay", onCanPlay);
       a.addEventListener("ended", onEnd);
       a.addEventListener("play", onPlay);
+      a.addEventListener("playing", onPlaying);
       a.addEventListener("pause", onPause);
       a.addEventListener("error", onErr);
       return () => {
         a.pause();
         a.removeEventListener("timeupdate", onTime);
         a.removeEventListener("loadedmetadata", onMeta);
+        a.removeEventListener("durationchange", onMeta);
+        a.removeEventListener("progress", onProgress);
+        a.removeEventListener("loadstart", onLoadStart);
+        a.removeEventListener("waiting", onWaiting);
+        a.removeEventListener("canplay", onCanPlay);
         a.removeEventListener("ended", onEnd);
         a.removeEventListener("play", onPlay);
+        a.removeEventListener("playing", onPlaying);
         a.removeEventListener("pause", onPause);
         a.removeEventListener("error", onErr);
         a.src = "";
       };
     });
     return () => {
-      stopSim(); stopFade(); handlers.forEach(h => h());
-      audioCtxRef.current?.close().catch(() => {});
-      audioCtxRef.current = null;
-      filtersRef.current = null;
-      qualityGainsRef.current = null;
+      stopFade(); handlers.forEach(h => h());
+      if (localDebug) delete (window as any).__myraAudioDebug;
     };
-  }, [startSim, stopSim]);
+  }, [failPlayback, syncBuffered, syncPlayback]);
+
+  // timeupdate у браузеров редкий (обычно около 4 Гц). Считываем currentTime
+  // до 12.5 раз/с, а сама DETAIL-лента интерполирует движение на 60/144 Гц.
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      if (now - last >= 80) {
+        const a = active();
+        if (a) syncPlayback(a);
+        last = now;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, syncPlayback]);
 
   const load = useCallback((url: string) => {
-    stopSim();
-    modeRef.current = "real";
-    // Контекст стартует в suspended-состоянии, пока не будет жеста пользователя —
-    // клик по треку как раз им и является
-    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume().catch(() => {});
     const pair = players.current;
     if (!pair) return;
+    const sequence = ++loadSeqRef.current;
     const cur = pair[activeIdx.current];
     const wantFade = fadeRef.current() && !cur.paused && cur.src;
 
     stopFade();
     setProgress(0);
+    setBuffered(0);
+    setDuration(0);
+    setError(null);
+    setStatus("loading");
 
     if (!wantFade) {
       cur.pause();
       cur.src = url;
       cur.currentTime = 0;
       cur.volume = clampVol(volRef.current);
-      cur.play().catch(() => startSim());
+      cur.play().catch((cause) => {
+        if (sequence === loadSeqRef.current) failPlayback(cause);
+      });
       return;
     }
 
@@ -375,46 +401,61 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     nxt.currentTime = 0;
     nxt.volume = 0;
     activeIdx.current = nextIdx;
-    nxt.play().catch(() => startSim());
-
-    const durationMs = 1400;
-    const startedAt = performance.now();
-    const fadeFrame = (now: number) => {
-      const k = Math.min(1, (now - startedAt) / durationMs);
-      nxt.volume = clampVol(volRef.current * k);
-      cur.volume = clampVol(volRef.current * (1 - k));
-      if (k >= 1) {
-        fadeRaf.current = null;
-        cur.pause();
-        cur.src = "";
-        cur.volume = clampVol(volRef.current);
-      } else {
-        fadeRaf.current = requestAnimationFrame(fadeFrame);
-      }
+    const beginFade = () => {
+      const durationMs = 1400;
+      const startedAt = performance.now();
+      const fadeFrame = (now: number) => {
+        const k = Math.min(1, (now - startedAt) / durationMs);
+        nxt.volume = clampVol(volRef.current * k);
+        cur.volume = clampVol(volRef.current * (1 - k));
+        if (k >= 1) {
+          fadeRaf.current = null;
+          fadingOutRef.current = null;
+          fadingInRef.current = null;
+          cur.pause();
+          cur.src = "";
+          cur.volume = clampVol(volRef.current);
+        } else {
+          fadeRaf.current = requestAnimationFrame(fadeFrame);
+        }
+      };
+      fadeRaf.current = requestAnimationFrame(fadeFrame);
     };
-    fadeRaf.current = requestAnimationFrame(fadeFrame);
-  }, [startSim, stopSim]);
+
+    // Старый трек не затухает в тишину: кроссфейд начинается только после
+    // фактического старта нового media element.
+    nxt.play().then(() => {
+      if (sequence === loadSeqRef.current) beginFade();
+    }).catch((cause) => {
+      if (sequence !== loadSeqRef.current) return;
+      activeIdx.current = 1 - nextIdx;
+      nxt.pause();
+      nxt.src = "";
+      cur.volume = clampVol(volRef.current);
+      fadingOutRef.current = null;
+      fadingInRef.current = null;
+      // Ошибка следующего файла не должна обрывать уже играющий трек.
+      if (cur.paused) failPlayback(cause);
+      else {
+        setPlaying(true);
+        setStatus("playing");
+        console.warn("[MYRA audio] Не удалось переключить трек", cause);
+      }
+    });
+  }, [failPlayback]);
 
   const toggle = useCallback(() => {
-    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume().catch(() => {});
-    if (modeRef.current === "sim") {
-      if (simRef.current) { stopSim(); setPlaying(false); }
-      else startSim();
-      return;
-    }
     const a = active();
     if (!a || !a.src) return;
-    if (a.paused) a.play().catch(() => startSim());
+    if (a.paused) a.play().catch(failPlayback);
     else a.pause();
-  }, [startSim, stopSim]);
+  }, [failPlayback]);
 
   const pause = useCallback(() => {
-    if (modeRef.current === "sim") { stopSim(); setPlaying(false); return; }
     active()?.pause();
-  }, [stopSim]);
+  }, []);
 
   const seek = useCallback((pct: number) => {
-    if (modeRef.current === "sim") { setProgress(pct); return; }
     const a = active();
     if (!a || !a.duration) return;
     a.currentTime = (pct / 100) * a.duration;
@@ -428,22 +469,15 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     setVolumeState(v);
   }, []);
 
-  // Реально меняет звук под выбранное качество (0 = AAC 256, 1 = FLAC, 2 = Hi-Res) —
-  // плавно двигает срез фильтра и компенсирующую громкость, чтобы не было щелчка
-  const setQuality = useCallback((idx: number) => {
-    qualityRef.current = idx;
-    const preset = QUALITY_DSP[idx] ?? QUALITY_DSP[1];
-    const ctx = audioCtxRef.current;
-    const now = ctx?.currentTime ?? 0;
-    filtersRef.current?.forEach(f => f.frequency.setTargetAtTime(preset.freq, now, 0.08));
-    qualityGainsRef.current?.forEach(g => g.gain.setTargetAtTime(preset.gain, now, 0.08));
-  }, []);
+  // Выбор качества хранится в UI/профиле. Реальный поток будет переключаться
+  // здесь, когда каталог начнёт отдавать отдельные URL для AAC/FLAC/Hi-Res.
+  const setQuality = useCallback((_idx: number) => {}, []);
 
   // Стабильная ссылка: без useMemo новый объект на каждый рендер обесценивал
   // React.memo всех экранов (проп onPlay пересоздавался на каждый тик прогресса)
   return useMemo(
-    () => ({ playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality }),
-    [playing, progress, duration, volume, load, toggle, pause, seek, setVolume, setQuality],
+    () => ({ playing, progress, buffered, duration, volume, status, error, load, toggle, pause, seek, setVolume, setQuality }),
+    [playing, progress, buffered, duration, volume, status, error, load, toggle, pause, seek, setVolume, setQuality],
   );
 }
 

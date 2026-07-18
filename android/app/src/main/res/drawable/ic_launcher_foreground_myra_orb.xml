@@ -1,76 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Иконка MYRA «Орб» (выбор создателей, июль 2026): светящаяся сфера-аврора
-     с волной звука и орбитой — тот же орб, что в плеере приложения.
-     Используется как foreground адаптивной иконки (API 26+, градиенты ок).
-     Геометрия ужата к центру: орбита r72 и её спутник укладываются в
-     safe zone (центральные 66% вьюпорта), ничего не режется маской. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="240"
-    android:viewportHeight="240">
-    <!-- Мягкое свечение вокруг сферы -->
-    <path android:pathData="M120,120 m-95,0 a95,95 0 1,1 190,0 a95,95 0 1,1 -190,0 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="120" android:centerY="120" android:gradientRadius="95">
-                <item android:offset="0" android:color="#8C7C5CFF"/>
-                <item android:offset="1" android:color="#007C5CFF"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Сфера с авророй внутри -->
-    <path android:pathData="M120,120 m-56,0 a56,56 0 1,1 112,0 a56,56 0 1,1 -112,0 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="103" android:centerY="100" android:gradientRadius="106">
-                <item android:offset="0" android:color="#FFC4B5FD"/>
-                <item android:offset="0.3" android:color="#FF7C5CFF"/>
-                <item android:offset="0.65" android:color="#FF2B1470"/>
-                <item android:offset="1" android:color="#FF0C0630"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Глянцевый блик сверху-слева -->
-    <path android:pathData="M104,99 m-32,0 a32,22 0 1,1 64,0 a32,22 0 1,1 -64,0 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="104" android:centerY="99" android:gradientRadius="34">
-                <item android:offset="0" android:color="#80FFFFFF"/>
-                <item android:offset="1" android:color="#00FFFFFF"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Волна звука сквозь сферу -->
-    <path
-        android:pathData="M81,120 q9,-20 19.5,0 t19.5,0 t19.5,0 t19.5,0"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient android:type="linear" android:startX="81" android:startY="110" android:endX="159" android:endY="128">
-                <item android:offset="0" android:color="#FFA78BFA"/>
-                <item android:offset="0.48" android:color="#FF7DD3FC"/>
-                <item android:offset="1" android:color="#FFF6B8C8"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Орбита с разрывом (trimPath) -->
-    <path
-        android:pathData="M120,120 m-72,0 a72,72 0 1,1 144,0 a72,72 0 1,1 -144,0 Z"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:trimPathStart="0.06"
-        android:trimPathEnd="0.8"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient android:type="linear" android:startX="48" android:startY="90" android:endX="192" android:endY="150">
-                <item android:offset="0" android:color="#DAA78BFA"/>
-                <item android:offset="0.48" android:color="#DA7DD3FC"/>
-                <item android:offset="1" android:color="#DAF6B8C8"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-    <!-- Спутник на орбите -->
-    <path
-        android:pathData="M184,86 m-7,0 a7,7 0 1,1 14,0 a7,7 0 1,1 -14,0 Z"
-        android:fillColor="#F6B8C8"/>
-</vector>
+<!-- Exact APP ICON tile extracted from the supplied MYRA brand board. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:src="@drawable/myra_app_icon_reference"
+            android:gravity="fill"
+            android:filter="true"
+            android:antialias="true" />
+    </item>
+</layer-list>

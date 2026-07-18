@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert, Bug, Flag, EyeOff, Eye, CheckCheck, XCircle, ExternalLink } from "lucide-react";
+import { X, Zap, Sparkles, Wallet, Mic2, Headphones, Lock, RotateCcw, Wrench, Inbox, ChevronRight, ChevronLeft, Send, Loader2, ShieldAlert, Bug, Flag, EyeOff, Eye, CheckCheck, XCircle, ExternalLink } from "./myraIcons";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ls, REPORT_REASONS } from "./data";

@@ -30,22 +30,25 @@ export function usePlayerQueue(params: {
   const { t, lang } = useLang();
 
   const loadedRef = useRef(false);
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
   const nextRef = useRef<() => void>(() => {});
   const audio = useAudio(() => nextRef.current(), () => fadeRef.current);
 
   const playTrack = useCallback((tr: Track) => {
-    setCurrentTrack(prev => {
-      if (prev.id === tr.id && loadedRef.current) {
-        audio.toggle();
-        return prev;
-      }
-      loadedRef.current = true;
-      audio.load(resolveUrl(tr));
-      pushHistory(tr.id);
-      registerPlay(tr);
-      return tr;
-    });
-  }, [audio, resolveUrl, registerPlay]);
+    if (currentTrackRef.current.id === tr.id && loadedRef.current) {
+      audio.toggle();
+      return;
+    }
+    // play() должен происходить прямо в обработчике клика, иначе браузер
+    // теряет user activation и может заблокировать звук.
+    loadedRef.current = true;
+    currentTrackRef.current = tr;
+    setCurrentTrack(tr);
+    audio.load(resolveUrl(tr));
+    pushHistory(tr.id);
+    registerPlay(tr);
+  }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
   const togglePlay = useCallback(() => {
     if (!loadedRef.current) {
@@ -73,23 +76,23 @@ export function usePlayerQueue(params: {
   const repeatRef = useRef(repeat); repeatRef.current = repeat;
 
   const step = useCallback((dir: 1 | -1) => {
-    setCurrentTrack(prev => {
-      const q = queueRef.current;
-      let next: Track;
-      if (shuffleRef.current && q.length > 1) {
-        const pool = q.filter(tr => tr.id !== prev.id);
-        next = pool[Math.floor(Math.random() * pool.length)];
-      } else {
-        const idx = q.findIndex(tr => tr.id === prev.id);
-        next = q[(idx + dir + q.length) % q.length] ?? q[0];
-      }
-      loadedRef.current = true;
-      audio.load(resolveUrl(next));
-      pushHistory(next.id);
-      registerPlay(next);
-      return next;
-    });
-  }, [audio, resolveUrl, registerPlay]);
+    const prev = currentTrackRef.current;
+    const q = queueRef.current;
+    let next: Track;
+    if (shuffleRef.current && q.length > 1) {
+      const pool = q.filter(tr => tr.id !== prev.id);
+      next = pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      const idx = q.findIndex(tr => tr.id === prev.id);
+      next = q[(idx + dir + q.length) % q.length] ?? q[0];
+    }
+    loadedRef.current = true;
+    currentTrackRef.current = next;
+    setCurrentTrack(next);
+    audio.load(resolveUrl(next));
+    pushHistory(next.id);
+    registerPlay(next);
+  }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
   const handleNext = useCallback(() => step(1), [step]);
   const handlePrev = useCallback(() => step(-1), [step]);
@@ -99,33 +102,32 @@ export function usePlayerQueue(params: {
   const followedRef = useRef(followed); followedRef.current = followed;
   const langRef = useRef(lang); langRef.current = lang;
   const playWave = useCallback((silent = false) => {
-    setCurrentTrack(prev => {
-      const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, prev.id, langRef.current);
-      loadedRef.current = true;
-      audio.load(resolveUrl(track));
-      pushHistory(track.id);
-      registerPlay(track);
-      if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
-      return track;
-    });
-  }, [audio, resolveUrl, registerPlay]);
+    const { track, reason } = smartNext(queueRef.current, likedRef.current, followedRef.current, currentTrackRef.current.id, langRef.current);
+    loadedRef.current = true;
+    currentTrackRef.current = track;
+    setCurrentTrack(track);
+    audio.load(resolveUrl(track));
+    pushHistory(track.id);
+    registerPlay(track);
+    if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
+  }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
   // «Течение» — радио от текущего трека: случайный трек того же жанра.
   // Раньше кнопка молча дублировала «Прилив», хотя называлась иначе
   const playRadio = useCallback(() => {
-    setCurrentTrack(prev => {
-      const sameGenre = queueRef.current.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
-      const pool = sameGenre.length ? sameGenre : queueRef.current.filter(tr => tr.id !== prev.id);
-      if (!pool.length) return prev;
-      const next = pool[Math.floor(Math.random() * pool.length)];
-      loadedRef.current = true;
-      audio.load(resolveUrl(next));
-      pushHistory(next.id);
-      registerPlay(next);
-      toast(t("home.radioToast", next.title, next.artist));
-      return next;
-    });
-  }, [audio, resolveUrl, registerPlay, t]);
+    const prev = currentTrackRef.current;
+    const sameGenre = queueRef.current.filter(tr => tr.genre === prev.genre && tr.id !== prev.id);
+    const pool = sameGenre.length ? sameGenre : queueRef.current.filter(tr => tr.id !== prev.id);
+    if (!pool.length) return;
+    const next = pool[Math.floor(Math.random() * pool.length)];
+    loadedRef.current = true;
+    currentTrackRef.current = next;
+    setCurrentTrack(next);
+    audio.load(resolveUrl(next));
+    pushHistory(next.id);
+    registerPlay(next);
+    toast(t("home.radioToast", next.title, next.artist));
+  }, [audio, resolveUrl, registerPlay, setCurrentTrack, t]);
 
   // Стабильная обёртка: playWave пересоздаётся при смене зависимостей, а
   // мемоизации HomeScreen нужен неизменный проп — иначе React.memo бесполезен
@@ -138,7 +140,9 @@ export function usePlayerQueue(params: {
     nextRef.current = () => {
       if (repeatRef.current) {
         // после ended элемент на паузе — заново load запускает воспроизведение
-        setCurrentTrack(prev => { audio.load(resolveUrl(prev)); registerPlay(prev); return prev; });
+        const track = currentTrackRef.current;
+        audio.load(resolveUrl(track));
+        registerPlay(track);
         return;
       }
       if (shuffleRef.current) { step(1); return; }

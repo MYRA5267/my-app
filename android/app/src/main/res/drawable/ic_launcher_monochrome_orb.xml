@@ -1,23 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Монохромный слой адаптивной иконки «Орб»: системе нужна только альфа-маска,
-     поэтому плоские белые формы — контур сферы, волна и спутник. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="240"
     android:viewportHeight="240">
-    <path
-        android:pathData="M120,120 m-58,0 a58,58 0 1,1 116,0 a58,58 0 1,1 -116,0 Z"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="12"
-        android:fillColor="#00000000"/>
-    <path
-        android:pathData="M81,120 q9,-20 19.5,0 t19.5,0 t19.5,0 t19.5,0"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="11"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"/>
-    <path
-        android:pathData="M184,86 m-9,0 a9,9 0 1,1 18,0 a9,9 0 1,1 -18,0 Z"
-        android:fillColor="#FFFFFF"/>
+    <path android:pathData="M55,156 L55,83 C55,69 73,65 80,77 L120,144 L160,77 C167,65 185,69 185,83 L185,156"
+        android:strokeColor="#FFFFFF" android:strokeWidth="34" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
+    <path android:pathData="M20,103 C54,60 82,76 112,94 C142,112 166,112 220,76 M16,153 C52,122 80,124 108,147 C136,170 170,173 226,137"
+        android:strokeColor="#66FFFFFF" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000"/>
 </vector>

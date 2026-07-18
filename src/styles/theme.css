@@ -2481,3 +2481,899 @@
   .myra-detail-ribbon-b,
   .myra-detail-photo { animation: none !important; }
 }
+
+/* ─── MYRA Fluid Metal — brand system 2026 ─────────────────────────────── */
+.myra-app-shell,
+.myra-onboarding {
+  --myra-ink: #050405;
+  --myra-obsidian: #09070a;
+  --myra-panel: rgba(19, 14, 18, 0.76);
+  --myra-pearl: #fff1e9;
+  --myra-champagne: #f8c7a6;
+  --myra-copper: #d98968;
+  --myra-rose: #bb668b;
+  --myra-lilac: #a876bc;
+  --myra-ice: #d9efff;
+  --myra-line: rgba(242, 183, 148, 0.18);
+  --myra-line-strong: rgba(255, 224, 204, 0.34);
+  --myra-brand-gradient: linear-gradient(118deg, var(--myra-ice) 0%, var(--myra-pearl) 17%, var(--myra-champagne) 45%, var(--myra-copper) 69%, var(--myra-rose) 84%, var(--myra-lilac) 100%);
+  --myra-glass: linear-gradient(145deg, rgba(255, 241, 233, 0.075), rgba(217, 137, 104, 0.025) 58%, rgba(0, 0, 0, 0.1));
+  --myra-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 245, 238, 0.09);
+}
+
+[data-theme="dark"] .myra-app-shell,
+[data-theme="neon"] .myra-app-shell {
+  background:
+    radial-gradient(ellipse 70% 56% at 73% -12%, rgba(187, 102, 139, 0.085), transparent 62%),
+    radial-gradient(ellipse 62% 48% at 28% 112%, rgba(217, 137, 104, 0.06), transparent 64%),
+    #030304;
+}
+
+[data-theme="light"] .myra-app-shell,
+[data-theme="light"] .myra-onboarding {
+  --myra-panel: rgba(255, 249, 245, 0.78);
+  --myra-line: rgba(90, 49, 43, 0.12);
+  --myra-line-strong: rgba(124, 66, 54, 0.24);
+  --myra-glass: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 239, 230, 0.52));
+  --myra-shadow: 0 18px 55px rgba(83, 47, 47, 0.1), inset 0 1px 0 #fff;
+}
+
+.myra-brand-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.myra-brand-atmosphere i {
+  position: absolute;
+  display: block;
+  width: 78vw;
+  height: 18vw;
+  min-height: 130px;
+  border: 1px solid rgba(248, 199, 166, 0.1);
+  border-radius: 48% 52% 38% 62% / 55% 38% 62% 45%;
+  background: linear-gradient(90deg, transparent, rgba(217, 137, 104, 0.035), rgba(168, 118, 188, 0.045), transparent);
+  filter: blur(22px);
+  opacity: 0.7;
+  transform: rotate(-9deg) translate3d(0, 0, 0);
+  animation: myra-membrane-drift 24s ease-in-out infinite alternate;
+}
+
+.myra-brand-atmosphere i:nth-child(1) { top: 5%; left: 18%; }
+.myra-brand-atmosphere i:nth-child(2) { right: -12%; bottom: 21%; animation-delay: -8s; animation-duration: 29s; }
+.myra-brand-atmosphere i:nth-child(3) { bottom: -7%; left: 2%; width: 55vw; opacity: 0.38; animation-delay: -15s; }
+
+@keyframes myra-membrane-drift {
+  to { transform: rotate(-4deg) translate3d(5%, 8%, 0) scale(1.08); }
+}
+
+/* Logo lockup */
+.myra-brand-lockup { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.myra-brand-lockup-icon { flex: 0 0 auto; filter: drop-shadow(0 8px 18px rgba(217, 137, 104, 0.2)); }
+.myra-brand-lockup-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.myra-brand-lockup-copy > svg { width: 91px; }
+.myra-brand-lockup-copy > span {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--fg) 36%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 6.5px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  white-space: nowrap;
+}
+
+/* Desktop frame and navigation */
+.myra-desktop-rail {
+  width: 236px !important;
+  border-right: 1px solid var(--myra-line) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 241, 233, 0.025), transparent 20%),
+    rgba(5, 4, 5, 0.72) !important;
+  box-shadow: 28px 0 90px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(22px) saturate(1.2) !important;
+}
+
+[data-theme="light"] .myra-desktop-rail { background: rgba(251, 244, 240, 0.72) !important; }
+
+.myra-desktop-rail::after {
+  content: "";
+  position: absolute;
+  top: 102px;
+  right: -1px;
+  width: 1px;
+  height: 110px;
+  background: linear-gradient(transparent, var(--myra-copper), transparent);
+  box-shadow: 0 0 22px rgba(217, 137, 104, 0.45);
+}
+
+.myra-desktop-brand { min-height: 48px; }
+.myra-desktop-nav-item {
+  min-height: 49px;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  border-radius: 18px 25px 18px 25px !important;
+  transition: color 180ms ease, transform 180ms ease, border-color 180ms ease !important;
+}
+.myra-desktop-nav-item:hover { transform: translateX(3px); border-color: var(--myra-line); }
+.myra-desktop-nav-active {
+  border: 1px solid var(--myra-line-strong);
+  border-radius: inherit !important;
+  background:
+    linear-gradient(110deg, rgba(217, 137, 104, 0.18), rgba(187, 102, 139, 0.085) 65%, transparent),
+    rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px rgba(255, 241, 233, 0.1), 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+.myra-desktop-nav-glyph {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: color-mix(in srgb, var(--fg) 43%, transparent);
+  border-radius: 9px 13px 9px 13px;
+  transition: color 180ms ease, background 180ms ease;
+}
+.myra-desktop-nav-item[data-active] .myra-desktop-nav-glyph { color: var(--myra-pearl); background: rgba(217, 137, 104, 0.14); }
+
+.myra-rail-player {
+  position: relative;
+  overflow: visible !important;
+  margin-top: 24px;
+  border: 1px solid var(--myra-line) !important;
+  border-radius: 28px 38px 24px 32px !important;
+  background: var(--myra-glass) !important;
+  box-shadow: var(--myra-shadow) !important;
+}
+.myra-rail-player > div:first-of-type { overflow: hidden; border-radius: 27px 37px 4px 4px; }
+.myra-rail-player-label {
+  position: absolute;
+  top: -22px;
+  left: 3px;
+  color: rgba(248, 199, 166, 0.48);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.18em;
+}
+
+/* Page rhythm and headings */
+.myra-experience-page > div,
+.myra-experience-page > header,
+.myra-experience-page > section { max-width: 1240px; }
+
+.myra-page-eyebrow,
+.myra-flow-kicker,
+.myra-sheet-eyebrow,
+.myra-playlist-hero-eyebrow {
+  color: var(--myra-copper) !important;
+  letter-spacing: 0.22em !important;
+}
+
+.myra-desktop-page-title {
+  display: none;
+  flex-direction: column;
+  color: var(--fg);
+  font-family: "Sora", sans-serif;
+  font-size: 24px;
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.myra-desktop-page-title span {
+  margin-bottom: 8px;
+  color: var(--myra-copper);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+.myra-section-heading { position: relative; margin-bottom: 20px; padding-left: 16px; }
+.myra-section-heading::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 4px;
+  height: 29px;
+  border-radius: 5px 2px 5px 2px;
+  background: var(--myra-brand-gradient);
+  box-shadow: 0 0 18px rgba(217, 137, 104, 0.28);
+}
+.myra-section-heading h2 { font-weight: 720; letter-spacing: -0.045em; }
+.myra-section-heading > button { color: var(--myra-copper); }
+
+.myra-header-action,
+.myra-home-search,
+.myra-quick-action {
+  border: 1px solid var(--myra-line);
+  color: color-mix(in srgb, var(--fg) 60%, transparent);
+  background: var(--myra-glass);
+  box-shadow: inset 0 1px rgba(255, 245, 238, 0.07);
+}
+.myra-header-action:hover,
+.myra-home-search:hover,
+.myra-quick-action:hover { border-color: var(--myra-line-strong); }
+
+/* Home signature membrane */
+.myra-home-flow {
+  min-height: 368px;
+  border: 1px solid var(--myra-line-strong) !important;
+  border-radius: 42px 78px 40px 64px !important;
+  background:
+    radial-gradient(circle at 82% 22%, rgba(217, 137, 104, 0.2), transparent 28%),
+    radial-gradient(circle at 68% 82%, rgba(168, 118, 188, 0.15), transparent 34%),
+    linear-gradient(138deg, #171014 0%, #0b080b 58%, #160e14 100%) !important;
+  box-shadow: 0 35px 100px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 241, 233, 0.13) !important;
+}
+.myra-home-flow::before,
+.myra-home-flow::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  border: 1px solid rgba(248, 199, 166, 0.2);
+  border-radius: 50% 40% 54% 46% / 42% 56% 44% 58%;
+  transform: rotate(-11deg);
+}
+.myra-home-flow::before { width: 72%; height: 30%; right: -8%; top: 7%; }
+.myra-home-flow::after { width: 67%; height: 25%; right: -4%; bottom: 8%; border-color: rgba(187, 102, 139, 0.16); transform: rotate(8deg); }
+.myra-home-flow-copy h1 { color: var(--myra-pearl); font-weight: 720; }
+.myra-home-flow-copy p { color: rgba(255, 241, 233, 0.52); }
+.myra-home-flow-label {
+  border-color: rgba(248, 199, 166, 0.22);
+  color: var(--myra-champagne);
+  background: rgba(217, 137, 104, 0.09);
+}
+.myra-flow-kicker { font-family: "IBM Plex Mono", monospace; }
+.myra-home-flow-art {
+  border: 1px solid rgba(255, 241, 233, 0.2);
+  border-radius: 44% 56% 42% 58% / 56% 42% 58% 44%;
+  transform: rotate(4deg) translateZ(0);
+}
+.myra-home-flow-art > img { border-radius: inherit; }
+.myra-home-flow-art > span {
+  border-color: rgba(255, 241, 233, 0.28);
+  border-radius: 50% 42% 54% 46%;
+  color: #160b0c;
+  background: var(--myra-brand-gradient);
+}
+
+.myra-home-search { min-height: 52px; border-radius: 20px 32px 20px 32px !important; }
+.myra-home-search > svg { color: var(--myra-copper); }
+.myra-quick-grid > .myra-quick-action {
+  min-height: 98px;
+  border-radius: 24px 36px 22px 34px !important;
+  background: var(--myra-glass) !important;
+}
+.myra-quick-grid > .myra-quick-action:nth-child(even) { border-radius: 36px 22px 34px 24px !important; }
+.myra-quick-glyph {
+  display: grid;
+  width: 38px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(248, 199, 166, 0.18);
+  border-radius: 44% 56% 40% 60% / 54% 42% 58% 46%;
+  color: var(--myra-champagne);
+  background: rgba(217, 137, 104, 0.08);
+}
+
+/* Ownable release-card silhouette */
+.myra-release-card { position: relative; overflow: visible; }
+.myra-release-orbit {
+  position: absolute;
+  top: 7px;
+  right: -7px;
+  z-index: -1;
+  width: 58%;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--release-accent) 32%, var(--myra-copper));
+  border-radius: 48% 52% 38% 62% / 58% 40% 60% 42%;
+  opacity: 0.32;
+  transform: rotate(11deg);
+  transition: transform 360ms cubic-bezier(.2,.8,.2,1), opacity 240ms ease;
+}
+.myra-release-cover { border-color: var(--myra-line); border-radius: 29px 51px 25px 43px; }
+.myra-release-card:nth-child(3n+2) .myra-release-cover { border-radius: 48px 27px 42px 25px; }
+.myra-release-card:nth-child(3n) .myra-release-cover { border-radius: 27px 42px 48px 29px; }
+.myra-release-card:hover .myra-release-orbit,
+.myra-release-card.is-active .myra-release-orbit { opacity: 0.7; transform: rotate(19deg) scale(1.04); }
+.myra-release-shade { background: linear-gradient(180deg, transparent 38%, rgba(5, 3, 5, 0.82)); }
+.myra-release-play {
+  border-color: rgba(255, 241, 233, 0.35);
+  border-radius: 50% 42% 54% 46%;
+  color: #160b0c;
+  background: var(--myra-brand-gradient);
+  box-shadow: 0 14px 34px rgba(217, 137, 104, 0.24);
+}
+.myra-release-reason { border-color: rgba(248, 199, 166, 0.2); color: var(--myra-pearl); background: rgba(8, 5, 7, 0.7); }
+.myra-release-reason svg { color: var(--myra-champagne); }
+
+/* Search, library, rating, studio and profile */
+.myra-search-hero,
+.myra-library-header,
+.myra-rating-header,
+.myra-creator-header {
+  position: relative;
+  overflow: hidden;
+  margin: 16px 20px 24px;
+  padding: clamp(24px, 4vw, 48px) !important;
+  border: 1px solid var(--myra-line);
+  border-radius: 34px 62px 32px 54px;
+  background:
+    radial-gradient(ellipse at 86% 2%, rgba(217, 137, 104, 0.11), transparent 42%),
+    var(--myra-glass);
+  box-shadow: var(--myra-shadow);
+}
+.myra-search-hero::after,
+.myra-library-header::after,
+.myra-rating-header::after,
+.myra-creator-header::after {
+  content: "";
+  position: absolute;
+  right: -7%;
+  bottom: -35%;
+  width: 42%;
+  height: 78%;
+  border: 1px solid rgba(248, 199, 166, 0.14);
+  border-radius: 48% 52% 38% 62%;
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+.myra-search-hero h1,
+.myra-library-header h1,
+.myra-rating-header h1,
+.myra-creator-header h1 { font-weight: 720; letter-spacing: -0.065em; }
+
+.myra-search-field,
+.myra-library-search {
+  border-color: var(--myra-line);
+  border-radius: 20px 34px 20px 34px !important;
+  background: rgba(255, 241, 233, 0.035);
+  box-shadow: inset 0 1px rgba(255, 241, 233, 0.06);
+}
+.myra-search-field > svg,
+.myra-library-search > svg { color: var(--myra-copper); }
+.myra-search-field:focus-within,
+.myra-library-search:focus-within { border-color: var(--myra-line-strong); box-shadow: 0 0 0 4px rgba(217, 137, 104, 0.07); }
+
+.myra-mood-chip,
+.myra-library-tabs {
+  border-color: var(--myra-line);
+  background: rgba(255, 241, 233, 0.035);
+}
+.myra-mood-chip { border-radius: 15px 23px 15px 23px !important; }
+
+.myra-library-overview,
+.myra-creator-overview,
+.myra-profile-stats,
+.myra-rating-hero,
+.myra-creator-hero {
+  border-color: var(--myra-line) !important;
+  border-radius: 30px 48px 28px 44px !important;
+  background: var(--myra-glass) !important;
+  box-shadow: var(--myra-shadow);
+}
+
+.myra-track-row {
+  border-radius: 18px 29px 18px 29px;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.myra-track-row:hover,
+.myra-track-row.is-active { border-color: var(--myra-line); background: rgba(217, 137, 104, 0.055); }
+.myra-track-row-cover { border-radius: 15px 22px 15px 22px; }
+.myra-playlist-cover { border-color: var(--myra-line); border-radius: 30px 46px 26px 42px !important; }
+
+.myra-card-quiet,
+.myra-creator-dropzone,
+.myra-creator-pro-card,
+.myra-creator-real-donations {
+  border-color: var(--myra-line) !important;
+  border-radius: 24px 36px 22px 34px !important;
+  background: var(--myra-glass) !important;
+}
+
+.myra-profile-hero {
+  border-color: var(--myra-line);
+  border-radius: 44px 70px 38px 62px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(217, 137, 104, 0.18), transparent 58%),
+    var(--myra-glass);
+}
+.myra-profile-hero::after {
+  content: "";
+  position: absolute;
+  inset: 8% 4% auto;
+  height: 38%;
+  border: 1px solid rgba(248, 199, 166, 0.11);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Sheets and artist surfaces */
+.myra-sheet-card,
+.myra-account-card {
+  border-color: var(--myra-line) !important;
+  border-radius: 26px 42px 24px 38px !important;
+  background: var(--myra-glass) !important;
+}
+.myra-sheet-hero,
+.myra-account-hero,
+.myra-plus-hero,
+.myra-artist-hero,
+.myra-album-hero,
+.myra-playlist-hero {
+  border-color: var(--myra-line) !important;
+  border-radius: 38px 60px 34px 54px !important;
+  box-shadow: var(--myra-shadow) !important;
+}
+.myra-sheet-row[data-clickable]:hover { background: rgba(217, 137, 104, 0.055); }
+.myra-sheet-avatar { border-color: rgba(248, 199, 166, 0.38) !important; box-shadow: 0 0 0 7px rgba(217, 137, 104, 0.06); }
+
+/* Onboarding */
+.myra-onboarding { background: #030304 !important; }
+.myra-onboarding::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 45%, rgba(217, 137, 104, 0.035), transparent 68%),
+    radial-gradient(ellipse at 78% 16%, rgba(187, 102, 139, 0.08), transparent 40%);
+}
+.myra-onboarding-panel {
+  border-color: var(--myra-line) !important;
+  border-radius: 34px 54px 30px 48px !important;
+  background: rgba(10, 7, 9, 0.68) !important;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 241, 233, 0.08) !important;
+}
+.myra-onboarding-showcase-art { border-color: var(--myra-line-strong) !important; border-radius: 48% 52% 41% 59% / 55% 42% 58% 45% !important; }
+.myra-onboarding-showcase-copy small { color: var(--myra-copper) !important; }
+.myra-brand-fill { background: var(--myra-brand-gradient); }
+.myra-primary-cta {
+  color: #1a0c0c;
+  background: var(--myra-brand-gradient);
+  box-shadow: 0 14px 46px rgba(217, 137, 104, 0.24);
+}
+
+/* Compact player and mobile navigation — full player intentionally excluded. */
+.myra-mini-player {
+  border: 1px solid var(--myra-line-strong) !important;
+  border-radius: 24px 38px 22px 34px !important;
+  background: rgba(10, 7, 9, 0.88) !important;
+  box-shadow: 0 22px 68px rgba(0, 0, 0, 0.54), inset 0 1px rgba(255, 241, 233, 0.08) !important;
+}
+[data-theme="light"] .myra-mini-player { background: rgba(255, 249, 245, 0.9) !important; }
+.myra-mini-icon-button { border: 1px solid transparent; border-radius: 44% 56% 42% 58%; }
+.myra-mini-icon-button.is-active { border-color: var(--myra-line); background: rgba(217, 137, 104, 0.08); }
+.myra-mini-play {
+  border: 1px solid rgba(255, 241, 233, 0.36);
+  color: #180b0c;
+  background: var(--myra-brand-gradient) !important;
+  box-shadow: 0 10px 28px rgba(217, 137, 104, 0.28);
+}
+.myra-mobile-nav {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--myra-line-strong) !important;
+  border-radius: 24px 40px 22px 36px !important;
+  background: rgba(8, 6, 8, 0.9) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.54), inset 0 1px rgba(255, 241, 233, 0.08) !important;
+  backdrop-filter: blur(26px) saturate(1.3) !important;
+}
+[data-theme="light"] .myra-mobile-nav { background: rgba(255, 249, 245, 0.92) !important; }
+.myra-mobile-nav-active {
+  border: 1px solid var(--myra-line-strong);
+  background: linear-gradient(112deg, rgba(217, 137, 104, 0.2), rgba(187, 102, 139, 0.1));
+}
+.myra-mobile-nav-glyph { display: grid; width: 23px; height: 23px; place-items: center; }
+
+/* Keep animation cost on compositor-only properties. */
+.fx-simple .myra-brand-atmosphere i,
+.fx-simple .myra-release-orbit { animation: none !important; transition: none !important; }
+
+@media (max-width: 1023px) {
+  .myra-brand-lockup-icon { width: 38px; height: 38px; }
+  .myra-brand-lockup-copy > svg { width: 75px; height: auto; }
+  .myra-brand-lockup-copy > span { font-size: 5.5px; }
+  .myra-search-hero,
+  .myra-library-header,
+  .myra-rating-header,
+  .myra-creator-header { margin: 10px 12px 22px; padding: 24px 20px !important; border-radius: 28px 44px 26px 40px; }
+  .myra-home-flow { border-radius: 32px 52px 30px 46px !important; }
+  .myra-profile-hero { border-radius: 32px 48px 28px 44px; }
+}
+
+@media (min-width: 1024px) {
+  .myra-desktop-page-title { display: flex; }
+}
+
+@media (max-width: 560px) {
+  .myra-release-grid { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; }
+  .myra-release-card { width: min(46vw, 168px); flex: 0 0 min(46vw, 168px); }
+  .myra-search-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .myra-search-results .myra-release-card { width: auto; }
+  .myra-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .myra-quick-grid > .myra-quick-action { min-height: 82px; }
+  .myra-home-flow { min-height: 390px; }
+  .myra-mobile-nav-item { padding-inline: 9px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-brand-atmosphere i { animation: none !important; }
+  .myra-desktop-nav-item,
+  .myra-release-orbit,
+  .myra-release-cover,
+  .myra-track-row { transition-duration: 1ms !important; }
+}
+
+/* Brand-consistent interaction states and remaining functional accents. */
+.myra-desktop-nav-item:focus-visible,
+.myra-mobile-nav-item:focus-visible,
+.myra-experience-page button:focus-visible,
+.myra-experience-page input:focus-visible,
+.myra-onboarding button:focus-visible,
+.myra-onboarding input:focus-visible {
+  outline: 2px solid rgba(240, 176, 138, 0.72) !important;
+  outline-offset: 2px !important;
+}
+
+.myra-library-header > button,
+.myra-library-tabs button[aria-selected="true"] > div {
+  color: #190c0d !important;
+  background: var(--myra-brand-gradient) !important;
+  box-shadow: 0 12px 34px rgba(217, 137, 104, 0.22);
+}
+
+.myra-library-overview svg,
+.myra-creator-overview svg,
+.myra-profile-stats svg { color: var(--myra-copper) !important; }
+
+.myra-profile-plus-card {
+  border: 1px solid var(--myra-line-strong) !important;
+  border-radius: 28px 44px 25px 40px !important;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(187, 102, 139, 0.22), transparent 34%),
+    linear-gradient(135deg, #1b1115, #0b080a 72%) !important;
+  box-shadow: var(--myra-shadow);
+}
+.myra-profile-plus-card > div:last-child > div:first-child > div:first-child { color: var(--myra-copper) !important; }
+
+/* MYRA DETAIL wave — the brand ribbon doubles as the playback timeline. */
+.myra-detail-wave {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  color: var(--myra-wave-accent, var(--myra-copper));
+  user-select: none;
+  -webkit-user-select: none;
+  isolation: isolate;
+}
+.myra-detail-wave.is-interactive {
+  cursor: pointer;
+  touch-action: none;
+}
+.myra-detail-wave svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+.myra-detail-wave-ghost {
+  fill: color-mix(in srgb, var(--fg) 7%, transparent);
+  stroke: color-mix(in srgb, var(--fg) 10%, transparent);
+  stroke-width: 1;
+}
+.myra-detail-wave-media image { pointer-events: none; }
+.myra-detail-wave-media-base {
+  opacity: 0.22;
+  filter: saturate(0.68) brightness(0.52);
+}
+.myra-detail-wave-media-progress {
+  opacity: 0.92;
+  filter: saturate(1.12) brightness(1.02) drop-shadow(0 0 10px color-mix(in srgb, var(--myra-wave-accent) 38%, transparent));
+}
+.myra-detail-wave-highlight {
+  fill: none;
+  stroke: rgba(255, 241, 233, 0.72);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  opacity: 0.82;
+  filter: drop-shadow(0 0 5px rgba(246, 184, 200, 0.45));
+}
+.myra-detail-wave-head circle:first-child {
+  fill: var(--myra-wave-accent);
+  opacity: 0.26;
+  filter: drop-shadow(0 0 8px var(--myra-wave-accent));
+}
+.myra-detail-wave-head circle:last-child {
+  fill: #fff7f2;
+  stroke: color-mix(in srgb, var(--myra-wave-accent) 72%, #fff);
+  stroke-width: 1;
+}
+.myra-detail-wave.is-compact .myra-detail-wave-media-base { opacity: 0.16; }
+.myra-detail-wave.is-compact .myra-detail-wave-media-progress { filter: saturate(1.08) brightness(0.98); }
+.myra-detail-wave.is-compact .myra-detail-wave-head circle:first-child { opacity: 0.18; }
+.myra-detail-wave.is-playing svg {
+  animation: myra-detail-wave-live 3.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-highlight {
+  animation: myra-detail-wave-shimmer 2.6s ease-in-out infinite;
+}
+@keyframes myra-detail-wave-live {
+  0%, 100% { transform: scale3d(1, 0.97, 1); opacity: 0.94; }
+  50% { transform: scale3d(1, 1.035, 1); opacity: 1; }
+}
+@keyframes myra-detail-wave-shimmer {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 0.98; }
+}
+.fx-simple .myra-detail-wave svg,
+.fx-simple .myra-detail-wave-highlight {
+  animation: none !important;
+  filter: none !important;
+}
+.fx-simple .myra-detail-wave-media-progress { filter: saturate(0.96) brightness(0.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-detail-wave svg,
+  .myra-detail-wave-highlight { animation: none !important; }
+}
+
+/* DETAIL Wave 2.0: объёмная лента с отдельными playback и buffer слоями. */
+.myra-detail-wave {
+  --wave-transition: 90ms linear;
+  min-height: 28px;
+  overflow: visible;
+}
+.myra-detail-wave::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 25% 2% 18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--myra-wave-accent) 24%, transparent), transparent 72%);
+  opacity: 0.5;
+  transform: scale3d(0.96, 0.72, 1);
+  transition: opacity 240ms ease;
+  pointer-events: none;
+}
+.myra-detail-wave svg { animation: none !important; }
+.myra-detail-wave.is-playing svg { will-change: transform; }
+.myra-detail-wave-body {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.myra-detail-wave-back {
+  fill: rgba(12, 6, 14, 0.9);
+  stroke: color-mix(in srgb, var(--myra-wave-accent) 24%, transparent);
+  stroke-width: 1.5;
+  filter:
+    drop-shadow(0 12px 14px rgba(0, 0, 0, 0.56))
+    drop-shadow(0 0 13px color-mix(in srgb, var(--myra-wave-accent) 20%, transparent));
+}
+.myra-detail-wave-ghost {
+  fill: rgba(255, 241, 233, 0.07);
+  stroke: rgba(255, 230, 218, 0.22);
+  stroke-width: 1.35;
+}
+.myra-detail-wave-media-base {
+  opacity: 0.56;
+  filter: saturate(0.92) brightness(0.76) contrast(1.13);
+}
+.myra-detail-wave-top-rim,
+.myra-detail-wave-bottom-rim {
+  fill: none;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.myra-detail-wave-top-rim {
+  stroke: rgba(255, 241, 232, 0.5);
+  stroke-width: 1.45;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 5px rgba(255, 193, 163, 0.34));
+}
+.myra-detail-wave-bottom-rim {
+  stroke: color-mix(in srgb, var(--myra-wave-accent) 46%, #37182d);
+  stroke-width: 1.1;
+  opacity: 0.48;
+}
+.myra-detail-wave-buffer-mask,
+.myra-detail-wave-progress-mask {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform var(--wave-transition);
+}
+.myra-detail-wave-buffer-layer {
+  opacity: 0.88;
+  filter:
+    saturate(1.04)
+    brightness(0.98)
+    drop-shadow(0 0 10px color-mix(in srgb, var(--myra-wave-accent) 22%, transparent));
+}
+.myra-detail-wave-buffer-line {
+  fill: none;
+  stroke: rgba(255, 220, 211, 0.3);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-dasharray: 4 8;
+}
+.myra-detail-wave-media-progress {
+  opacity: 0.96;
+  filter:
+    saturate(1.26)
+    brightness(1.08)
+    contrast(1.04)
+    drop-shadow(0 4px 7px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--myra-wave-accent) 34%, transparent));
+}
+.myra-detail-wave-highlight {
+  stroke: rgba(255, 250, 246, 0.9);
+  stroke-width: 1.7;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 6px rgba(255, 201, 181, 0.62));
+}
+.myra-detail-wave-inner-light {
+  fill: none;
+  stroke: rgba(255, 218, 205, 0.43);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  opacity: 0.84;
+}
+.myra-detail-wave-playhead,
+.myra-detail-wave-buffer-head {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: var(--myra-wave-progress);
+  width: 3px;
+  height: 52%;
+  border-radius: 999px;
+  transform: translate3d(-50%, -50%, 0);
+  transition: left var(--wave-transition), opacity 180ms ease;
+  pointer-events: none;
+}
+.myra-detail-wave-playhead {
+  background: linear-gradient(to bottom, transparent, #fff6ef 24%, var(--myra-wave-accent) 72%, transparent);
+  box-shadow: 0 0 8px #fff4ec, 0 0 18px var(--myra-wave-accent), 0 0 34px color-mix(in srgb, var(--myra-wave-accent) 50%, transparent);
+}
+.myra-detail-wave-playhead::before,
+.myra-detail-wave-playhead::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.myra-detail-wave-playhead::before {
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--myra-wave-accent) 58%, #fff);
+  background: color-mix(in srgb, var(--myra-wave-accent) 18%, transparent);
+  box-shadow: inset 0 0 8px rgba(255,255,255,0.22);
+}
+.myra-detail-wave-playhead::after {
+  width: 5px;
+  height: 5px;
+  background: #fff9f5;
+  box-shadow: 0 0 7px #fff;
+}
+.myra-detail-wave-playhead > i {
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--myra-wave-accent) 22%, transparent);
+  opacity: 0;
+}
+.myra-detail-wave-buffer-head {
+  left: var(--myra-wave-buffered);
+  width: 2px;
+  height: 34%;
+  background: linear-gradient(to bottom, transparent, rgba(255, 224, 215, 0.72), transparent);
+  box-shadow: 0 0 10px rgba(255, 206, 190, 0.34);
+}
+.myra-detail-wave-energy {
+  position: absolute;
+  z-index: 3;
+  top: 26%;
+  left: 0;
+  width: var(--myra-wave-progress);
+  height: 48%;
+  overflow: hidden;
+  pointer-events: none;
+  transition: width var(--wave-transition);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 35%, #000 100%);
+}
+.myra-detail-wave-energy::before {
+  content: "";
+  position: absolute;
+  inset: 12% 0;
+  background: linear-gradient(100deg, transparent 0 58%, rgba(255,255,255,0.06) 70%, rgba(255,220,204,0.55) 82%, transparent 94%);
+  transform: translate3d(-110%, 0, 0);
+}
+.myra-detail-wave-energy > i {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff8f2;
+  opacity: 0;
+  box-shadow: 0 0 9px var(--myra-wave-accent);
+}
+.myra-detail-wave-energy > i:nth-child(2) { right: 16px; top: 32%; }
+.myra-detail-wave-energy > i:nth-child(3) { right: 25px; top: 67%; }
+
+.myra-detail-wave.is-playing::before {
+  opacity: 0.7;
+  animation: myra-detail-wave-aura 2.6s ease-in-out infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-body {
+  animation: myra-detail-wave-volume 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-buffer-line {
+  animation: myra-detail-wave-buffer-flow 2.2s linear infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-playhead > i {
+  animation: myra-detail-wave-ring 1.65s ease-out infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-energy::before {
+  animation: myra-detail-wave-current 2.4s ease-in-out infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-energy > i {
+  animation: myra-detail-wave-spark 1.8s ease-in-out infinite;
+}
+.myra-detail-wave.is-playing .myra-detail-wave-energy > i:nth-child(2) { animation-delay: -0.55s; }
+.myra-detail-wave.is-playing .myra-detail-wave-energy > i:nth-child(3) { animation-delay: -1.1s; }
+
+@keyframes myra-detail-wave-volume {
+  0%, 100% { transform: translate3d(0, 1.5px, 0) scale3d(1, 0.92, 1); }
+  50% { transform: translate3d(0, -1.5px, 0) scale3d(1, 1.075, 1); }
+}
+@keyframes myra-detail-wave-aura {
+  0%, 100% { transform: scale3d(0.95, 0.68, 1); opacity: 0.46; }
+  50% { transform: scale3d(1.015, 0.9, 1); opacity: 0.78; }
+}
+@keyframes myra-detail-wave-buffer-flow {
+  to { stroke-dashoffset: -24; }
+}
+@keyframes myra-detail-wave-ring {
+  0% { transform: scale3d(0.58, 0.58, 1); opacity: 0.78; }
+  80%, 100% { transform: scale3d(1.42, 1.42, 1); opacity: 0; }
+}
+@keyframes myra-detail-wave-current {
+  0% { transform: translate3d(-110%, 0, 0); opacity: 0; }
+  34% { opacity: 0.8; }
+  100% { transform: translate3d(110%, 0, 0); opacity: 0; }
+}
+@keyframes myra-detail-wave-spark {
+  0%, 100% { opacity: 0.15; transform: scale3d(0.65, 0.65, 1); }
+  48% { opacity: 0.95; transform: scale3d(1.2, 1.2, 1); }
+}
+
+.myra-detail-wave.is-compact::before { inset-block: 30%; opacity: 0.2; }
+.myra-detail-wave.is-compact .myra-detail-wave-back { filter: drop-shadow(0 4px 5px rgba(0,0,0,0.38)); }
+.myra-detail-wave.is-compact .myra-detail-wave-media-progress { filter: saturate(1.12) brightness(1.02); }
+.myra-detail-wave.is-compact .myra-detail-wave-playhead::before { width: 12px; height: 12px; }
+.myra-detail-wave.is-compact .myra-detail-wave-playhead { height: 42%; }
+
+.fx-simple .myra-detail-wave *,
+.fx-simple .myra-detail-wave::before,
+.myra-detail-wave:not(.is-playing) .myra-detail-wave-body {
+  animation: none !important;
+}
+.fx-simple .myra-detail-wave-media-progress,
+.fx-simple .myra-detail-wave-back { filter: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .myra-detail-wave *,
+  .myra-detail-wave::before { animation: none !important; }
+  .myra-detail-wave { --wave-transition: 1ms linear; }
+}

@@ -7,10 +7,10 @@
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#050510",
-  "theme_color": "#050510",
+  "background_color": "#030304",
+  "theme_color": "#09070a",
   "icons": [
-    { "src": "icon.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]

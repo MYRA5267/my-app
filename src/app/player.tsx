@@ -3,13 +3,13 @@ import {
   Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat,
   ChevronDown, Share2, Volume2, VolumeX, Globe, Flag,
   MessageCircle, Send, Timer, BadgeCheck, ArrowDownToLine, CheckCircle2, Music2, Flame, Blend,
-} from "lucide-react";
+} from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { LYRICS, artistByName, loadMyComments, addMyComment, commentsFor, type Track, type Comment } from "./data";
 import { commentHotMoments } from "./smart";
-import { F, GLASS, SPRING, fmtSec, FrequencyOrb, Waveform, ParticleWave, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
-import { DetailBackdrop } from "./detail";
+import { F, GLASS, SPRING, fmtSec, FrequencyOrb, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
+import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
@@ -18,9 +18,9 @@ import { ReportSheet } from "./overlays";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
-export function FullPlayer({ track, playing, onToggle, onClose, progress, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue }: {
+export function FullPlayer({ track, playing, onToggle, onClose, progress, buffered, duration, onSeek, onNext, onPrev, liked, onLike, volume, onVolume, onPlayTrack, onOpenArtist, onOpenAlbum, sleepLeft, onSleep, downloaded, onDownload, handle, uid, crossfade, onToggleCrossfade, shuffle, onToggleShuffle, repeat, onToggleRepeat, queue }: {
   track: Track; playing: boolean; onToggle: () => void; onClose: () => void;
-  progress: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
+  progress: number; buffered: number; duration: number; onSeek: (p: number) => void; onNext: () => void; onPrev: () => void;
   liked: boolean; onLike: () => void; volume: number; onVolume: (v: number) => void;
   onPlayTrack: (t: Track) => void; onOpenArtist: (name: string) => void; onOpenAlbum: (album: string) => void;
   sleepLeft: number | null; onSleep: (minutes: number | null) => void;
@@ -247,7 +247,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
               </div>
 
               <div className="myra-player-timeline">
-                <ParticleWave progress={progressRounded} color={track.c2} onSeek={onSeek} height={64} playing={playing} />
+                <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={82} playing={playing} />
                 <TrackStructureBar sections={structure} height={22} />
                 <div className="flex justify-between mt-2.5 text-[11px]" style={{ color: "rgba(242,242,248,0.42)", fontFamily: F.m }}>
                   <span>{fmtSec(curSec)}</span>
@@ -384,7 +384,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
         {tab === "comments" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }} className="flex-1 flex flex-col px-6 py-4 overflow-hidden w-full max-w-xl mx-auto">
             <div className="mb-5 relative flex-shrink-0">
-              <Waveform progress={progressRounded} color={track.c2} onSeek={onSeek} height={48} seed={track.id + 3} dim />
+              <DetailWave progress={progress} buffered={buffered} accent={track.c2} onSeek={onSeek} height={54} playing={playing} compact />
               {comments.map((c, i) => (
                 <div key={i} className="absolute bottom-full mb-1 -translate-x-1/2" style={{ left: `${c.pct}%` }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: c.avatar, boxShadow: `0 0 8px ${c.avatar}` }} />
@@ -514,14 +514,14 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, durati
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { Home, Search, Library, User, Mic2 } from "lucide-react";
+import { MyraGlyph, MyraHomeIcon, MyraDiscoverIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
 
 export const NAV = [
-  { id: "home",    icon: Home,    label: "nav.home" },
-  { id: "browse",  icon: Search,  label: "nav.browse" },
-  { id: "library", icon: Library, label: "nav.library" },
-  { id: "creator", icon: Mic2,    label: "nav.creator" },
-  { id: "profile", icon: User,    label: "nav.profile" },
+  { id: "home",    icon: MyraHomeIcon,     label: "nav.home" },
+  { id: "browse",  icon: MyraDiscoverIcon, label: "nav.browse" },
+  { id: "library", icon: MyraLibraryIcon,  label: "nav.library" },
+  { id: "creator", icon: MyraStudioIcon,   label: "nav.creator" },
+  { id: "profile", icon: MyraProfileIcon,  label: "nav.profile" },
 ];
 
 /** Студия видна только артистам (или тем, кто оформил MYRA Pro) */
@@ -574,11 +574,11 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
             </div>
           </div>
           {/* 44×44 touch target — раньше p-1+17px иконка (~25px) не дотягивала до минимума */}
-          <motion.button aria-label={liked ? "unlike" : "like"} whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); onLike(); }} className="w-11 h-11 flex items-center justify-center flex-shrink-0">
-            <Heart size={17} fill={liked ? track.c2 : "none"} stroke={liked ? track.c2 : "color-mix(in srgb, var(--wash) 30%, transparent)"} />
+          <motion.button aria-label={liked ? "unlike" : "like"} whileTap={{ scale: 0.8 }} onClick={e => { e.stopPropagation(); onLike(); }} className={`myra-mini-icon-button w-11 h-11 flex items-center justify-center flex-shrink-0${liked ? " is-active" : ""}`}>
+            <MyraGlyph name="heart" size={18} filled={liked} style={{ color: liked ? track.c2 : "color-mix(in srgb, var(--wash) 45%, transparent)" }} />
           </motion.button>
-          <motion.button aria-label={playing ? "pause" : "play"} whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); onToggle(); }} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${track.c2}, ${track.c2}aa)` }}>
-            {playing ? <Pause size={15} fill="white" stroke="none" /> : <Play size={15} fill="white" stroke="none" className="ml-0.5" />}
+          <motion.button aria-label={playing ? "pause" : "play"} whileTap={{ scale: 0.85 }} onClick={e => { e.stopPropagation(); onToggle(); }} className="myra-mini-play w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ "--track-accent": track.c2 } as React.CSSProperties}>
+            <MyraGlyph name={playing ? "pause" : "play"} size={16} strokeWidth={2.15} className={playing ? "" : "ml-0.5"} />
           </motion.button>
         </div>
         {/* Перемотка прямо с мини-плеера — без открытия обложки */}
@@ -607,11 +607,11 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
           const active = activeTab === n.id;
           const Icon = n.icon;
           return (
-            <motion.button key={n.id} layout onClick={() => onTab(n.id)} aria-label={t(n.label)} className="myra-mobile-nav-item relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
-              {active && <motion.div layoutId="mobnav" className="absolute inset-0 rounded-full" style={{ background: `${track.c2}2e`, border: `1px solid ${track.c2}44` }} transition={SPRING} />}
-              <Icon size={17} className="relative z-10" style={{ color: active ? track.c2 : "color-mix(in srgb, var(--fg) 40%, transparent)" }} />
+            <motion.button key={n.id} layout onClick={() => onTab(n.id)} aria-label={t(n.label)} data-active={active || undefined} className="myra-mobile-nav-item relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
+              {active && <motion.div layoutId="mobnav" className="myra-mobile-nav-active absolute inset-0 rounded-full" transition={SPRING} />}
+              <span className="myra-mobile-nav-glyph relative z-10"><Icon size={18} style={{ color: active ? "var(--myra-pearl)" : "color-mix(in srgb, var(--fg) 42%, transparent)" }} /></span>
               {active && (
-                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 text-xs font-semibold whitespace-nowrap" style={{ color: track.c2, fontFamily: F.b }}>
+                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 text-xs font-semibold whitespace-nowrap" style={{ color: "var(--myra-pearl)", fontFamily: F.b }}>
                   {t(n.label)}
                 </motion.span>
               )}
