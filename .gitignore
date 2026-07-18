@@ -27,3 +27,9 @@ Thumbs.db
 playwright-report/
 test-results/
 blob-report/
+
+# Локально установленные скиллы агента (npx skills add ...) — инструмент
+# рабочего окружения, не часть продукта; в публичный репозиторий не коммитим
+.agents/
+.claude/skills/
+skills-lock.json
