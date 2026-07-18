@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import path from "path";
 import react from "@vitejs/plugin-react";
 
@@ -12,5 +12,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  test: { environment: "jsdom" },
+  test: {
+    environment: "jsdom",
+    // tests/e2e/* — Playwright-спеки (playwright.config.ts, testDir tests/e2e):
+    // Vitest не должен их исполнять — у Playwright свой раннер, и его
+    // test.beforeEach() падает вне контекста Playwright Test.
+    // Расширяем configDefaults.exclude, а не заменяем целиком — иначе
+    // потеряются дефолтные исключения (node_modules, dist и т.д.).
+    exclude: [...configDefaults.exclude, "tests/e2e/**"],
+  },
 });
