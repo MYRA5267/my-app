@@ -214,10 +214,18 @@ const QUALITY_DSP = [
   { freq: 20000, gain: 1.1 },  // Hi-Res 24-bit — чуть больше воздуха и громкости
 ];
 
+// Плавающая точка на границах кроссфейда (k≈0/k≈1) и повторные прерывания могут
+// толкнуть .volume чуть за пределы [0,1] — браузер бросает RangeError на присвоении.
+const clampVol = (v: number) => Math.min(1, Math.max(0, v));
+
 export function useAudio(onEnded: () => void, getFade: () => boolean = () => true) {
   const players = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null);
   const activeIdx = useRef(0);
   const fadeRaf = useRef<number | null>(null);
+  // Элементы активного кроссфейда — нужны stopFade(), чтобы при прерывании привести
+  // оба к консистентному состоянию, а не оставить их на промежуточной громкости.
+  const fadingOutRef = useRef<HTMLAudioElement | null>(null);
+  const fadingInRef = useRef<HTMLAudioElement | null>(null);
   const volRef = useRef(0.75);
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
@@ -260,7 +268,17 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   }, [stopSim]);
 
   const stopFade = () => {
-    if (fadeRaf.current !== null) { cancelAnimationFrame(fadeRaf.current); fadeRaf.current = null; }
+    if (fadeRaf.current !== null) {
+      cancelAnimationFrame(fadeRaf.current);
+      fadeRaf.current = null;
+      // Кроссфейд прерван на середине — старый элемент осиротеет на частичной громкости,
+      // если его не остановить, а новый оставить не на целевой громкости. Снэпаем оба
+      // к тому же конечному состоянию, к которому они пришли бы при штатном завершении.
+      if (fadingOutRef.current) { fadingOutRef.current.pause(); fadingOutRef.current.src = ""; }
+      if (fadingInRef.current) fadingInRef.current.volume = clampVol(volRef.current);
+    }
+    fadingOutRef.current = null;
+    fadingInRef.current = null;
   };
 
   useEffect(() => {
@@ -343,7 +361,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
       cur.pause();
       cur.src = url;
       cur.currentTime = 0;
-      cur.volume = volRef.current;
+      cur.volume = clampVol(volRef.current);
       cur.play().catch(() => startSim());
       return;
     }
@@ -351,6 +369,8 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     // Кроссфейд: новый трек стартует на нуле громкости и нарастает, старый затухает
     const nextIdx = 1 - activeIdx.current;
     const nxt = pair[nextIdx];
+    fadingOutRef.current = cur;
+    fadingInRef.current = nxt;
     nxt.src = url;
     nxt.currentTime = 0;
     nxt.volume = 0;
@@ -361,13 +381,13 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
     const startedAt = performance.now();
     const fadeFrame = (now: number) => {
       const k = Math.min(1, (now - startedAt) / durationMs);
-      nxt.volume = volRef.current * k;
-      cur.volume = volRef.current * (1 - k);
+      nxt.volume = clampVol(volRef.current * k);
+      cur.volume = clampVol(volRef.current * (1 - k));
       if (k >= 1) {
         fadeRaf.current = null;
         cur.pause();
         cur.src = "";
-        cur.volume = volRef.current;
+        cur.volume = clampVol(volRef.current);
       } else {
         fadeRaf.current = requestAnimationFrame(fadeFrame);
       }
@@ -404,7 +424,7 @@ export function useAudio(onEnded: () => void, getFade: () => boolean = () => tru
   const setVolume = useCallback((v: number) => {
     volRef.current = v;
     const a = active();
-    if (a && fadeRaf.current === null) a.volume = v;
+    if (a && fadeRaf.current === null) a.volume = clampVol(v);
     setVolumeState(v);
   }, []);
 
