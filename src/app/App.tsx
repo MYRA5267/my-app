@@ -613,6 +613,13 @@ function AppInner() {
     [queue, likedIds, followed, currentTrack.id, lang],
   );
 
+  // Строго ДО раннего return ниже (как recommendations выше) — иначе при выходе
+  // из аккаунта onboarded переключается true→false в рамках той же сессии,
+  // ранний return пропускает этот хук, и React падает с "Rendered fewer hooks
+  // than expected" (#300). Этот useCallback просочился ниже return при
+  // бренд-редизайне и ломал выход из аккаунта у слушателя.
+  const openFreePlan = useCallback(() => toast.success(t("plan.freeAllToast")), [t]);
+
   if (!onboarded) {
     return themedRoot(<Suspense fallback={null}><OnboardingFlow onDone={finishOnboarding} /></Suspense>);
   }
@@ -628,7 +635,6 @@ function AppInner() {
   const planLabel = userRole === "artist"
     ? (cpStatus === "active" ? t("plan.proActive") : cpStatus === "grace" ? t("plan.proGrace") : t("plan.free"))
     : t("plan.freeAll");
-  const openFreePlan = useCallback(() => toast.success(t("plan.freeAllToast")), [t]);
   const openPlan = userRole === "artist" ? openCreatorPlus : openFreePlan;
 
   // Счётчики для скрытых достижений — их полный список видит только дев-панель
