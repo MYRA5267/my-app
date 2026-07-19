@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("myra.onboarded", "true"));
 });
 
-test("клик по треку запускает воспроизведение и открывает Full Player", async ({ page }) => {
+test("клик по треку загружает его в плеер и открывает Full Player", async ({ page }) => {
   // Listener — до любых действий: ошибка, брошенная асинхронно в любой момент
   // теста (а не только после кликов Next/Prev), должна попасть в массив.
   const pageErrors: string[] = [];
@@ -23,11 +23,14 @@ test("клик по треку запускает воспроизведение
   await expect(firstTrackCover).toBeVisible();
   await firstTrackCover.click();
 
-  // Демо-каталог отдаёт реальные mp3 с внешнего хоста (soundhelix), недоступного
-  // в этой песочнице/CI — приложение по дизайну (useAudio в lib.tsx) ловит ошибку
-  // загрузки и переключается на симулированное воспроизведение (startSim), выставляя
-  // playing=true по таймеру — так что кнопка мини-плеера всё равно должна дойти до "pause".
-  await expect(page.getByRole("button", { name: "pause" })).toBeVisible({ timeout: 20_000 });
+  // Сознательно НЕ ждём кнопку "pause": имитации воспроизведения по таймеру
+  // (прежний startSim) больше нет. Демо-каталог отдаёт внешние mp3 (soundhelix),
+  // недоступные в песочнице/CI, и приложение по принципу честности (failPlayback
+  // в lib.tsx) не изображает игру — выставляет status="error", playing=false и
+  // откатывает трек. Мимолётный "pause" мелькал лишь из-за гонки события play до
+  // ошибки. Проверяем устойчивые факты: мини-плеер жив, Full Player открывается по
+  // тапу, а транспорт (next/prev) не роняет приложение.
+  await expect(miniPlayer).toBeVisible();
 
   // Клик по мини-плееру открывает Full Player
   await miniPlayer.click();
