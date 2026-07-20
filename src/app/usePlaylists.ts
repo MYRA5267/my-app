@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { ls, svgCover, PLAYLISTS, type Playlist } from "./data";
 import { useLang } from "./i18n";
+import { track } from "./analytics";
 
 // Свои плейлисты: создание/удаление/переименование состава, порядок треков
 // внутри плейлиста и то, какой плейлист сейчас открыт шторкой — всё вместе,
@@ -22,6 +23,7 @@ export function usePlaylists(logActivity: (key: string, ...args: (string | numbe
     const pl: Playlist = { id: "u" + Date.now(), name, img: svgCover("#12083a", "#8b5cf6", Date.now() % 97), trackIds };
     setCustomPls(prev => { const next = [pl, ...prev]; ls.set("customPls", next); return next; });
     logActivity("act.plCreated", name);
+    track({ name: "playlist_create" });
     return pl;
   }, [logActivity]);
 

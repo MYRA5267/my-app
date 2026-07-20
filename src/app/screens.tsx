@@ -13,6 +13,8 @@ import { TRACKS, ARTISTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AV
 import { F, GLASS, SPRING, TiltCard, Aurora, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang, type Lang } from "./i18n";
+// Алиас: track повсеместно используется как имя лямбда-параметра (TRACKS.filter(track=>…)).
+import { track as trackEvent } from "./analytics";
 import { lastNDays, isMonthEndWindow, type ActivityItem } from "./stats";
 import { MyraBrandLockup } from "./logo";
 import { MyraGlyph, type MyraGlyphName } from "./myraIcons";
@@ -713,6 +715,19 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
   const filtered = useMemo(() => normalizedQuery
     ? TRACKS.filter(track => `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLocaleLowerCase().includes(normalizedQuery))
     : [], [normalizedQuery]);
+
+  // search — один раз на старт сессии поиска (переход пусто→непусто), с числом
+  // результатов; сам запрос НЕ отправляется (это пользовательский текст). Сброс
+  // на очистке поля позволяет засчитать следующий поиск.
+  const searchedRef = useRef(false);
+  useEffect(() => {
+    if (normalizedQuery && !searchedRef.current) {
+      searchedRef.current = true;
+      trackEvent({ name: "search", resultCount: filtered.length });
+    } else if (!normalizedQuery) {
+      searchedRef.current = false;
+    }
+  }, [normalizedQuery, filtered.length]);
 
   const MOODS = [
     { label: t("mood.focus"),   icon: Brain,    track: TRACKS[3] },
