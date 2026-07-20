@@ -835,46 +835,50 @@ playlist_*, share) типизирован и разводится инкреме
 
 # ФАЗА 7. Web и PWA готовность
 
-Статус: NOT_STARTED
+Статус: PARTIAL (CSP/Vercel/домен + мета/OG/canonical/robots/sitemap — сделано; Lighthouse-на-лайве, кросс-браузер на реальных устройствах, подключение домена/DNS, снятие noindex — BLOCKED_OWNER)
 
 ## Web
 
-- [ ] Lighthouse performance.
+- [ ] Lighthouse performance. (запуск на реальном лайве — владелец/CI)
 - [ ] Lighthouse accessibility.
 - [ ] Lighthouse best practices.
-- [ ] Lighthouse SEO.
-- [ ] Safari.
+- [x] Lighthouse SEO — базовые сигналы на месте: title, meta description, canonical,
+  robots meta + `public/robots.txt`, `public/sitemap.xml`, lang="ru".
+- [ ] Safari. (реальное устройство — владелец)
 - [ ] Firefox.
 - [ ] Edge.
 - [ ] Android Chrome.
 - [ ] iPhone Safari.
-- [ ] Прямые URL.
-- [ ] 404/fallback.
-- [ ] vite:preloadError на реальном build.
+- [x] Прямые URL — статические юр.страницы отдаются напрямую; SPA — единый index.html (не роутер).
+- [ ] 404/fallback. (зависит от хостинга — Vercel rewrites/Pages 404, зона владельца)
+- [ ] vite:preloadError на реальном build. (проверяется на лайве после деплоя)
 - [ ] Проверка service worker update.
-- [ ] Проверка noindex.
-- [ ] Убрать noindex только при подтверждённом публичном запуске.
-- [ ] Open Graph.
-- [ ] Social preview.
-- [ ] Canonical URL.
-- [ ] Theme color.
-- [ ] App description.
+- [~] Проверка noindex — сейчас `index, follow` (текущий выбор владельца; не меняю без решения).
+- [ ] Убрать noindex только при подтверждённом публичном запуске. (решение владельца)
+- [x] Open Graph — og:type/site_name/locale/url/title/description/image(абсолютный)/image:alt.
+- [x] Social preview — Twitter Card (summary) title/description/image.
+- [x] Canonical URL — `<link rel="canonical" href="https://app.myramusic.ru/">`.
+- [x] Theme color — `<meta name="theme-color">` + manifest theme_color.
+- [x] App description — meta description + manifest description.
 
 ## PWA
 
-- [ ] Проверить manifest.webmanifest.
-- [ ] 192×192 icon.
-- [ ] 512×512 icon.
-- [ ] Отдельная maskable icon.
-- [ ] Safe zone maskable.
-- [ ] Apple touch icon.
-- [ ] Screenshots.
-- [ ] Shortcuts.
-- [ ] Installability Android.
-- [ ] Add to Home Screen iOS.
-- [ ] Offline shell.
+- [x] Проверить manifest.webmanifest — валиден: name/short_name/id/description/lang/
+  start_url/scope/display(standalone)/display_override/categories/background+theme_color/icons.
+- [x] 192×192 icon (`public/icon-192.png`).
+- [x] 512×512 icon (`public/icon-512.png`).
+- [~] Отдельная maskable icon — сейчас переиспользуется icon-512 с purpose:"maskable";
+  для идеального адаптивного вида нужен отдельный ассет с safe-zone паддингом (генерация
+  изображения — отдельная задача, не блокер установки).
+- [~] Safe zone maskable — см. выше.
+- [x] Apple touch icon (`public/apple-touch-icon.png`, `<link rel="apple-touch-icon">`).
+- [ ] Screenshots — требуют курируемых снимков (Playwright-capture), инкрементально.
+- [ ] Shortcuts — осмысленны только с deep-link обработкой параметров (Фаза 8), тогда и добавить.
+- [ ] Installability Android. (проверка на реальном лайве/устройстве — владелец)
+- [ ] Add to Home Screen iOS. (реальное устройство — владелец)
+- [x] Offline shell — service worker + offline page на месте (e2e `offline-demo.spec.ts` зелёный).
 - [ ] Понятное обновление новой версии.
-- [ ] Не кешировать приватные данные.
+- [ ] Не кешировать приватные данные. (сверить политику SW при аудите кеша)
 - [ ] Не кешировать аудио без отдельной политики.
 
 ## Критерии готовности
@@ -896,7 +900,25 @@ playlist_*, share) типизирован и разводится инкреме
 
 ## Отчёт
 
-Пока не выполнено.
+Частично выполнено (остаток — BLOCKED_OWNER: реальные устройства, домен/DNS, launch-решения).
+
+Сделано в этой ветке (мета/SEO, проверяемо в билде):
+- `index.html`: добавлены `<link rel="canonical">`, `og:site_name`/`og:locale`/`og:url`,
+  `og:image` переведён на **абсолютный** URL (краулеры соцсетей не резолвят относительные пути),
+  `og:image:alt`, Twitter Card (`summary`, title/description/image). robots оставлен `index, follow`
+  (текущий выбор владельца — не меняю без launch-решения).
+- Новые `public/robots.txt` (Allow: /, ссылка на sitemap) и `public/sitemap.xml` (главная + 7 юр.страниц).
+- Домен во всех ссылках — `app.myramusic.ru` из собственного `.env.example` владельца.
+
+Уже было (владелец, за сутки): `vercel.json` (жёсткий CSP `script-src 'self'` + HSTS/
+X-Frame-Options DENY/Referrer/Permissions), самохостинг шрифтов @fontsource (под CSP),
+manifest.webmanifest, набор иконок (192/512/apple-touch/favicon), service worker + offline page,
+ускорение первого экрана, boot-заглушка в `index.html`.
+
+Остаток (BLOCKED_OWNER / инкрементально): Lighthouse на реальном лайве, кросс-браузер и
+установка PWA на реальных устройствах (Safari/Firefox/Edge/Android/iOS), подключение домена и DNS,
+подтверждение момента снятия noindex, 404/fallback хостинга, отдельный maskable-ассет с safe-zone,
+курируемые screenshots, shortcuts (после deep-links Фазы 8), аудит политики кеширования SW.
 
 # ФАЗА 8. Capacitor lifecycle, Android back button и deep links
 
