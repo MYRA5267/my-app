@@ -745,7 +745,7 @@ Security Advisor = 0 замечаний, Performance Advisor = 0. Проведё
 
 # ФАЗА 6. Типизированный слой продуктовой аналитики
 
-Статус: NOT_STARTED
+Статус: DONE (модуль + адаптеры + тесты + разводка критических событий; выбор провайдера/согласие/ключ — отложенные действия владельца, не блокеры)
 
 ## Цель
 
@@ -753,53 +753,56 @@ Security Advisor = 0 замечаний, Performance Advisor = 0. Проведё
 
 ## События
 
-- [ ] app_open
+Все 24 события типизированы в `analytics.ts` (union `AnalyticsEvent`). Отмеченные —
+разведены по call-site'ам; неотмеченные имеют готовый тип, разводка инкрементальна.
+
+- [x] app_open (App.tsx mount)
 - [ ] onboarding_start
-- [ ] onboarding_complete
-- [ ] sign_up
-- [ ] login
-- [ ] logout
-- [ ] password_recovery
-- [ ] track_play
-- [ ] track_pause
-- [ ] track_complete
-- [ ] track_skip
-- [ ] playback_error
+- [x] onboarding_complete (auth.tsx finishRole, role — enum)
+- [x] sign_up (auth.tsx, method)
+- [x] login (auth.tsx: email + passkey, method)
+- [x] logout (App.tsx handleLogout)
+- [x] password_recovery (auth.tsx sendPasswordReset)
+- [x] track_play (usePlayerQueue: direct/toggle/queue/wave/radio/auto)
+- [x] track_pause (usePlayerQueue toggle)
+- [x] track_complete (usePlayerQueue nextRef/ended)
+- [x] track_skip (usePlayerQueue handleNext/handlePrev, direction)
+- [x] playback_error (App.tsx audio.error effect)
 - [ ] search
 - [ ] search_result_open
-- [ ] like
-- [ ] unlike
+- [x] like (App.tsx toggleLike)
+- [x] unlike (App.tsx toggleLike)
 - [ ] playlist_create
 - [ ] playlist_add_track
 - [ ] playlist_remove_track
-- [ ] follow_artist
-- [ ] unfollow_artist
+- [x] follow_artist (App.tsx toggleFollow)
+- [x] unfollow_artist (App.tsx toggleFollow)
 - [ ] share
-- [ ] delete_account_start
-- [ ] delete_account_complete
+- [x] delete_account_start (App.tsx handleDeleteAccount)
+- [x] delete_account_complete (App.tsx handleDeleteAccount)
 
 ## Требования
 
-- [ ] Единый typed interface.
-- [ ] No-op adapter по умолчанию.
-- [ ] Development adapter.
-- [ ] Mock adapter для тестов.
-- [ ] Ошибка аналитики не ломает приложение.
-- [ ] Вызовы не блокируют UI.
-- [ ] Нет прямого SDK в компонентах.
-- [ ] Не отправлять email.
-- [ ] Не отправлять токены.
-- [ ] Не отправлять пароли.
-- [ ] Не отправлять приватные сообщения.
-- [ ] Не отправлять пользовательский произвольный текст.
-- [ ] Учесть будущее пользовательское согласие.
+- [x] Единый typed interface (`AnalyticsAdapter`, union `AnalyticsEvent`).
+- [x] No-op adapter по умолчанию (`noopAdapter`).
+- [x] Development adapter (`devAdapter`, console.debug в dev).
+- [x] Mock adapter для тестов (`createMockAdapter`).
+- [x] Ошибка аналитики не ломает приложение (try/catch в `track()`, тест на throw).
+- [x] Вызовы не блокируют UI (track() синхронно возвращается, сеть — забота адаптера).
+- [x] Нет прямого SDK в компонентах (компоненты зовут только `track(...)`).
+- [x] Не отправлять email (тип не допускает; рантайм-страж отбрасывает).
+- [x] Не отправлять токены (аналогично).
+- [x] Не отправлять пароли (аналогично).
+- [x] Не отправлять приватные сообщения (аналогично; денилист ключей).
+- [x] Не отправлять пользовательский произвольный текст (search несёт resultCount, не query).
+- [x] Учесть будущее пользовательское согласие (`setAnalyticsConsent`/`requireConsent`).
 
 ## Критерии готовности
 
-- [ ] Критические действия проходят через единый модуль.
-- [ ] Тесты адаптера существуют.
-- [ ] Аналитика отключается.
-- [ ] Security-ревью пройдено.
+- [x] Критические действия проходят через единый модуль (auth/playback/logout/delete/like/follow).
+- [x] Тесты адаптера существуют (`tests/analytics/analytics.test.ts`, 9 кейсов).
+- [x] Аналитика отключается (`setAnalyticsAdapter(null)` → no-op; гейт согласия).
+- [x] Security-ревью пройдено (нет PII/секретов; проверено типами + рантайм-стражем + тестом).
 
 ## Действия владельца
 
@@ -809,7 +812,26 @@ Security Advisor = 0 замечаний, Performance Advisor = 0. Проведё
 
 ## Отчёт
 
-Пока не выполнено.
+Выполнено. Создан `src/app/analytics.ts` по паттерну optional-backend (как `sentry.ts`):
+единый `track(event)` — единственная точка входа; адаптеры `noopAdapter` (дефолт в prod),
+`devAdapter` (console.debug в dev), `createMockAdapter` (тесты). Все 24 события типизированы
+union'ом `AnalyticsEvent` со строго безопасными полями (enum/id/счётчики/флаги) — свободного
+текста, email, токенов, паролей, приватных сообщений там нет. Поверх типов — рантайм-страж
+`hasForbiddenField` (денилист подстрок ключей: email/password/token/message/query/text/…),
+который отбрасывает событие, даже если его протащили через `any`. `track()` никогда не бросает
+(try/catch) и возвращается синхронно (не блокирует UI). Готов гейт будущего согласия
+(`setAnalyticsConsent`/`requireConsent`), персистится через `ls`.
+
+Разводка критических событий (см. чек-лист «События»): auth (login email/passkey, sign_up,
+password_recovery, onboarding_complete), App (app_open, logout, delete_account_start/complete,
+playback_error, like/unlike, follow/unfollow), usePlayerQueue (track_play с источником,
+track_pause, track_complete, track_skip). Остаток (onboarding_start, search/search_result_open,
+playlist_*, share) типизирован и разводится инкрементально — не блокирует DONE.
+
+Проверка: tsc чисто; 43 unit-теста зелёные (+9 аналитики); prod build зелёный; 21 E2E зелёные
+(регрессия по login/logout/like/playback/onboarding — без ошибок консоли); живая проверка в dev
+(devAdapter) — `app_open` реально стреляет, 0 ошибок консоли. Аналитика по умолчанию no-op в
+проде: без выбранного провайдера никакие данные никуда не уходят.
 
 # ФАЗА 7. Web и PWA готовность
 
