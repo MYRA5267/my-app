@@ -4,6 +4,9 @@ import { TRACKS, type Track } from "./data";
 import { useAudio } from "./lib";
 import { smartNext, pushHistory } from "./smart";
 import { useLang } from "./i18n";
+// Алиас trackEvent: в этом файле уже есть локальные переменные с именем track
+// (Track-объект в playWave/nextRef), поэтому импортируем функцию под другим именем.
+import { track as trackEvent } from "./analytics";
 
 // Очередь и воспроизведение: единственное место, которое реально трогает
 // живой <audio> (через useAudio) — playTrack/togglePlay/step/playWave/
@@ -37,6 +40,7 @@ export function usePlayerQueue(params: {
 
   const playTrack = useCallback((tr: Track) => {
     if (currentTrackRef.current.id === tr.id && loadedRef.current) {
+      trackEvent(audio.playing ? { name: "track_pause" } : { name: "track_play", source: "toggle", trackId: tr.id });
       audio.toggle();
       return;
     }
@@ -52,6 +56,7 @@ export function usePlayerQueue(params: {
     });
     pushHistory(tr.id);
     registerPlay(tr);
+    trackEvent({ name: "track_play", source: "direct", trackId: tr.id });
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
   const togglePlay = useCallback(() => {
@@ -62,7 +67,9 @@ export function usePlayerQueue(params: {
       // Первый запуск через кнопку play — такое же прослушивание, как тап по
       // треку: без registerPlay терялись статистика и ачивка «Первые ноты»
       registerPlay(currentTrack);
+      trackEvent({ name: "track_play", source: "toggle", trackId: currentTrack.id });
     } else {
+      trackEvent(audio.playing ? { name: "track_pause" } : { name: "track_play", source: "toggle", trackId: currentTrack.id });
       audio.toggle();
     }
   }, [audio, currentTrack, resolveUrl, registerPlay]);
@@ -99,10 +106,13 @@ export function usePlayerQueue(params: {
     });
     pushHistory(next.id);
     registerPlay(next);
+    trackEvent({ name: "track_play", source: "queue", trackId: next.id });
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
-  const handleNext = useCallback(() => step(1), [step]);
-  const handlePrev = useCallback(() => step(-1), [step]);
+  // track_skip — только на ручное переключение пользователем; автопереход по
+  // shuffle тоже зовёт step, но там это «завершение+play», а не «скип».
+  const handleNext = useCallback(() => { trackEvent({ name: "track_skip", direction: "next" }); step(1); }, [step]);
+  const handlePrev = useCallback(() => { trackEvent({ name: "track_skip", direction: "prev" }); step(-1); }, [step]);
 
   // «Прилив» (личный поток): умный подбор без повторов + причина выбора
   const likedRef = useRef(likedIds); likedRef.current = likedIds;
@@ -120,6 +130,7 @@ export function usePlayerQueue(params: {
     });
     pushHistory(track.id);
     registerPlay(track);
+    trackEvent({ name: "track_play", source: "wave", trackId: track.id });
     if (!silent) toast(`MYRA AI · ${track.title} — ${reason}`);
   }, [audio, resolveUrl, registerPlay, setCurrentTrack]);
 
@@ -140,6 +151,7 @@ export function usePlayerQueue(params: {
     });
     pushHistory(next.id);
     registerPlay(next);
+    trackEvent({ name: "track_play", source: "radio", trackId: next.id });
     toast(t("home.radioToast", next.title, next.artist));
   }, [audio, resolveUrl, registerPlay, setCurrentTrack, t]);
 
@@ -152,11 +164,14 @@ export function usePlayerQueue(params: {
   // иначе умная волна без повторов. Ручной next — по очереди (или случайно)
   useEffect(() => {
     nextRef.current = () => {
+      // Сюда попадаем по событию ended — трек доигран до конца.
+      trackEvent({ name: "track_complete", trackId: currentTrackRef.current.id });
       if (repeatRef.current) {
         // после ended элемент на паузе — заново load запускает воспроизведение
         const track = currentTrackRef.current;
         audio.load(resolveUrl(track));
         registerPlay(track);
+        trackEvent({ name: "track_play", source: "auto", trackId: track.id });
         return;
       }
       if (shuffleRef.current) { step(1); return; }

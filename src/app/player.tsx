@@ -11,6 +11,8 @@ import { commentHotMoments } from "./smart";
 import { F, GLASS, SPRING, fmtSec, FrequencyOrb, EQ, THEMES, copyText, deriveHandle, TrackStructureBar, SectionBadge } from "./lib";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
+// Алиас: в этом файле track — это Track-проп (track.id/title), не путать с событием.
+import { track as trackEvent } from "./analytics";
 import { supabaseEnabled, fetchComments, postComment } from "./supabase";
 import { enqueueSyncOp, isNetworkError } from "./syncQueue";
 import { useTrackStructure, sectionForPct } from "./structure";
@@ -136,10 +138,13 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
   const shareTrack = async () => {
     const link = `https://myra.app/track/${track.id}`;
     if (navigator.share) {
-      try { await navigator.share({ title: track.title, text: `${track.title} — ${track.artist}`, url: link }); } catch { /* пользователь закрыл системный шаринг — это нормально */ }
+      try {
+        await navigator.share({ title: track.title, text: `${track.title} — ${track.artist}`, url: link });
+        trackEvent({ name: "share", kind: "track" });
+      } catch { /* пользователь закрыл системный шаринг — это нормально */ }
       return;
     }
-    if (await copyText(link)) toast(t("pl.shareCopied"));
+    if (await copyText(link)) { trackEvent({ name: "share", kind: "track" }); toast(t("pl.shareCopied")); }
   };
 
   const addComment = () => {

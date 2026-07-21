@@ -17,6 +17,7 @@ import { useSocialLayer } from "./useSocialLayer";
 import { useSubscription } from "./useSubscription";
 import { useIdentity } from "./useIdentity";
 import { usePlayerQueue } from "./usePlayerQueue";
+import { track } from "./analytics";
 import { smartRecommendations } from "./smart";
 import { IdentityCollectionSheet, useCompanion } from "./companion";
 import {
@@ -416,8 +417,12 @@ function AppInner() {
   useEffect(() => {
     if (!audio.error || audio.error === lastAudioErrorRef.current) return;
     lastAudioErrorRef.current = audio.error;
+    track({ name: "playback_error" });
     toast.error(audio.error);
   }, [audio.error]);
+
+  // Открытие приложения — один раз за сессию рантайма.
+  useEffect(() => { track({ name: "app_open" }); }, []);
 
   // Выбранное качество хранится в профиле. Переключение реального потока
   // заработает, когда каталог начнёт отдавать отдельные AAC/FLAC/Hi-Res URL.
@@ -454,8 +459,11 @@ function AppInner() {
   const toggleLike = useCallback((id: number) => {
     setLikedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); toast(t("like.rm")); }
-      else { next.add(id); companionController.recordLike(); toast(t("like.add")); }
+      // track() внутри апдейтера — сознательно: так колбэк не зависит от likedIds
+      // и не пересоздаётся на каждый лайк (иначе рвётся React.memo экранов).
+      // Событие — чистый no-op по умолчанию, повтор в dev StrictMode безвреден.
+      if (next.has(id)) { next.delete(id); track({ name: "unlike", trackId: id }); toast(t("like.rm")); }
+      else { next.add(id); companionController.recordLike(); track({ name: "like", trackId: id }); toast(t("like.add")); }
       ls.set("liked", [...next]);
       return next;
     });
@@ -495,8 +503,9 @@ function AppInner() {
   const toggleFollow = useCallback((name: string) => {
     setFollowed(prev => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      // Имя артиста НЕ уходит в аналитику — только сам факт follow/unfollow.
+      if (next.has(name)) { next.delete(name); track({ name: "unfollow_artist" }); }
+      else { next.add(name); track({ name: "follow_artist" }); }
       ls.set("followed", [...next]);
       return next;
     });
@@ -522,6 +531,7 @@ function AppInner() {
   }, []);
 
   const handleLogout = useCallback(() => {
+    track({ name: "logout" });
     audio.pause();
     // Гасим и серверную сессию Supabase — иначе getSession() на следующем запуске
     // решит, что пользователь всё ещё залогинен, и попытается восстановить профиль
@@ -569,10 +579,12 @@ function AppInner() {
   // удаление на сервере не прошло, пользователь должен об этом узнать, а не
   // считать аккаунт удалённым, пока он на самом деле жив в базе
   const handleDeleteAccount = useCallback(async () => {
+    track({ name: "delete_account_start" });
     if (supabaseEnabled && uid) {
       const { error } = await deleteAccountRemote();
       if (error) { toast.error(t("acc.deleteFailed")); return; }
     }
+    track({ name: "delete_account_complete" });
     handleLogout();
     toast(t("acc.deleted"));
   }, [handleLogout, t, uid]);

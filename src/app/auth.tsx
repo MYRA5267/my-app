@@ -8,6 +8,7 @@ import { MyraBrandLockup } from "./logo";
 import { MyraGlyph } from "./myraIcons";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
+import { track } from "./analytics";
 import {
   supabaseEnabled, signUpWithEmail, signInWithEmail, signInWithOAuth,
   requestPasswordReset, updatePassword, oauthProviders, onAuthEvent,
@@ -65,12 +66,14 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
             const { data: profile } = await fetchProfile(uid);
             if (profile?.username) {
               const role: UserRole = profile.role === "artist" ? "artist" : "listener";
+              track({ name: "login", method: "email" });
               toast(t("au.welcomeBack", profile.username));
               onDone(profile.username, role, email.trim(), profile.handle ?? null);
               return;
             }
           }
         }
+        track({ name: "login", method: "email" });
         toast(t("au.welcomeBack", finishName));
         onDone(finishName, ls.get<UserRole>("userRole", "listener"), email.trim());
       } else {
@@ -79,6 +82,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
           const { error } = await signUpWithEmail(email, pass, name.trim());
           if (error) { toast(t("au.signupFailed", error.message)); return; }
         }
+        track({ name: "sign_up", method: "email" });
         toast(t("au.created"));
         setStep("taste");
       }
@@ -105,6 +109,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
     try {
       const { error } = await requestPasswordReset(normalized);
       if (error) { toast(t("au.resetFailed", error.message)); return; }
+      track({ name: "password_recovery" });
       toast.success(t("au.resetSent"));
       setStep("auth");
       setMode("login");
@@ -169,6 +174,7 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
         toast.error(t("au.passkeyProfileFailed"));
         return;
       }
+      track({ name: "login", method: "passkey" });
       toast.success(t("au.welcomeBack", profile.username));
       onDone(
         profile.username,
@@ -184,6 +190,9 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
   const finishRole = async (r: UserRole) => {
     setRole(r);
     ls.set("taste", [...picked]);
+    // Пользователь прошёл онбординг до выбора роли — фиксируем завершение
+    // (роль — enum, не PII).
+    track({ name: "onboarding_complete", role: r });
     if (supabaseEnabled) {
       const session = await getSession();
       const uid = session?.user?.id;

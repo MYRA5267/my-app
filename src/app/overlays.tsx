@@ -1132,6 +1132,26 @@ export function AccountSheet({ open, onClose, userName, onRename, email, onSetEm
               <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.terms")}</div>
               <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
             </a>
+            <a href="./support.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
+              <Headset size={15} style={{ color: "#34d399" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.support")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
+            <a href="./contacts.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
+              <Mail size={15} style={{ color: "#818cf8" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.contacts")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
+            <a href="./copyright.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
+              <ShieldCheck size={15} style={{ color: "#fbbf24" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.copyright")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
+            <a href="./report-content.html" target="_blank" rel="noopener noreferrer" className="myra-account-row">
+              <Flag size={15} style={{ color: "#f87171" }} />
+              <div className="flex-1 text-sm" style={{ fontFamily: F.b }}>{t("acc.reportContent")}</div>
+              <ChevronRight size={15} style={{ color: "color-mix(in srgb, var(--fg) 30%, transparent)" }} />
+            </a>
           </div>
 
           <motion.button whileTap={{ scale: 0.98 }} onClick={() => setDeleteQ(true)} className="myra-account-danger">
