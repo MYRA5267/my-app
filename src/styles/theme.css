@@ -2476,6 +2476,18 @@
 .fx-simple .myra-hero-word { animation: none; background-size: 100% 100%; }
 @media (prefers-reduced-motion: reduce) { .myra-hero-word { animation: none; } }
 
+/* Мягкая пульсация (кнопка-награда «Слушать») */
+@keyframes myra-soft-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+.myra-pulse { animation: myra-soft-pulse 2.6s ease-in-out infinite; will-change: transform; }
+.fx-simple .myra-pulse { animation: none; }
+@media (prefers-reduced-motion: reduce) { .myra-pulse { animation: none; } }
+
+/* Лёгкий блик галочки верификации — подсветка без движения (без джиттера в тексте) */
+@keyframes myra-badge-shine { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.28); } }
+.myra-verified { animation: myra-badge-shine 3.4s ease-in-out infinite; }
+.fx-simple .myra-verified { animation: none; }
+@media (prefers-reduced-motion: reduce) { .myra-verified { animation: none; } }
+
 /* Мини-плеер: тонкая полоса-акцент сверху, а не полноценный фон — "не
    перегружать mini player эффектами" (см. план, раздел 4) */
 .myra-mini-detail {

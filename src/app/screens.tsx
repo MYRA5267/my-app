@@ -7,7 +7,7 @@ import {
   Trophy, Clock, Flame, Gift, UserPlus, Headphones, Wrench, Lock,
   SlidersHorizontal, CircleUserRound, Cast, ChevronDown, type LucideIcon,
 } from "./myraIcons";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import { TRACKS, ARTISTS, FRIENDS, PLAYLISTS, GENRE_TILES, LEADERBOARD_PEERS, AVATARS, svgCover, trackFromRow, ls, type Track, type Friend } from "./data";
 import { F, GLASS, SPRING, TiltCard, Aurora, EQ, Toggle, ConfirmSheet, Page, Sheet, useTheme, useProgress, ON_DARK, onDark, InteractiveChart, copyText, genInviteCode } from "./lib";
@@ -194,8 +194,17 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
 export const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K` : String(n));
 
 function SectionHeading({ title, sub, action, onAction }: { title: string; sub?: string; action?: string; onAction?: () => void }) {
+  // Секция мягко въезжает, когда попадает в зону видимости (один раз). На слабом
+  // железе и при prefers-reduced-motion эффект отключается (reduced → без анимации).
+  const reduced = useReducedMotion();
   return (
-    <div className="myra-section-heading">
+    <motion.div
+      className="myra-section-heading"
+      initial={reduced ? false : { opacity: 0, y: 16 }}
+      whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "0px 0px -12% 0px" }}
+      transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
+    >
       <div>
         <h2>{title}</h2>
         {sub && <p>{sub}</p>}
@@ -203,7 +212,7 @@ function SectionHeading({ title, sub, action, onAction }: { title: string; sub?:
       {action && onAction && (
         <button onClick={onAction}>{action}<MyraGlyph name="arrow" size={15} /></button>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -1137,10 +1146,10 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                     <Sparkles size={13} style={{ color: currentTrack.c2 }} />
                     <span style={{ fontFamily: F.m, fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: currentTrack.c2 }}>{t("reward.eyebrow")}</span>
                   </div>
-                  <h3 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 25, letterSpacing: "-0.03em", lineHeight: 1.05, color: ON_DARK }}>{t("reward.title")}</h3>
+                  <h3 className="myra-hero-word" style={{ fontFamily: F.d, fontWeight: 900, fontSize: 25, letterSpacing: "-0.03em", lineHeight: 1.05 }}>{t("reward.title")}</h3>
                   <p className="text-xs mt-1" style={{ color: onDark(60), fontFamily: F.b }}>{t("reward.sub", rewardTracks.length)}</p>
                   {rewardUnlocked ? (
-                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onPlay(rewardTracks[0]); toast.success(t("reward.playing")); }} className="mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
+                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onPlay(rewardTracks[0]); toast.success(t("reward.playing")); }} className="myra-pulse mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
                       <Play size={16} fill="#160f26" stroke="none" />{t("reward.listen")}
                     </motion.button>
                   ) : (
@@ -1319,12 +1328,12 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             { glyph: "profile" as const, value: "0", label: t("cr.fans"), a: "#9a8cff", b: "#67d7ff", onClick: openStatsGated, dim: false },
             { glyph: "spark" as const, value: paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—", label: t("cr.donations"), a: "#ffd28a", b: "#f4a77f", onClick: () => paymentsEnabled && setWdOpen(true), dim: !paymentsEnabled },
             { glyph: "library" as const, value: `${myTracks.length}`, label: t("cr.releases"), a: "#ff6fa5", b: "#c98cff", onClick: openStatsGated, dim: false },
-          ].map(s => (
-            <button key={s.label} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
+          ].map((s, i) => (
+            <motion.button key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
               <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
               <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
               <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
 
@@ -1540,12 +1549,12 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           { glyph: "profile" as const, value: `${follows}`, label: t("pr.follows"), a: "#9a8cff", b: "#67d7ff" },
           { glyph: "heart" as const, value: "0", label: t("pr.fans"), a: "#ff6fa5", b: "#c98cff" },
           { glyph: "chart" as const, value: fmtCount(totalPlays), label: t("pr.plays"), a: "#f4a77f", b: "#ffd28a" },
-        ].map(s => (
-          <div key={s.label} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+        ].map((s, i) => (
+          <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
             <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
             <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
             <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
-          </div>
+          </motion.div>
         ))}
       </section>
 
@@ -1873,7 +1882,7 @@ function AccountSummaryCard({ c2, avatar, userName, handle, badges, onAvatarTap,
         </div>
         <img src={avatar} alt="" className="myra-profile-avatar" style={{ borderColor: c2, boxShadow: `0 0 44px ${c2}45` }} />
       </motion.button>
-      <div className="myra-profile-name break-words">{userName}</div>
+      <div className="myra-profile-name myra-hero-word break-words">{userName}</div>
       <div className="text-xs mt-1.5 break-words" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.m }}>{handle}</div>
       <div className="myra-profile-badge-labels">
         {badges.map(b => {
