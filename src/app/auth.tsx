@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowRight, Mail, Lock, User, Check, Moon, Sun, Mic2, Headphones, KeyRound } from "./myraIcons";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, useTheme } from "./lib";
@@ -9,6 +9,7 @@ import { MyraGlyph } from "./myraIcons";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
 import { track } from "./analytics";
+import { COMPANIONS, type CompanionId, type CompanionController } from "./companion";
 import {
   supabaseEnabled, signUpWithEmail, signInWithEmail, signInWithOAuth,
   requestPasswordReset, updatePassword, oauthProviders, onAuthEvent,
@@ -17,18 +18,34 @@ import {
   type MyraOAuthProvider,
 } from "./supabase";
 
-type Step = "slides" | "auth" | "forgot" | "recovery" | "taste" | "role" | "confirm";
+type Step = "companion" | "slides" | "auth" | "forgot" | "recovery" | "taste" | "role" | "confirm";
 export type UserRole = "artist" | "listener";
 
-export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }: {
+// Круговой частотный визуализатор вокруг спутника (наш FrequencyOrb-мотив).
+// Геометрия статична — считаем один раз на модуль, красим акцентом в рендере.
+const RING_BARS = Array.from({ length: 60 }, (_, i) => {
+  const a = (i / 60) * Math.PI * 2;
+  const h = 8 + 26 * Math.abs(Math.sin(i * 1.7));
+  return {
+    x1: 150 + Math.cos(a) * 118, y1: 150 + Math.sin(a) * 118,
+    x2: 150 + Math.cos(a) * (118 + h), y2: 150 + Math.sin(a) * (118 + h),
+    o: +(0.3 + 0.5 * Math.abs(Math.sin(i * 1.7))).toFixed(2), alt: i % 2 === 0,
+  };
+});
+
+export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, companion }: {
   onDone: (name: string, role: UserRole, email: string, handle?: string | null) => void;
   forceRecovery?: boolean;
   onRecoveryDone?: () => void;
+  companion?: CompanionController;
 }) {
   const { t, lang, setLang } = useLang();
   const { theme, toggleTheme } = useTheme();
-  const [step, setStep] = useState<Step>(() => forceRecovery || new URL(window.location.href).searchParams.get("password-recovery") === "1" ? "recovery" : "slides");
+  const reducedMotion = useReducedMotion();
+  const [step, setStep] = useState<Step>(() => forceRecovery || new URL(window.location.href).searchParams.get("password-recovery") === "1" ? "recovery" : "companion");
   const [slide, setSlide] = useState(0);
+  // Выбор спутника на входе. Спутник уже связан → входим сразу на auth.
+  const [companionPick, setCompanionPick] = useState<CompanionId>(() => (companion?.state.selectedId as CompanionId) ?? "luma");
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -241,24 +258,38 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
   };
 
   const S = SLIDES[slide];
+  const pickedComp = COMPANIONS.find(c => c.id === companionPick) ?? COMPANIONS[0];
+  const others = COMPANIONS.filter(c => c.id !== companionPick);
+  // Бесконечные лупы отключаем на слабом железе (fx-simple) и при reduce-motion.
+  const weakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+  const liveMotion = !reducedMotion && !weakFx;
+
+  const enterWithCompanion = () => {
+    // Закрепляем спутника (если ещё не связан) и уходим на регистрацию.
+    if (companion && !companion.state.selectedId) companion.select(companionPick);
+    setMode("signup");
+    setStep("auth");
+  };
 
   return (
     <div className="myra-onboarding fixed inset-0 z-[90] flex flex-col overflow-hidden" style={{ background: "var(--bg)", fontFamily: F.b, color: "var(--fg)" }}>
       {/* Фон */}
-      <AnimatePresence>
-        <motion.img
-          key={step === "slides" ? slide : step}
-          src={S.img}
-          alt=""
-          className="myra-onboarding-backdrop absolute inset-0 w-full h-full object-cover"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1 }}
-          style={{ filter: "var(--cover-filter)", transform: "scale(1.2)" }}
-        />
-      </AnimatePresence>
-      <DetailBackdrop variant="soft" accent={S.c2} />
+      {step !== "companion" && (
+        <AnimatePresence>
+          <motion.img
+            key={step === "slides" ? slide : step}
+            src={S.img}
+            alt=""
+            className="myra-onboarding-backdrop absolute inset-0 w-full h-full object-cover"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            style={{ filter: "var(--cover-filter)", transform: "scale(1.2)" }}
+          />
+        </AnimatePresence>
+      )}
+      <DetailBackdrop variant="soft" accent={step === "companion" ? pickedComp.accent : S.c2} />
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
@@ -290,6 +321,68 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone }
 
       {/* На телефоне контент прижат вниз (удобно большим пальцем), на планшете/ПК/ТВ — по центру */}
       <div className="myra-onboarding-content relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+          {/* ── Выбор спутника (вход) ── */}
+          {step === "companion" && (
+            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 max-w-md mx-auto w-full flex flex-col items-center text-center">
+              <div style={{ fontFamily: F.m, fontSize: 10, letterSpacing: "0.32em", textTransform: "uppercase", color: "color-mix(in srgb, var(--fg) 45%, transparent)" }}>{t("comp.eyebrow")}</div>
+              <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05, marginTop: 8 }}>{t("comp.title")}</h1>
+
+              {/* трио: центр — выбранный, по бокам — остальные (тап делает их центром) */}
+              <div className="relative flex items-center justify-center gap-1 mt-6" style={{ height: 234 }}>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setCompanionPick(others[0].id)} className="relative shrink-0" style={{ width: 96, transform: "translateY(22px)", opacity: 0.6 }} aria-label={others[0].name}>
+                  <div className="absolute inset-0" style={{ borderRadius: "50%", background: `radial-gradient(circle, ${others[0].accent}55, transparent 66%)`, filter: "blur(12px)" }} />
+                  <img src={others[0].image} alt={others[0].name} style={{ width: 96, height: 96, objectFit: "contain", position: "relative" }} />
+                </motion.button>
+
+                <div className="relative shrink-0" style={{ width: 216, height: 216 }}>
+                  <motion.div className="absolute inset-0" animate={liveMotion ? { rotate: 360 } : undefined} transition={{ duration: 42, ease: "linear", repeat: Infinity }}>
+                    <svg viewBox="0 0 300 300" style={{ width: "100%", height: "100%" }}>
+                      {RING_BARS.map((b, i) => (
+                        <line key={i} x1={b.x1} y1={b.y1} x2={b.x2} y2={b.y2} stroke={b.alt ? pickedComp.accent : pickedComp.accent2} strokeWidth={2.3} strokeLinecap="round" opacity={b.o} />
+                      ))}
+                    </svg>
+                  </motion.div>
+                  <div className="absolute" style={{ inset: "16%", borderRadius: "50%", background: `radial-gradient(circle, ${pickedComp.accent}66, ${pickedComp.accent2}33 46%, transparent 68%)`, filter: "blur(8px)" }} />
+                  <AnimatePresence mode="popLayout">
+                    <motion.img
+                      key={pickedComp.id}
+                      src={pickedComp.image}
+                      alt={pickedComp.name}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={liveMotion ? { opacity: 1, scale: 1, y: [0, -7, 0] } : { opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={liveMotion ? { opacity: { duration: 0.4 }, scale: { duration: 0.4 }, y: { duration: 4, repeat: Infinity, ease: "easeInOut" } } : { duration: 0.3 }}
+                      style={{ width: "74%", height: "74%", objectFit: "contain", position: "absolute", inset: 0, margin: "auto", filter: `drop-shadow(0 16px 40px ${pickedComp.accent}99)` }}
+                    />
+                  </AnimatePresence>
+                </div>
+
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setCompanionPick(others[1].id)} className="relative shrink-0" style={{ width: 96, transform: "translateY(22px)", opacity: 0.6 }} aria-label={others[1].name}>
+                  <div className="absolute inset-0" style={{ borderRadius: "50%", background: `radial-gradient(circle, ${others[1].accent}55, transparent 66%)`, filter: "blur(12px)" }} />
+                  <img src={others[1].image} alt={others[1].name} style={{ width: 96, height: 96, objectFit: "contain", position: "relative" }} />
+                </motion.button>
+              </div>
+
+              <motion.div key={pickedComp.id + "-copy"} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mt-2">
+                <h2 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 38, letterSpacing: "-0.03em", lineHeight: 1 }}>{pickedComp.name}</h2>
+                <p className="mt-2 mx-auto" style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.5, color: "color-mix(in srgb, var(--fg) 58%, transparent)" }}>{pickedComp.copy[lang].character} — {pickedComp.copy[lang].ability}</p>
+              </motion.div>
+
+              <div className="flex items-center justify-center gap-2 mt-4">
+                {COMPANIONS.map(c => (
+                  <button key={c.id} onClick={() => setCompanionPick(c.id)} aria-label={c.name} className="rounded-full transition-all duration-300" style={{ width: c.id === companionPick ? 22 : 7, height: 7, background: c.id === companionPick ? `linear-gradient(90deg, ${pickedComp.accent}, ${pickedComp.accent2})` : "color-mix(in srgb, var(--fg) 22%, transparent)" }} />
+                ))}
+              </div>
+
+              <motion.button whileTap={{ scale: 0.96 }} onClick={enterWithCompanion} className="w-full mt-6 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold" style={{ background: `linear-gradient(108deg, ${pickedComp.accent}, ${pickedComp.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${pickedComp.accent2}55` }}>
+                {t("comp.enter", pickedComp.name)} <MyraGlyph name="arrow" size={16} />
+              </motion.button>
+              <button onClick={() => { setMode("login"); setStep("auth"); }} className="mt-4 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
+                {t("comp.have")} <b style={{ color: pickedComp.accent }}>{t("comp.signin")}</b>
+              </button>
+            </motion.div>
+          )}
+
           {/* ── Слайды ── */}
           {step === "slides" && (
             <motion.div key={"slide" + slide} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }} className="myra-onboarding-panel px-7 pb-10 max-w-md mx-auto w-full">
