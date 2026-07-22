@@ -350,11 +350,11 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
     toast(t("bl.invited", link));
   };
 
-  const QUICK: { label: string; glyph: MyraGlyphName; act: () => void }[] = [
-    { label: t("home.liked"),  glyph: "heart", act: () => onNavigate("library") },
-    { label: t("home.charts"), glyph: "chart", act: () => onNavigate("rating") },
-    { label: t("home.radio"),  glyph: "radio", act: onPlayRadio },
-    { label: t("home.blend"),  glyph: "blend", act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()) },
+  const QUICK: { label: string; glyph: MyraGlyphName; act: () => void; a: string; b: string }[] = [
+    { label: t("home.liked"),  glyph: "heart", act: () => onNavigate("library"), a: "#ff6fa5", b: "#c98cff" },
+    { label: t("home.charts"), glyph: "chart", act: () => onNavigate("rating"), a: "#f4a77f", b: "#ffd28a" },
+    { label: t("home.radio"),  glyph: "radio", act: onPlayRadio, a: "#5ee7ac", b: "#67d7ff" },
+    { label: t("home.blend"),  glyph: "blend", act: () => (FRIENDS[0] ? onOpenBlend(FRIENDS[0]) : inviteBlend()), a: "#9a8cff", b: "#67d7ff" },
   ];
 
   return (
@@ -467,9 +467,10 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
               whileTap={{ scale: 0.93 }}
               onClick={q.act}
               className="myra-quick-action flex flex-col items-center gap-2 py-4 rounded-[20px]"
+              style={{ background: `linear-gradient(160deg, ${q.a}22, ${q.b}0a)`, border: `1px solid ${q.a}3a` }}
             >
-              <span className="myra-quick-glyph"><MyraGlyph name={q.glyph} size={19} /></span>
-              <span className="text-[11px] font-medium" style={{ color: "color-mix(in srgb, var(--fg) 70%, transparent)", fontFamily: F.b }}>{q.label}</span>
+              <span className="flex items-center justify-center" style={{ width: 38, height: 38, borderRadius: 13, background: `radial-gradient(circle at 50% 28%, ${q.a}, ${q.b})`, color: "#160f26", boxShadow: `0 8px 20px ${q.a}55` }}><MyraGlyph name={q.glyph} size={19} /></span>
+              <span className="text-[11px] font-semibold" style={{ color: "color-mix(in srgb, var(--fg) 82%, transparent)", fontFamily: F.b }}>{q.label}</span>
             </motion.button>
           );
         })}
@@ -861,6 +862,9 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
   const valueFor = (u: typeof rows[number]) =>
     metric === "level" ? t("rt.lvlLabel", u.level) : metric === "minutes" ? t("rt.minLabel", u.minutesWeek) : t("rt.streakLabel", u.streak);
 
+  // Медали пьедестала — золото/серебро/бронза для топ-3 (ярче, чем плоский номер)
+  const MEDALS = [["#ffd76a", "#f4a77f"], ["#e8edf5", "#9aa7bd"], ["#ffb27a", "#d98a5a"]];
+
   return (
     <Page className="myra-experience-page myra-rating-page">
       <div style={{ "--rating-accent": c2 } as React.CSSProperties}>
@@ -925,7 +929,7 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
               // а не div с onClick, чтобы работали клавиатура и screen reader
               const rowContent = (
                 <>
-                  <div className="myra-rating-row-rank">{i + 1}</div>
+                  <div className="myra-rating-row-rank" style={i < 3 ? { background: `linear-gradient(140deg, ${MEDALS[i][0]}, ${MEDALS[i][1]})`, color: "#160f26", fontWeight: 900, boxShadow: `0 5px 16px ${MEDALS[i][0]}66`, border: "none" } : undefined}>{i + 1}</div>
                   <img src={u.avatar} alt="" className="myra-rating-row-avatar" />
                   <div className="myra-rating-row-copy">
                     <strong>{u.you ? `${u.name} · ${t("rt.you")}` : (lang === "ru" ? u.name : (u as any).en ?? u.name)}</strong>
@@ -1266,10 +1270,18 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
         {/* Строка статистики — тот же паттерн, что и .myra-library-overview в Полке:
             общая стеклянная плашка с разделителями между колонками вместо трёх
             отдельных карточек */}
-        <div className="myra-creator-overview" style={{ "--creator-accent": c2 } as React.CSSProperties}>
-          <button onClick={openStatsGated}><MyraGlyph name="profile" size={19} /><strong>0</strong><span>{t("cr.fans")}</span></button>
-          <button onClick={() => paymentsEnabled && setWdOpen(true)} aria-disabled={!paymentsEnabled}><MyraGlyph name="spark" size={19} /><strong>{paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—"}</strong><span>{t("cr.donations")}</span></button>
-          <button onClick={openStatsGated}><MyraGlyph name="library" size={19} /><strong>{myTracks.length}</strong><span>{t("cr.releases")}</span></button>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { glyph: "profile" as const, value: "0", label: t("cr.fans"), a: "#9a8cff", b: "#67d7ff", onClick: openStatsGated, dim: false },
+            { glyph: "spark" as const, value: paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—", label: t("cr.donations"), a: "#ffd28a", b: "#f4a77f", onClick: () => paymentsEnabled && setWdOpen(true), dim: !paymentsEnabled },
+            { glyph: "library" as const, value: `${myTracks.length}`, label: t("cr.releases"), a: "#ff6fa5", b: "#c98cff", onClick: openStatsGated, dim: false },
+          ].map(s => (
+            <button key={s.label} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
+              <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+              <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
+              <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
+            </button>
+          ))}
         </div>
 
         {supabaseEnabled && realDonationsTotal > 0 && (
@@ -1472,10 +1484,18 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
       </div>
 
       {/* Статистика — тот же паттерн стат-плиток, что в Медиатеке (myra-library-overview) */}
-      <section className="myra-profile-stats myra-content-section mx-5 mb-6" style={{ "--profile-accent": c2 } as React.CSSProperties}>
-        <div><MyraGlyph name="profile" size={19} /><strong>{follows}</strong><span>{t("pr.follows")}</span></div>
-        <div><MyraGlyph name="heart" size={19} /><strong>0</strong><span>{t("pr.fans")}</span></div>
-        <div><MyraGlyph name="chart" size={19} /><strong>{fmtCount(totalPlays)}</strong><span>{t("pr.plays")}</span></div>
+      <section className="myra-content-section grid grid-cols-3 gap-2.5 mx-5 mb-6">
+        {[
+          { glyph: "profile" as const, value: `${follows}`, label: t("pr.follows"), a: "#9a8cff", b: "#67d7ff" },
+          { glyph: "heart" as const, value: "0", label: t("pr.fans"), a: "#ff6fa5", b: "#c98cff" },
+          { glyph: "chart" as const, value: fmtCount(totalPlays), label: t("pr.plays"), a: "#f4a77f", b: "#ffd28a" },
+        ].map(s => (
+          <div key={s.label} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
+            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
+            <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
+          </div>
+        ))}
       </section>
 
       <div className="px-5 flex flex-col gap-1.5">
