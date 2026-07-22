@@ -305,6 +305,7 @@ const STR: Record<string, { ru: string; en: string }> = {
 
   // Артист
   "ar.listeners":  { ru: "слушателей в месяц", en: "monthly listeners" },
+  "ar.listenersShort": { ru: "{0} слушателей", en: "{0} listeners" },
   "ar.follow":     { ru: "Подписаться", en: "Follow" },
   "ar.following":  { ru: "Ты подписан", en: "Following" },
   "ar.followed":   { ru: "Подписка на {0} оформлена", en: "Now following {0}" },

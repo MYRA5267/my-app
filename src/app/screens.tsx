@@ -801,7 +801,13 @@ export const BrowseScreen = React.memo(function BrowseScreen({ onPlay, onOpenArt
                 >
                   <span className="myra-talent-index">0{index + 1}</span>
                   <img src={artist.img} alt="" loading="lazy" decoding="async" />
-                  <span className="myra-talent-copy"><strong>{artist.name}</strong><small>{artist.genre}</small></span>
+                  <span className="myra-talent-copy">
+                    <strong style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {artist.name}
+                      {artist.verified && <MyraVerifiedBadge size={15} accent={artist.c2} />}
+                    </strong>
+                    <small>{artist.genre} · {t("ar.listenersShort", artist.listeners)}</small>
+                  </span>
                   <MyraGlyph name="arrow" size={15} />
                 </motion.button>
               ))}
