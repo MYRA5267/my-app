@@ -50,7 +50,7 @@ const paths: Record<MyraGlyphName, React.ReactNode> = {
     <path d="M15.2 14.6c2.1 1.3 3.6 2.9 4.5 4.9" />
     <path d="M7.6 10.9c1.1 1.4 3.1 1.8 4.7.7" opacity=".55" />
   </>,
-  heart: <path d="M12 20.2C7.8 17.5 4.4 15 4.4 10.7c0-2.6 1.7-4.6 4.1-4.6 1.7 0 2.9 1 3.5 2.2.6-1.2 1.8-2.2 3.5-2.2 2.4 0 4.1 2 4.1 4.6 0 4.3-3.4 6.8-7.6 9.5Z" />,
+  heart: <path d="M12 20c-.42 0-.83-.15-1.15-.42C6.6 16.1 4 13.7 4 10.5 4 7.9 5.95 6 8.4 6c1.42 0 2.72.72 3.6 1.86C12.88 6.72 14.18 6 15.6 6 18.05 6 20 7.9 20 10.5c0 3.2-2.6 5.6-6.85 9.08-.32.27-.73.42-1.15.42Z" />,
   chart: <>
     <path d="M4.5 18.8V14c1.1-.8 2.3-.8 3.4 0v4.8M10.3 18.8V9.5c1.1-.8 2.3-.8 3.4 0v9.3M16.1 18.8V5c1.1-.8 2.3-.8 3.4 0v13.8" />
     <path d="M3.5 20.3c4.7.6 12.3.6 17 0" opacity=".5" />
@@ -71,10 +71,10 @@ const paths: Record<MyraGlyphName, React.ReactNode> = {
   </>,
   spark: <path d="M12 2.9c.8 5.7 2.4 8.2 7.8 9.1-5.4.9-7 3.4-7.8 9.1-.8-5.7-2.4-8.2-7.8-9.1 5.4-.9 7-3.4 7.8-9.1Z" />,
   bell: <>
-    <path d="M6.2 15.8c1-1.3 1.4-2.7 1.4-4.4 0-3.1 1.7-5.5 4.4-5.5s4.4 2.4 4.4 5.5c0 1.7.4 3.1 1.4 4.4-3.2 1.1-8.4 1.1-11.6 0Z" />
-    <path d="M10 18.2c1.3 1.3 2.7 1.3 4 0" />
+    <path d="M12 4.2c-2.95 0-4.9 2.25-4.9 5.35 0 2.55-.5 3.95-1.45 5.1-.55.66-.12 1.66.72 1.78 3.75.5 7.5.5 11.26 0 .84-.12 1.27-1.12.72-1.78-.95-1.15-1.45-2.55-1.45-5.1C16.9 6.45 14.95 4.2 12 4.2Z" fill="currentColor" stroke="none" />
+    <path d="M10.1 18.9c.5.85 1.15 1.25 1.9 1.25s1.4-.4 1.9-1.25" />
   </>,
-  play: <path d="M8.1 5.1c4.5 2 7.7 4.3 9.8 6.9-2.1 2.6-5.3 4.9-9.8 6.9V5.1Z" />,
+  play: <path d="M8 6.4c0-1.18 1.28-1.92 2.3-1.32l8.1 4.9c1 .6 1 2.05 0 2.65l-8.1 4.9c-1.02.6-2.3-.14-2.3-1.32V6.4Z" />,
   pause: <><path d="M8.5 5.3v13.4M15.5 5.3v13.4" /></>,
   arrow: <><path d="M5 12h13.5M14.4 7.5 19 12l-4.6 4.5" /></>,
   plus: <><path d="M12 5v14M5 12h14" /><circle cx="12" cy="12" r="9" opacity=".45" /></>,
@@ -256,7 +256,7 @@ const semanticIcon = (node: React.ReactNode): LucideIcon => {
   return Icon;
 };
 
-export const Play = semanticIcon(<path d="M8.1 5.1c4.5 2 7.7 4.3 9.8 6.9-2.1 2.6-5.3 4.9-9.8 6.9V5.1Z" />);
+export const Play = semanticIcon(<path d="M8 6.4c0-1.18 1.28-1.92 2.3-1.32l8.1 4.9c1 .6 1 2.05 0 2.65l-8.1 4.9c-1.02.6-2.3-.14-2.3-1.32V6.4Z" />);
 export const Pause = semanticIcon(<><path d="M7.4 5.2h3.2v13.6H7.4Z" fill="currentColor" stroke="none" /><path d="M13.4 5.2h3.2v13.6h-3.2Z" fill="currentColor" stroke="none" /></>);
 export const Heart = semanticIcon(paths.heart);
 export const Search = semanticIcon(paths.search);
