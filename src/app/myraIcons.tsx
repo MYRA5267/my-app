@@ -140,6 +140,27 @@ const NAV3D_SHAPES: Record<string, { shape: React.ReactNode; overlay?: React.Rea
   },
 };
 
+// Знак «проверенный артист» — фирменная печать (гребёнка) с градиентной
+// заливкой и белой галочкой. Крупнее и качественнее простого BadgeCheck.
+export function MyraVerifiedBadge({ size = 18, accent = "#7dd3fc", className, style, title }: {
+  size?: number; accent?: string; className?: string; style?: React.CSSProperties; title?: string;
+}) {
+  const uid = React.useId().replace(/:/g, "");
+  const gid = `vb-${uid}`;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={["myra-verified", className].filter(Boolean).join(" ")} style={style} role="img" aria-label={title ?? "Проверенный артист"}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={accent} />
+          <stop offset="1" stopColor="#c98cff" />
+        </linearGradient>
+      </defs>
+      <path d="M12 1.8c1.1 0 2.13.62 2.64 1.6.9-.5 2.02-.42 2.86.2.83.63 1.2 1.68 1 2.68 1.05.28 1.9 1.07 2.16 2.12.26 1.05-.13 2.1-.98 2.72.55.9.55 2.04 0 2.94.85.62 1.24 1.67.98 2.72-.26 1.05-1.11 1.84-2.16 2.12.2 1-.17 2.05-1 2.68-.84.62-1.96.7-2.86.2A2.98 2.98 0 0 1 12 22.2c-1.1 0-2.13-.62-2.64-1.6-.9.5-2.02.42-2.86-.2-.83-.63-1.2-1.68-1-2.68-1.05-.28-1.9-1.07-2.16-2.12-.26-1.05.13-2.1.98-2.72a2.98 2.98 0 0 1 0-2.94c-.85-.62-1.24-1.67-.98-2.72.26-1.05 1.11-1.84 2.16-2.12-.2-1 .17-2.05 1-2.68.84-.62 1.96-.7 2.86-.2A2.98 2.98 0 0 1 12 1.8Z" fill={`url(#${gid})`} stroke="none" />
+      <path d="m8.2 12.2 2.5 2.5 5.1-5.4" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function MyraNavIcon3D({ name, active, size = 22, weak = false, className, style }: {
   name: string; active: boolean; size?: number; weak?: boolean; className?: string; style?: React.CSSProperties;
 }) {

@@ -264,7 +264,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
                   <div className="flex items-center gap-2 mt-2.5 min-w-0">
                     <button onClick={() => onOpenArtist(track.artist)} className="myra-player-artist">
                       {track.artist}
-                      {verified && <BadgeCheck size={15} style={{ color: track.c2 }} />}
+                      {verified && <MyraVerifiedBadge size={19} accent={track.c2} title={t("verify.badge")} />}
                     </button>
                     {track.album !== "Local" && <><span className="text-white/20">·</span><button onClick={() => onOpenAlbum(track.album)} className="myra-player-album">{track.album}</button></>}
                   </div>
@@ -541,7 +541,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { MyraGlyph, MyraNavIcon3D, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
+import { MyraGlyph, MyraNavIcon3D, MyraVerifiedBadge, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
 
 const MOBILE_NAV = [
   { id: "home",    icon: MyraHomeIcon,     label: "nav.home" },

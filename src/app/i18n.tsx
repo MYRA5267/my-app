@@ -584,6 +584,7 @@ const STR: Record<string, { ru: string; en: string }> = {
   "au.resendDone":   { ru: "Письмо отправлено повторно", en: "Email resent" },
   "au.confirmBack":  { ru: "Ввести другую почту", en: "Use a different email" },
   "au.emailConfirmed": { ru: "Почта подтверждена — добро пожаловать!", en: "Email confirmed — welcome!" },
+  "verify.badge": { ru: "Проверенный артист", en: "Verified artist" },
   "ta.title":   { ru: "Что ты слушаешь?", en: "What do you listen to?" },
   "ta.sub":     { ru: "Выбери минимум 3 жанра — настроим твой Прилив", en: "Pick at least 3 genres — we'll tune your Tide" },
   "ta.continue":{ ru: "Продолжить", en: "Continue" },
