@@ -193,6 +193,35 @@ const ACTIVITY_ICONS: Record<string, typeof Music2> = {
 /** Компактная запись счётчика: 2400 → "2.4K" */
 export const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K` : String(n));
 
+// Счётчик: целое число плавно набегает от 0 при появлении. Строки/дробные
+// значения (например «1.2K», «1 234₽», «—») выводятся как есть — не ломаем
+// форматирование. Одноразовый rAF (не бесконечный луп); на слабом железе
+// (fx-simple) и при prefers-reduced-motion сразу показываем итог.
+function CountUp({ value, duration = 0.9 }: { value: number | string; duration?: number }) {
+  const reduced = useReducedMotion();
+  const weak = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+  const target = typeof value === "number"
+    ? value
+    : (/^\d+$/.test(String(value).trim()) ? parseInt(String(value), 10) : null);
+  const animatable = target !== null && !reduced && !weak;
+  const [display, setDisplay] = useState<number | null>(animatable ? 0 : null);
+  useEffect(() => {
+    if (!animatable || target === null) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / (duration * 1000));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(eased * target));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [animatable, target, duration]);
+  if (target === null) return <>{value}</>;
+  return <>{animatable ? (display ?? target) : target}</>;
+}
+
 function SectionHeading({ title, sub, action, onAction }: { title: string; sub?: string; action?: string; onAction?: () => void }) {
   // Секция мягко въезжает, когда попадает в зону видимости (один раз). На слабом
   // железе и при prefers-reduced-motion эффект отключается (reduced → без анимации).
@@ -1051,7 +1080,7 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
             <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
               <MyraGlyph name={o.glyph} size={17} />
             </span>
-            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{o.value}</strong>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}><CountUp value={o.value} /></strong>
             <span className="mt-1.5" style={{ fontSize: 11, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{o.label}</span>
           </motion.div>
         ))}
@@ -1331,7 +1360,7 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
           ].map((s, i) => (
             <motion.button key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
               <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
-              <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
+              <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
               <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
             </motion.button>
           ))}
@@ -1552,7 +1581,7 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
             <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
-            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</strong>
+            <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
             <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
           </motion.div>
         ))}
