@@ -18,8 +18,8 @@ import { useSubscription } from "./useSubscription";
 import { useIdentity } from "./useIdentity";
 import { usePlayerQueue } from "./usePlayerQueue";
 import { track } from "./analytics";
-import { smartRecommendations } from "./smart";
-import { IdentityCollectionSheet, useCompanion } from "./companion";
+import { smartRecommendations, getHistory } from "./smart";
+import { CompanionReturnGreeting, IdentityCollectionSheet, useCompanion } from "./companion";
 import {
   loadStats, saveStats, touchDailyStreak, addListenSeconds, markTrackPlayed, totalSeconds, weekSeconds, minutesOf, xpOf, levelInfo, topGenre,
   topArtist, distinctTracksPlayed, distinctGenresPlayed, currentMonthSeconds, grantXp,
@@ -98,6 +98,7 @@ function AppInner() {
   const { t, lang } = useLang();
   const companionController = useCompanion();
   const [identityCollectionOpen, setIdentityCollectionOpen] = useState(false);
+  const [companionGreetOpen, setCompanionGreetOpen] = useState(false);
   const openIdentityCollection = useCallback(() => setIdentityCollectionOpen(true), []);
 
   // Неон — эксклюзив апгрейда (Plus у слушателя, Pro у артиста): цикл тем
@@ -333,6 +334,22 @@ function AppInner() {
     // запуск — момент «наступил новый месяц» не повторяется внутри сессии
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboarded, t]);
+
+  // Приветствие-возвращение спутника: один раз в день при заходе, и только у
+  // тех, кто уже слушал (есть история) и связал спутника — свежему аккаунту
+  // сразу после онбординга «пока тебя не было» показывать нечестно.
+  useEffect(() => {
+    if (!onboarded || !companionController.state.selectedId) return;
+    if (getHistory().length < 1) return;
+    const dayKey = new Date().toISOString().slice(0, 10);
+    if (ls.get("companionGreetSeen", "") === dayKey) return;
+    ls.set("companionGreetSeen", dayKey);
+    const timer = setTimeout(() => setCompanionGreetOpen(true), 1000);
+    return () => clearTimeout(timer);
+    // Проверка осмысленна один раз за запуск (момент «зашёл сегодня» не
+    // повторяется в сессии); companionController.state менять зависимость не должен
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboarded]);
 
   // Серия дней подряд — считаем один раз при заходе в приложение
   useEffect(() => {
@@ -954,6 +971,14 @@ function AppInner() {
       </AnimatePresence>
 
       <IdentityCollectionSheet open={identityCollectionOpen} onClose={() => setIdentityCollectionOpen(false)} controller={companionController} />
+
+      <CompanionReturnGreeting
+        open={companionGreetOpen}
+        onClose={() => setCompanionGreetOpen(false)}
+        controller={companionController}
+        picks={recommendations}
+        onPlay={tr => { playTrack(tr); setCompanionGreetOpen(false); }}
+      />
 
       <ArtistSheet
         name={artistName}

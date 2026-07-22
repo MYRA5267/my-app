@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
-import { BadgeCheck, Check, ChevronRight, Gift, Heart, Lock, Music2, Send, Sparkles, X } from "./myraIcons";
+import { BadgeCheck, Check, ChevronRight, Gift, Heart, Lock, Music2, Play, Send, Sparkles, X } from "./myraIcons";
 import { ls, type Track } from "./data";
 import { F, Sheet } from "./lib";
 import { useLang, type Lang } from "./i18n";
+import { type SmartPick } from "./smart";
 
 // Ассеты берём относительно base (Vite base: './') — иначе абсолютный "/companions/…"
 // 404-ит на подпути (GitHub Pages: myra5267.github.io/<repo>/), и картинки не грузятся.
@@ -567,6 +568,122 @@ export function CompanionHomeCard({ controller, playing, genre, trackId, onOpen 
       </div>
       <ChevronRight size={17} className="myra-companion-chevron" />
     </motion.button>
+  );
+}
+
+// Приветствие-возвращение: «Пока тебя не было, {спутник} собрала…». Прогресс
+// роста и следующая награда — одним кольцом (без текстовой шкалы). Подборка —
+// настоящие рекомендации из smart.ts, не декорация.
+export function CompanionReturnGreeting({ open, onClose, controller, picks, onPlay }: {
+  open: boolean;
+  onClose: () => void;
+  controller: CompanionController;
+  picks: SmartPick[];
+  onPlay: (track: Track) => void;
+}) {
+  const { lang } = useLang();
+  const reduced = useReducedMotion();
+  const { companion, state } = controller;
+  if (!companion) return null;
+
+  const level = companionLevel(state.xp);
+  const nextGift = RESONANCES.find(gift => !state.unlockedGiftIds.includes(gift.id)) ?? null;
+  const list = picks.slice(0, 3);
+  const R = 46;
+  const CIRC = 2 * Math.PI * R;
+
+  const pluralRu = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "трек" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "трека" : "треков");
+  const title = lang === "ru" ? `Пока тебя не было, ${companion.name} собрала` : `While you were away, ${companion.name} gathered`;
+  const sub = lang === "ru"
+    ? `${list.length} ${pluralRu(list.length)} под твоё настроение`
+    : `${list.length} ${list.length === 1 ? "track" : "tracks"} for your mood`;
+
+  return (
+    <Sheet open={open} onClose={onClose} z={80} wide>
+      <div className="flex flex-col items-center text-center px-2 pb-1" style={{ fontFamily: F.b }}>
+        {/* Кольцо роста + следующая награда вокруг спутника */}
+        <div className="relative" style={{ width: 150, height: 150, marginTop: 4 }}>
+          <svg viewBox="0 0 120 120" style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}>
+            <defs>
+              <linearGradient id="myra-greet-ring" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={companion.accent} />
+                <stop offset="100%" stopColor={companion.accent2} />
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r={R} fill="none" stroke="color-mix(in srgb, var(--fg) 12%, transparent)" strokeWidth="5" />
+            <motion.circle
+              cx="60" cy="60" r={R} fill="none" stroke="url(#myra-greet-ring)" strokeWidth="5" strokeLinecap="round"
+              transform="rotate(-90 60 60)"
+              strokeDasharray={CIRC}
+              initial={{ strokeDashoffset: CIRC }}
+              animate={{ strokeDashoffset: CIRC * (1 - level.progress) }}
+              transition={reduced ? { duration: 0 } : { duration: 1.1, ease: [0.32, 0.72, 0, 1], delay: 0.2 }}
+            />
+          </svg>
+          <div className="absolute" style={{ inset: "20%", borderRadius: "50%", background: `radial-gradient(circle, ${companion.accent}55, transparent 68%)`, filter: "blur(8px)" }} />
+          <motion.img
+            src={companion.image}
+            alt={companion.name}
+            animate={reduced ? undefined : { y: [0, -5, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            style={{ width: "58%", height: "58%", objectFit: "contain", position: "absolute", inset: 0, margin: "auto", filter: `drop-shadow(0 10px 22px ${companion.accent}99)` }}
+          />
+          {/* Следующая награда — маркер на вершине кольца */}
+          {nextGift && (
+            <span
+              className="absolute flex items-center justify-center"
+              style={{ top: -4, left: "50%", transform: "translateX(-50%)", width: 30, height: 30, borderRadius: "50%", background: "var(--bg)", border: `1.5px solid ${nextGift.accent}`, boxShadow: `0 4px 14px ${nextGift.accent}66` }}
+              aria-hidden="true"
+            >
+              <Lock size={12} style={{ color: nextGift.accent }} />
+            </span>
+          )}
+        </div>
+
+        <span style={{ fontFamily: F.m, fontSize: 11, letterSpacing: "0.14em", color: `color-mix(in srgb, ${companion.accent} 82%, var(--fg))`, marginTop: 14 }}>
+          {(lang === "ru" ? "С ВОЗВРАЩЕНИЕМ" : "WELCOME BACK")}
+        </span>
+        <h2 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", lineHeight: 1.12, marginTop: 6, maxWidth: 320 }}>{title}</h2>
+        <p className="text-sm mt-1.5" style={{ color: "color-mix(in srgb, var(--fg) 52%, transparent)" }}>{sub}</p>
+
+        {/* Настоящие рекомендации */}
+        <div className="w-full mt-5 flex flex-col gap-2">
+          {list.map((pick, i) => (
+            <motion.button
+              key={pick.track.id}
+              onClick={() => onPlay(pick.track)}
+              initial={reduced ? undefined : { opacity: 0, y: 10 }}
+              animate={reduced ? undefined : { opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 + i * 0.08, duration: 0.35 }}
+              className="flex items-center gap-3 p-2.5 rounded-2xl text-left"
+              style={{ background: "color-mix(in srgb, var(--fg) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--fg) 8%, transparent)" }}
+            >
+              <img src={pick.track.img} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+              <div className="min-w-0 flex-1">
+                <strong className="block truncate" style={{ fontSize: 14, fontWeight: 700 }}>{pick.track.title}</strong>
+                <span className="block truncate" style={{ fontSize: 12, color: "color-mix(in srgb, var(--fg) 50%, transparent)" }}>{pick.track.artist}</span>
+              </div>
+              <span className="flex items-center justify-center shrink-0" style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${companion.accent}, ${companion.accent2})`, color: "#160f26" }}>
+                <Play size={15} />
+              </span>
+            </motion.button>
+          ))}
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => { if (list[0]) onPlay(list[0].track); }}
+          disabled={!list.length}
+          className="w-full mt-5 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold disabled:opacity-40"
+          style={{ background: `linear-gradient(108deg, ${companion.accent}, ${companion.accent2})`, color: "#160f26", fontSize: 16, boxShadow: `0 16px 40px ${companion.accent2}55` }}
+        >
+          <Play size={17} />{lang === "ru" ? "Слушать вместе" : "Listen together"}
+        </motion.button>
+        <button onClick={onClose} className="mt-3 mb-1 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 48%, transparent)" }}>
+          {lang === "ru" ? "Позже" : "Later"}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 
