@@ -3939,8 +3939,14 @@
 .myra-mini-play {
   border: 1px solid rgba(255, 241, 233, 0.36);
   color: #180b0c;
-  background: var(--myra-brand-gradient) !important;
-  box-shadow: 0 10px 28px rgba(217, 137, 104, 0.28);
+  /* Объёмная (3D) кнопка: глянцевый блик сверху поверх фирменного градиента */
+  background:
+    radial-gradient(120% 82% at 50% 14%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 48%),
+    var(--myra-brand-gradient) !important;
+  box-shadow:
+    0 12px 30px rgba(217, 137, 104, 0.34),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.6),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.2);
 }
 .myra-mobile-nav {
   position: relative;

@@ -289,7 +289,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
                 <motion.button aria-label={t("pl.previous")} title={t("pl.previous")} whileTap={{ scale: 0.86 }} onClick={onPrev} className="myra-player-control">
                   <SkipBack size={23} fill="currentColor" />
                 </motion.button>
-                <motion.button aria-label={playing ? t("pl.pause") : t("pl.play")} title={playing ? t("pl.pause") : t("pl.play")} whileTap={{ scale: 0.91 }} whileHover={{ scale: 1.035 }} onClick={onToggle} className="myra-player-play" style={{ background: `linear-gradient(145deg, ${track.c2}, ${track.c2}b8)`, boxShadow: `0 18px 55px ${track.c2}42, inset 0 1px 0 rgba(255,255,255,0.34)` }}>
+                <motion.button aria-label={playing ? t("pl.pause") : t("pl.play")} title={playing ? t("pl.pause") : t("pl.play")} whileTap={{ scale: 0.91 }} whileHover={{ scale: 1.035 }} onClick={onToggle} className="myra-player-play" style={{ background: `radial-gradient(115% 82% at 50% 15%, rgba(255,255,255,0.62), rgba(255,255,255,0) 46%), linear-gradient(162deg, ${track.c2}, ${track.c2}c2 52%, ${track.c2}8c)`, boxShadow: `0 22px 55px ${track.c2}52, inset 0 2px 3px rgba(255,255,255,0.6), inset 0 -8px 15px rgba(0,0,0,0.22)` }}>
                   {playing ? <Pause size={29} fill="white" stroke="none" /> : <Play size={30} fill="white" stroke="none" className="ml-1" />}
                 </motion.button>
                 <motion.button aria-label={t("pl.next")} title={t("pl.next")} whileTap={{ scale: 0.86 }} onClick={onNext} className="myra-player-control">
