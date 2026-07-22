@@ -671,6 +671,7 @@ function AppInner() {
           onDone={finishOnboarding}
           forceRecovery={passwordRecovery}
           onRecoveryDone={() => setPasswordRecovery(false)}
+          companion={companionController}
         />
       </Suspense>,
     );
