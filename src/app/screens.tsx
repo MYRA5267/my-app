@@ -21,7 +21,7 @@ import { MyraGlyph, MyraVerifiedBadge, type MyraGlyphName } from "./myraIcons";
 import type { UserRole } from "./auth";
 import { supabaseEnabled, paymentsEnabled, fetchRecentTracks, type CommunityTrackRow, type FriendFeedItem, type PublicProfile } from "./supabase";
 import type { SmartPick } from "./smart";
-import { ProfileIdentityShowcase, type CompanionController } from "./companion";
+import { ProfileIdentityShowcase, companionLevel, RESONANCES, type CompanionController } from "./companion";
 
 // ─── Дека открытий ────────────────────────────────────────────────────────────
 
@@ -978,13 +978,14 @@ export const RatingScreen = React.memo(function RatingScreen({ c2, userName, ava
 
 // ─── Медиатека ────────────────────────────────────────────────────────────────
 
-export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist }: {
+export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedIds, onLike, currentTrack, playing, onOpenArtist, onOpenAlbum, onOpenPlaylist, myTracks = [], onDeleteLocal, onUploadFiles, playlists = [], onCreatePlaylist, customPlIds, onDeletePlaylist, companionController }: {
   onPlay: (t: Track) => void; likedIds: Set<number>; onLike: (id: number) => void;
   currentTrack: Track; playing: boolean; onOpenArtist: (name: string) => void;
   onOpenAlbum?: (album: string) => void; onOpenPlaylist?: (id: string) => void;
   myTracks?: Track[]; onDeleteLocal?: (id: number) => void; onUploadFiles?: (files: FileList | File[]) => void;
   playlists?: typeof PLAYLISTS; onCreatePlaylist?: (name: string) => void;
   customPlIds?: Set<string>; onDeletePlaylist?: (id: string) => void;
+  companionController?: CompanionController;
 }) {
   const { t } = useLang();
   const [tab, setTab] = useState<"liked" | "playlists" | "podcasts">("liked");
@@ -997,6 +998,17 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
   const matchesLibrary = useCallback((track: Track) => !deferredQuery || `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLocaleLowerCase().includes(deferredQuery), [deferredQuery]);
   const visibleLocal = useMemo(() => myTracks.filter(matchesLibrary), [myTracks, matchesLibrary]);
   const visibleLiked = useMemo(() => liked.filter(matchesLibrary), [liked, matchesLibrary]);
+
+  // Награда: эксклюзивный плейлист за веху спутника (2 уровень). Треки — реальные,
+  // в открытых спутником жанрах (иначе премиальный срез каталога). Настоящая
+  // плюшка: играет настоящую музыку, открывается за реальный прогресс.
+  const compLevel = companionController ? companionLevel(companionController.state.xp).level : 1;
+  const rewardUnlocked = compLevel >= 2;
+  const rewardTracks = useMemo(() => {
+    const genres = new Set((companionController?.state.discoveredGenres ?? []).map(g => g.toLocaleLowerCase()));
+    const byGenre = TRACKS.filter(tr => genres.has(tr.genre.toLocaleLowerCase()));
+    return (byGenre.length >= 4 ? byGenre : TRACKS).slice(0, 6);
+  }, [companionController?.state.discoveredGenres]);
 
   const TABS = [
     { id: "liked" as const, label: t("lib.tracks", liked.length + myTracks.length) },
@@ -1110,6 +1122,38 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, likedId
                   <div className="mt-3 text-sm" style={{ color: "color-mix(in srgb, var(--fg) 45%, transparent)", fontFamily: F.b }}>{t("lib.empty")}</div>
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === "playlists" && rewardTracks.length > 0 && (
+            <div className="px-5 mb-5">
+              <div className="relative rounded-[24px] overflow-hidden" style={{ border: `1px solid ${currentTrack.c2}44`, boxShadow: `0 18px 46px ${currentTrack.c2}22` }}>
+                <div className="absolute inset-0 flex" aria-hidden="true">
+                  {rewardTracks.slice(0, 3).map(tr => <img key={tr.id} src={tr.img} alt="" className="flex-1 object-cover h-full" style={{ filter: rewardUnlocked ? "brightness(0.55)" : "brightness(0.3) grayscale(0.5)" }} />)}
+                </div>
+                <div className="absolute inset-0" style={{ background: `linear-gradient(118deg, rgba(10,8,20,0.9), rgba(10,8,20,0.45)), linear-gradient(160deg, ${currentTrack.c2}3a, transparent 60%)` }} />
+                <div className="relative z-10 p-5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Sparkles size={13} style={{ color: currentTrack.c2 }} />
+                    <span style={{ fontFamily: F.m, fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: currentTrack.c2 }}>{t("reward.eyebrow")}</span>
+                  </div>
+                  <h3 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 25, letterSpacing: "-0.03em", lineHeight: 1.05, color: ON_DARK }}>{t("reward.title")}</h3>
+                  <p className="text-xs mt-1" style={{ color: onDark(60), fontFamily: F.b }}>{t("reward.sub", rewardTracks.length)}</p>
+                  {rewardUnlocked ? (
+                    <motion.button whileTap={{ scale: 0.96 }} onClick={() => { onPlay(rewardTracks[0]); toast.success(t("reward.playing")); }} className="mt-4 inline-flex items-center gap-2 pl-5 pr-6 py-3 rounded-full font-bold" style={{ background: `linear-gradient(108deg, ${currentTrack.c2}, #c98cff)`, color: "#160f26", fontFamily: F.b, boxShadow: `0 12px 30px ${currentTrack.c2}55` }}>
+                      <Play size={16} fill="#160f26" stroke="none" />{t("reward.listen")}
+                    </motion.button>
+                  ) : (
+                    <div className="mt-4 flex items-center gap-2.5">
+                      <span className="flex items-center justify-center shrink-0" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.1)", color: ON_DARK }}><Lock size={15} /></span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold" style={{ color: ON_DARK, fontFamily: F.b }}>{t("reward.locked")}</div>
+                        <div className="text-xs" style={{ color: onDark(52), fontFamily: F.b }}>{t("reward.lockedSub", compLevel)}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1440,13 +1484,20 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
 
   // Бейджи профиля отражают публичную идентичность. Служебный статус
   // администратора намеренно не показываем.
+  // Бейджи-награды за реальный прогресс со спутником: «Знаток» (3 уровень) и
+  // «Хранитель артефактов» (собраны все артефакты). Появляются только когда
+  // реально заработаны — принцип честности.
+  const compLvlP = companionLevel(companionController.state.xp).level;
+  const allArtifacts = companionController.state.unlockedGiftIds.length >= RESONANCES.length;
   const badges = useMemo(() => [
     userRole === "artist"
       ? { icon: Mic2, label: t("bd.artist"), c: "#a78bfa" }
       : { icon: Headphones, label: t("bd.listener"), c: "#34d399" },
     ...(userRole === "artist" && creatorPlus ? [{ icon: Crown, label: "MYRA Pro", c: "#c4b5fd" }] : []),
     ...(donationCount > 0 ? [{ icon: Gift, label: t("bd.donor"), c: "#facc15" }] : []),
-  ], [userRole, creatorPlus, donationCount, t]);
+    ...(compLvlP >= 3 ? [{ icon: Sparkles, label: t("badge.connoisseur"), c: "#67d7ff" }] : []),
+    ...(allArtifacts ? [{ icon: Trophy, label: t("badge.collector"), c: "#ffd76a" }] : []),
+  ], [userRole, creatorPlus, donationCount, compLvlP, allArtifacts, t]);
 
   const QUALITIES = ["AAC 256", "FLAC", "Hi-Res 24-bit"];
 

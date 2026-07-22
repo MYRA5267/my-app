@@ -790,6 +790,7 @@ function AppInner() {
         onCreatePlaylist={handleCreatePlaylist}
         customPlIds={customPlIds}
         onDeletePlaylist={deletePlaylist}
+        companionController={companionController}
       />
     ),
     creator: (
