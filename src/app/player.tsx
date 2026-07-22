@@ -541,7 +541,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
 
 // ─── Плавающий остров (mobile) ────────────────────────────────────────────────
 
-import { MyraGlyph, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
+import { MyraGlyph, MyraNavIcon3D, MyraHomeIcon, MyraDiscoverIcon, MyraBetweenIcon, MyraLibraryIcon, MyraStudioIcon, MyraProfileIcon } from "./myraIcons";
 
 const MOBILE_NAV = [
   { id: "home",    icon: MyraHomeIcon,     label: "nav.home" },
@@ -574,6 +574,10 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
 }) {
   const { t } = useLang();
   const seekRef = useRef<HTMLDivElement>(null);
+  // Свечение объёмных нав-иконок (SVG-фильтр) гасим на слабых устройствах —
+  // fx-simple выставляется один раз при старте (isWeakEnvironment), поэтому
+  // разовое чтение здесь корректно.
+  const navWeakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
 
   return (
     <div className="myra-mobile-dock absolute bottom-0 inset-x-0 z-40 px-3 pb-3 flex flex-col gap-2 pointer-events-none" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
@@ -642,11 +646,10 @@ export const BottomIsland = React.memo(function BottomIsland({ track, playing, o
       <nav className="myra-mobile-nav pointer-events-auto mx-auto flex items-center gap-1 p-1.5 rounded-full" aria-label={t("pl.playerNav")}>
         {navItems(showStudio, "mobile").map(n => {
           const active = activeTab === n.id;
-          const Icon = n.icon;
           return (
             <motion.button key={n.id} layout onClick={() => onTab(n.id)} aria-label={t(n.label)} data-active={active || undefined} className="myra-mobile-nav-item relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5" transition={SPRING}>
               {active && <motion.div layoutId="mobnav" className="myra-mobile-nav-active absolute inset-0 rounded-full" transition={SPRING} />}
-              <span className="myra-mobile-nav-glyph relative z-10"><Icon size={18} style={{ color: active ? "var(--myra-pearl)" : "color-mix(in srgb, var(--fg) 42%, transparent)" }} /></span>
+              <span className="myra-mobile-nav-glyph relative z-10" style={{ color: active ? undefined : "color-mix(in srgb, var(--fg) 46%, transparent)" }}><MyraNavIcon3D name={n.id} active={active} size={22} weak={navWeakFx} /></span>
               {active && (
                 <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 text-xs font-semibold whitespace-nowrap" style={{ color: "var(--myra-pearl)", fontFamily: F.b }}>
                   {t(n.label)}

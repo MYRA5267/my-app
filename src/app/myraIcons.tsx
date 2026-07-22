@@ -116,6 +116,63 @@ export const MyraLibraryIcon = createMyraIcon("library");
 export const MyraStudioIcon = createMyraIcon("studio");
 export const MyraProfileIcon = createMyraIcon("profile");
 
+// ─── Объёмные 3D-иконки нижней навигации ─────────────────────────────────────
+// Выпуклая заливка (градиент) + глянцевый блик сверху + мягкое свечение —
+// референс: нижний бар Яндекс-музыки. Активная светится фирменным градиентом
+// (персик→фиолет), неактивная — приглушённый currentColor (адаптируется под
+// тему), тоже с объёмом. Свечение (SVG-фильтр) гасится на слабых устройствах
+// (weak = fx-simple): на Android WebView фильтры дают лишние перерисовки.
+const NAV3D_SHAPES: Record<string, { shape: React.ReactNode; overlay?: React.ReactNode }> = {
+  home: {
+    shape: <path d="M4.4 11.5c0-.7.33-1.36.9-1.8l5.5-4.1c.72-.54 1.72-.54 2.44 0l5.5 4.1c.57.44.9 1.1.9 1.8v6.1c0 1.16-.94 2.1-2.1 2.1H6.5c-1.16 0-2.1-.94-2.1-2.1V11.5Z" />,
+    overlay: <rect x="10" y="14.4" width="4" height="4.7" rx="1.1" fill="rgba(20,12,30,.34)" />,
+  },
+  browse: {
+    shape: <circle cx="12" cy="12" r="8.5" />,
+    overlay: <><path d="M15.6 8.4 10.7 10.7 8.4 15.6 13.3 13.3 15.6 8.4Z" fill="rgba(20,12,30,.5)" /><circle cx="12" cy="12" r="1.4" fill="rgba(20,12,30,.5)" /></>,
+  },
+  between: { shape: <><circle cx="8.9" cy="12" r="4.9" /><circle cx="15.1" cy="12" r="4.9" /></> },
+  library: {
+    shape: <><rect x="4.7" y="4.8" width="4.3" height="14.4" rx="1.7" /><rect x="9.9" y="4.8" width="4.3" height="14.4" rx="1.7" /><rect x="15.4" y="6.3" width="4" height="12.9" rx="1.6" transform="rotate(9 17.4 12.7)" /></>,
+  },
+  profile: {
+    shape: <><circle cx="12" cy="8.3" r="3.9" /><path d="M4.7 18.7c.85-3.5 3.5-5.5 7.3-5.5s6.45 2 7.3 5.5c.2.8-.2 1.3-1 1.5-4.1 1-8.5 1-12.6 0-.8-.2-1.2-.7-1-1.5Z" /></>,
+  },
+};
+
+export function MyraNavIcon3D({ name, active, size = 22, weak = false, className, style }: {
+  name: string; active: boolean; size?: number; weak?: boolean; className?: string; style?: React.CSSProperties;
+}) {
+  const uid = React.useId().replace(/:/g, "");
+  const def = NAV3D_SHAPES[name] ?? NAV3D_SHAPES.home;
+  const gid = `n3g-${uid}`, hid = `n3h-${uid}`, cid = `n3c-${uid}`, fid = `n3f-${uid}`;
+  const glow = active && !weak;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false" className={["myra-nav3d", className].filter(Boolean).join(" ")} style={style}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          {active
+            ? <><stop offset="0" stopColor="#ffe6c8" /><stop offset="0.5" stopColor="#f4a77f" /><stop offset="1" stopColor="#c98cff" /></>
+            : <><stop offset="0" stopColor="currentColor" stopOpacity="0.92" /><stop offset="1" stopColor="currentColor" stopOpacity="0.5" /></>}
+        </linearGradient>
+        <radialGradient id={hid} cx="50%" cy="24%" r="60%">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={active ? 0.72 : 0.32} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <clipPath id={cid}>{def.shape}</clipPath>
+        {glow && (
+          <filter id={fid} x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.2" floodColor="#c98cff" floodOpacity="0.55" />
+          </filter>
+        )}
+      </defs>
+      <g filter={glow ? `url(#${fid})` : undefined} fill={`url(#${gid})`}>{def.shape}</g>
+      <g clipPath={`url(#${cid})`}><rect x="0" y="0" width="24" height="16" fill={`url(#${hid})`} /></g>
+      {def.overlay}
+    </svg>
+  );
+}
+
 /*
  * Compatibility layer for the whole application. These are not aliases to an
  * external icon pack: every exported component is drawn from the MYRA fluid
