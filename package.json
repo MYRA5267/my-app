@@ -70,21 +70,21 @@
     "sonner": "2.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.6.8",
-    "@playwright/test": "^1.56.1",
+    "@capacitor/cli": "^8.4.2",
+    "@playwright/test": "^1.61.1",
     "@tauri-apps/cli": "^2.11.4",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
-    "@vitejs/plugin-react": "4.7.0",
-    "autoprefixer": "^10.5.2",
-    "electron": "^43.0.0",
+    "@vitejs/plugin-react": "6.0.4",
+    "autoprefixer": "^10.5.4",
+    "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.16",
-    "tailwindcss": "^3.4.19",
+    "postcss": "^8.5.22",
+    "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^7.0.2",
-    "vite": "6.4.3",
+    "vite": "8.1.5",
     "vitest": "^4.1.10"
   }
 }
