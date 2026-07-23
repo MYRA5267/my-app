@@ -419,7 +419,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       {/* Верхняя панель */}
       <div className="myra-page-header px-5 pt-6 pb-5 flex items-center justify-between">
         <div className="lg:hidden"><MyraBrandLockup /></div>
-        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 01</span>{t("nav.home")}</div>
+        <div className="hidden lg:block myra-desktop-page-title">{t("nav.home")}</div>
         <div className="flex gap-2 relative items-center">
           <motion.button whileTap={{ scale: 0.85 }} onClick={toggleNotifs} className="myra-header-action w-10 h-10 rounded-full flex items-center justify-center relative">
             <MyraGlyph name="bell" size={17} />
@@ -690,7 +690,7 @@ export const BetweenScreen = React.memo(function BetweenScreen({ currentTrack, p
     <Page className="myra-experience-page myra-between-page">
       <header className="myra-page-header px-5 pt-6 pb-5">
         <div className="lg:hidden"><MyraBrandLockup /></div>
-        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 03</span>{t("nav.between")}</div>
+        <div className="hidden lg:block myra-desktop-page-title">{t("nav.between")}</div>
       </header>
 
       <section className="myra-between-hero mx-5 mb-6" style={{ "--between-accent": currentTrack.c2 } as React.CSSProperties}>

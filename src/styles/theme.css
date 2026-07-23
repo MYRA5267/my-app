@@ -381,10 +381,28 @@
 .myra-mood-strip > div { scrollbar-width: none; }
 
 .myra-mood-chip {
-  border: 1px solid color-mix(in srgb, var(--mood-color) 24%, rgba(255,255,255,0.08));
-  color: color-mix(in srgb, var(--fg) 76%, transparent);
-  background: color-mix(in srgb, var(--mood-color) 8%, rgba(255,255,255,0.025));
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--mood-color) 42%, rgba(255,255,255,0.08));
+  color: color-mix(in srgb, var(--fg) 90%, transparent);
+  background:
+    linear-gradient(155deg,
+      color-mix(in srgb, var(--mood-color) 30%, rgba(255,255,255,0.04)),
+      color-mix(in srgb, var(--mood-color) 7%, rgba(9,7,15,0.55)));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -6px 14px rgba(0,0,0,0.28),
+    0 9px 22px color-mix(in srgb, var(--mood-color) 26%, transparent);
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease, border-color 200ms ease;
 }
+.myra-mood-chip:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--mood-color) 66%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.26),
+    inset 0 -6px 14px rgba(0,0,0,0.24),
+    0 14px 30px color-mix(in srgb, var(--mood-color) 44%, transparent);
+}
+.myra-mood-chip:active { transform: translateY(0) scale(0.97); }
 
 .myra-chart-list {
   display: grid;
@@ -3676,18 +3694,54 @@
     linear-gradient(138deg, #171014 0%, #0b080b 58%, #160e14 100%) !important;
   box-shadow: 0 35px 100px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 241, 233, 0.13) !important;
 }
+/* Живые орбиты вокруг сферы «Прилива» — вместо плоских мёртвых полосок:
+   мягко светятся и «дышат» (масштаб + прозрачность + лёгкий крен), создавая
+   ощущение объёмного тела, вокруг которого вращается свет. Гасятся на слабых
+   устройствах и при prefers-reduced-motion (см. ниже). */
 .myra-home-flow::before,
 .myra-home-flow::after {
   content: "";
   position: absolute;
   z-index: 1;
   pointer-events: none;
-  border: 1px solid rgba(248, 199, 166, 0.2);
-  border-radius: 50% 40% 54% 46% / 42% 56% 44% 58%;
-  transform: rotate(-11deg);
+  border-radius: 50%;
+  border: 1.4px solid transparent;
+  will-change: transform, opacity;
 }
-.myra-home-flow::before { width: 72%; height: 30%; right: -8%; top: 7%; }
-.myra-home-flow::after { width: 67%; height: 25%; right: -4%; bottom: 8%; border-color: rgba(187, 102, 139, 0.16); transform: rotate(8deg); }
+.myra-home-flow::before {
+  width: 78%;
+  height: 132%;
+  right: -22%;
+  top: -16%;
+  border-color: rgba(248, 199, 166, 0.34);
+  box-shadow: 0 0 40px rgba(248, 199, 166, 0.16), inset 0 0 60px rgba(217, 137, 104, 0.08);
+  transform: rotate(-16deg);
+  animation: myra-flow-orbit-a 19s ease-in-out infinite;
+}
+.myra-home-flow::after {
+  width: 55%;
+  height: 96%;
+  right: -5%;
+  top: 2%;
+  border-color: rgba(187, 102, 139, 0.32);
+  box-shadow: 0 0 32px rgba(187, 102, 139, 0.16);
+  transform: rotate(11deg);
+  animation: myra-flow-orbit-b 24s ease-in-out infinite;
+}
+@keyframes myra-flow-orbit-a {
+  0%, 100% { transform: rotate(-16deg) scale(1);     opacity: 0.5; }
+  50%      { transform: rotate(-10deg) scale(1.045); opacity: 0.92; }
+}
+@keyframes myra-flow-orbit-b {
+  0%, 100% { transform: rotate(11deg) scale(1.03); opacity: 0.34; }
+  50%      { transform: rotate(6deg)  scale(1);    opacity: 0.7; }
+}
+.fx-simple .myra-home-flow::before,
+.fx-simple .myra-home-flow::after { animation: none !important; opacity: 0.42; }
+@media (prefers-reduced-motion: reduce) {
+  .myra-home-flow::before,
+  .myra-home-flow::after { animation: none !important; }
+}
 .myra-home-flow-copy h1 { color: var(--myra-pearl); font-weight: 720; }
 .myra-home-flow-copy p { color: rgba(255, 241, 233, 0.52); }
 .myra-home-flow-label {
@@ -3700,8 +3754,24 @@
   border: 1px solid rgba(255, 241, 233, 0.2);
   border-radius: 44% 56% 42% 58% / 56% 42% 58% 44%;
   transform: rotate(4deg) translateZ(0);
+  animation: myra-flow-float 9s ease-in-out infinite;
+  will-change: transform;
 }
-.myra-home-flow-art > img { border-radius: inherit; }
+.myra-home-flow-art > img {
+  border-radius: inherit;
+  /* объёмная сфера: верхний глянец + нижняя тень внутри обложки */
+  box-shadow:
+    inset 0 10px 26px rgba(255, 255, 255, 0.24),
+    inset 0 -22px 46px rgba(0, 0, 0, 0.44),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 30px 70px color-mix(in srgb, var(--flow-color) 40%, transparent);
+}
+@keyframes myra-flow-float {
+  0%, 100% { transform: rotate(4deg)   translateY(0)     translateZ(0); }
+  50%      { transform: rotate(2.4deg) translateY(-7px)  translateZ(0); }
+}
+.fx-simple .myra-home-flow-art { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .myra-home-flow-art { animation: none !important; } }
 .myra-home-flow-art > span {
   border-color: rgba(255, 241, 233, 0.28);
   border-radius: 50% 42% 54% 46%;
