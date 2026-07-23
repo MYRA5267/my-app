@@ -53,6 +53,7 @@ export function useMediaSession(params: {
     flow: () => {},
   });
   const permissionRequestedRef = useRef(false);
+  const permissionDeniedShownRef = useRef(false);
   const nativeErrorShownRef = useRef(false);
   controlsRef.current = { playing, duration, toggle, next, prev, seek, like, flow };
 
@@ -176,7 +177,21 @@ export function useMediaSession(params: {
       permissionRequestedRef.current = true;
       // Ask at the first playback attempt, when the reason for the system
       // notification is clear to the user.
-      void MyraMedia.requestPermissions().catch(() => {});
+      void MyraMedia.requestPermissions().then((status) => {
+        const notifications = status.notifications;
+        if (
+          notifications
+          && notifications !== "granted"
+          && !permissionDeniedShownRef.current
+        ) {
+          permissionDeniedShownRef.current = true;
+          toast.warning("Разреши уведомления MYRA", {
+            description: "Без этого системный мини‑плеер не появится в шторке Android.",
+          });
+        }
+      }).catch((error) => {
+        console.warn("[MYRA notification permission]", error);
+      });
     }
     let cancelled = false;
     const position = duration > 0 ? Math.min((progress / 100) * duration, duration) : 0;

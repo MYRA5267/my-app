@@ -23,13 +23,31 @@ const CORS_HEADERS = {
 const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
 
 const VALID_KINDS = ["donation", "subscription"];
-// Разумный потолок суммы — просто защита от опечатки в лишний ноль, не бизнес-лимит
+const SUBSCRIPTION_PRICE_RUB = 499;
+const MIN_DONATION = 10;
+// Разумный потолок суммы — защита от опечатки в лишний ноль, не бизнес-лимит.
 const MAX_AMOUNT = 100_000;
+const MAX_BODY_BYTES = 8_192;
+const YOOKASSA_TIMEOUT_MS = 12_000;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405,
+      headers: { ...JSON_HEADERS, Allow: "POST, OPTIONS" },
+    });
+  }
 
   try {
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return new Response(JSON.stringify({ error: "payload_too_large" }), {
+        status: 413,
+        headers: JSON_HEADERS,
+      });
+    }
+
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -50,27 +68,41 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => null);
     const kind = body?.kind;
-    const amount = Number(body?.amount);
-    const toArtist = typeof body?.toArtist === "string" && body.toArtist ? body.toArtist : undefined;
+    const requestedAmount = Number(body?.amount);
+    const toArtist = typeof body?.toArtist === "string"
+      ? body.toArtist.trim().slice(0, 120)
+      : undefined;
     const toUserId = typeof body?.toUserId === "string" && body.toUserId ? body.toUserId : undefined;
-    const planId = typeof body?.planId === "string" && body.planId ? body.planId : undefined;
 
     if (!VALID_KINDS.includes(kind)) {
       return new Response(JSON.stringify({ error: "invalid kind" }), { status: 400, headers: JSON_HEADERS });
     }
-    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) {
+    const amount = kind === "subscription" ? SUBSCRIPTION_PRICE_RUB : requestedAmount;
+    const planId = kind === "subscription" ? "pro" : undefined;
+    if (!Number.isFinite(amount) || amount < MIN_DONATION || amount > MAX_AMOUNT) {
       return new Response(JSON.stringify({ error: "invalid amount" }), { status: 400, headers: JSON_HEADERS });
     }
     if (kind === "donation" && !toArtist) {
       return new Response(JSON.stringify({ error: "toArtist required for donation" }), { status: 400, headers: JSON_HEADERS });
     }
 
-    // return_url — куда ЮKassa вернёт пользователя со своей hosted-страницы
-    // оплаты; берём Origin реального запроса (фронтенд шлёт его сам браузером),
-    // а если его почему-то нет — sane-дефолт, лишь бы confirmation.return_url
-    // был валидным абсолютным URL (этого требует API ЮKassa)
-    const origin = req.headers.get("Origin") ?? req.headers.get("origin");
-    const returnUrl = origin || "https://myra.app";
+    // Не доверяем Origin запроса: иначе авторизованный вредоносный сайт может
+    // подменить страницу возврата после оплаты. Значение задаётся только
+    // серверным секретом и обязано быть HTTPS.
+    const returnUrlRaw = Deno.env.get("PAYMENT_RETURN_URL")?.trim()
+      || "https://app.myramusic.ru/";
+    let returnUrl: string;
+    try {
+      const parsedReturnUrl = new URL(returnUrlRaw);
+      if (parsedReturnUrl.protocol !== "https:") throw new Error("HTTPS required");
+      returnUrl = parsedReturnUrl.toString();
+    } catch {
+      console.error("create-payment: invalid PAYMENT_RETURN_URL");
+      return new Response(JSON.stringify({ error: "server_not_configured" }), {
+        status: 503,
+        headers: JSON_HEADERS,
+      });
+    }
 
     const description = kind === "donation"
       ? `MYRA: донат артисту ${toArtist}`
@@ -78,6 +110,7 @@ Deno.serve(async (req: Request) => {
 
     const ykRes = await fetch("https://api.yookassa.ru/v3/payments", {
       method: "POST",
+      signal: AbortSignal.timeout(YOOKASSA_TIMEOUT_MS),
       headers: {
         "Authorization": `Basic ${btoa(`${shopId}:${secretKey}`)}`,
         "Idempotence-Key": crypto.randomUUID(),
@@ -94,6 +127,7 @@ Deno.serve(async (req: Request) => {
           to_artist: toArtist ?? null,
           to_user_id: toUserId ?? null,
           plan_id: planId ?? null,
+          price_version: kind === "subscription" ? "pro-rub-499-v1" : null,
         },
       }),
     });
@@ -126,6 +160,7 @@ Deno.serve(async (req: Request) => {
         to_artist: toArtist ?? null,
         to_user_id: toUserId ?? null,
         plan_id: planId ?? null,
+        price_version: kind === "subscription" ? "pro-rub-499-v1" : null,
       },
     });
 

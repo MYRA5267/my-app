@@ -36,55 +36,65 @@
           min-height: 100dvh;
           display: grid;
           place-items: center;
-          overflow: hidden;
           color: #fff7f2;
           background:
-            radial-gradient(circle at 50% 42%, rgba(255, 150, 112, .15), transparent 30%),
-            radial-gradient(circle at 58% 52%, rgba(183, 120, 255, .11), transparent 42%),
+            radial-gradient(circle at 50% 48%, rgba(230, 146, 119, .09), transparent 34%),
             #050510;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .myra-boot__mark {
-          position: relative;
-          width: 76px;
-          height: 76px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(255,255,255,.12);
-          border-radius: 28px;
-          background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.025));
-          box-shadow: 0 22px 64px rgba(0,0,0,.48), 0 0 44px rgba(255,145,107,.13);
+        .myra-boot__content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
         }
-        .myra-boot__mark::before {
-          content: "M";
-          font-size: 32px;
-          font-weight: 800;
-          letter-spacing: -.08em;
-          background: linear-gradient(125deg, #fff9f5 12%, #ffad88 52%, #c394ff 92%);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-        .myra-boot__mark::after {
-          content: "";
-          position: absolute;
-          inset: -7px;
-          border: 1px solid transparent;
-          border-top-color: rgba(255,178,141,.82);
-          border-radius: 32px;
-          animation: myra-boot-spin 1.15s linear infinite;
-        }
-        .myra-boot__label {
-          margin-top: 22px;
-          color: rgba(255,247,242,.62);
-          font-size: 11px;
-          font-weight: 650;
-          letter-spacing: .28em;
+        .myra-boot__wordmark {
+          color: #fff8f4;
+          font-size: 28px;
+          font-weight: 760;
+          letter-spacing: .2em;
+          line-height: 1;
           text-align: center;
+          text-indent: .2em;
+          text-shadow: 0 0 28px rgba(238, 160, 130, .18);
+        }
+        .myra-boot__signal {
+          width: 72px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          color: #eba985;
+        }
+        .myra-boot__signal i {
+          width: 2px;
+          height: 10px;
+          border-radius: 999px;
+          background: currentColor;
+          opacity: .36;
+          transform-origin: center;
+          animation: myra-boot-pulse 1.15s ease-in-out infinite;
+        }
+        .myra-boot__signal i:nth-child(2),
+        .myra-boot__signal i:nth-child(6) { animation-delay: .1s; }
+        .myra-boot__signal i:nth-child(3),
+        .myra-boot__signal i:nth-child(5) { animation-delay: .2s; }
+        .myra-boot__signal i:nth-child(4) { animation-delay: .3s; }
+        .myra-boot__label {
+          color: rgba(255,247,242,.42);
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: .18em;
           text-transform: uppercase;
         }
-        @keyframes myra-boot-spin { to { transform: rotate(360deg); } }
-        @media (prefers-reduced-motion: reduce) { .myra-boot__mark::after { animation: none; } }
+        @keyframes myra-boot-pulse {
+          0%, 100% { opacity: .24; transform: scaleY(.45); }
+          50% { opacity: .95; transform: scaleY(1.35); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .myra-boot__signal i { animation: none; opacity: .65; }
+        }
       </style>
 
     </head>
@@ -93,9 +103,12 @@
 
       <div id="root">
         <div id="myra-boot" role="status" aria-label="MYRA загружается">
-          <div>
-            <div class="myra-boot__mark" aria-hidden="true"></div>
-            <div class="myra-boot__label">MYRA</div>
+          <div class="myra-boot__content">
+            <div class="myra-boot__wordmark" aria-hidden="true">MYRA</div>
+            <div class="myra-boot__signal" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="myra-boot__label">настраиваем звук</div>
           </div>
         </div>
       </div>

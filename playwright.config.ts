@@ -21,6 +21,11 @@ export default defineConfig({
     // на Chromium, так что chromium даже точнее отражает основную платформу,
     // чем WebKit.
     { name: "chromium", use: { ...devices["iPhone 14"], defaultBrowserType: "chromium" } },
+    // Релизный smoke-набор дополнительно запускается в Firefox и WebKit через
+    // `pnpm test:e2e:cross-browser`. Узкий viewport сохраняет мобильную
+    // навигацию, но движки и рендеринг остаются настоящими.
+    { name: "firefox-mobile", use: { browserName: "firefox", viewport: { width: 390, height: 844 } } },
+    { name: "webkit-mobile", use: { ...devices["iPhone 14"], defaultBrowserType: "webkit" } },
   ],
   webServer: {
     // В CI dist/ уже собран отдельным шагом `pnpm build` в ci.yml до
@@ -29,7 +34,7 @@ export default defineConfig({
     // на машине разработчика может быть протухшим или отсутствовать.
     command: process.env.CI
       ? "pnpm preview --port 4173"
-      : "npm run build && npm run preview -- --port 4173",
+      : "pnpm build && pnpm preview --port 4173",
     // E2E должен быть герметичным: локальный .env разработчика может содержать
     // production Supabase, но offline-demo проверяет именно отключённый backend.
     // Playwright передаёт эти значения дочернему Vite-процессу поверх .env.

@@ -280,7 +280,20 @@ const PremiumTrackRow = React.memo(function PremiumTrackRow({ track, active, pla
   onArtist?: (name: string) => void; trailing?: React.ReactNode;
 }) {
   return (
-    <div className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(track)}>
+    <div
+      className={`myra-track-row${active ? " is-active" : ""}`}
+      onClick={() => onPlay(track)}
+      onKeyDown={event => {
+        if (event.currentTarget !== event.target) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onPlay(track);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${track.title} — ${track.artist}`}
+    >
       <div className="myra-track-row-cover">
         <img src={track.img} alt="" loading="lazy" decoding="async" />
         <span>{active && playing ? <EQ color="#fff" size={11} /> : <MyraGlyph name="play" size={13} strokeWidth={2.15} />}</span>
@@ -433,7 +446,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
                   const Icon = ACTIVITY_ICONS[item.textKey] ?? Bell;
                   const [val, unitKey] = relTimeParts(item.time);
                   return (
-                    <div key={item.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setNotifOpen(false)}>
+                    <button type="button" key={item.id} className="flex items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setNotifOpen(false)}>
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${currentTrack.c2}1e` }}>
                         <Icon size={14} style={{ color: currentTrack.c2 }} />
                       </div>
@@ -441,7 +454,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
                         <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 85%, transparent)", fontFamily: F.b }}>{t(item.textKey, ...item.args)}</div>
                         <div className="text-[10px] mt-0.5" style={{ color: "color-mix(in srgb, var(--fg) 32%, transparent)", fontFamily: F.m }}>{t("notif.ago", `${val} ${t(unitKey)}`)}</div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </motion.div>

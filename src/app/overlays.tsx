@@ -263,7 +263,21 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
         {/* Популярное */}
         <h3 className="mb-3" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.popular")}</h3>
         {own.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
+          <div
+            key={tr.id}
+            onClick={() => onPlay(tr)}
+            onKeyDown={event => {
+              if (event.currentTarget !== event.target) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onPlay(tr);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${tr.title} — ${tr.artist}`}
+            className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1"
+          >
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
               <img src={tr.img} alt="" className="w-full h-full object-cover" />
             </div>
@@ -282,7 +296,7 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
           <>
             <h3 className="mb-3 mt-5" style={{ fontFamily: F.d, fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>{t("ar.similarTr")}</h3>
             {similar.slice(0, 2).map(tr => (
-              <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
+              <button type="button" key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1 w-full text-left">
                 <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
                   <img src={tr.img} alt="" className="w-full h-full object-cover" />
                 </div>
@@ -291,7 +305,7 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
                   <div className="text-xs" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.artist}</div>
                 </div>
                 <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-              </div>
+              </button>
             ))}
           </>
         )}
@@ -394,7 +408,7 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
         ) : tracks.length === 0 ? (
           <div className="text-xs py-6 text-center" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{t("ra.empty")}</div>
         ) : tracks.map(tr => (
-          <div key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1">
+          <button type="button" key={tr.id} onClick={() => onPlay(tr)} className="myra-artist-track flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer mb-1 w-full text-left">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
               <img src={tr.img} alt="" className="w-full h-full object-cover" />
             </div>
@@ -406,7 +420,7 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
               <div className="text-xs truncate" style={{ color: "color-mix(in srgb, var(--fg) 40%, transparent)", fontFamily: F.b }}>{tr.genre}</div>
             </div>
             <Play size={14} style={{ color: "color-mix(in srgb, var(--fg) 35%, transparent)" }} />
-          </div>
+          </button>
         ))}
       </div>
     </Sheet>
@@ -625,7 +639,21 @@ export function AlbumSheet({ album, onClose, onPlay, currentTrack, playing, onOp
           {tracks.map(tr => {
             const active = currentTrack.id === tr.id && playing;
             return (
-              <div key={tr.id} className={`myra-track-row${active ? " is-active" : ""}`} onClick={() => onPlay(tr)}>
+              <div
+                key={tr.id}
+                className={`myra-track-row${active ? " is-active" : ""}`}
+                onClick={() => onPlay(tr)}
+                onKeyDown={event => {
+                  if (event.currentTarget !== event.target) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onPlay(tr);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`${tr.title} — ${tr.artist}`}
+              >
                 <div className="myra-track-row-cover">
                   <img src={tr.img} alt="" loading="lazy" decoding="async" />
                   <span>{active ? <EQ color="#fff" size={11} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}</span>
