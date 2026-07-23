@@ -25,12 +25,16 @@ export function useSubscription(params: { userRole: UserRole; uid: string | null
   const setCp = useCallback((s: CpStatus) => {
     setCpStatus(s);
     ls.set("cpStatus", s);
-    if (supabaseEnabled && uidRef.current) setSubscriptionStatus(s).catch(err => console.warn("setSubscriptionStatus:", err));
+    // active/grace задаёт только подтверждённый платёжный webhook. Прямой
+    // клиентский вызов разрешён лишь для полного отключения подписки.
+    if (s === "none" && supabaseEnabled && uidRef.current) {
+      setSubscriptionStatus(s).catch(err => console.warn("setSubscriptionStatus:", err));
+    }
   }, []);
   const creatorPlus = cpStatus !== "none";
 
   const activateCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpActivated"); }, [logActivity]);
-  const cancelCreatorPlusSub = useCallback(() => { setCp("grace"); logActivity("act.cpCancelled"); }, [logActivity]);
+  const cancelCreatorPlusSub = useCallback(() => { setCp("none"); logActivity("act.cpCancelled"); }, [logActivity]);
   const resumeCreatorPlus = useCallback(() => { setCp("active"); logActivity("act.cpResumed"); }, [logActivity]);
 
   // Статус Pro — правда живёт на сервере (см. Edge Function set-subscription);

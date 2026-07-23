@@ -874,7 +874,20 @@ function AppInner() {
         })}
         <div className="flex-1" />
         <div className="mx-3">
-          <div className="myra-rail-player rounded-[20px] overflow-hidden cursor-pointer" onClick={() => setPlayerOpen(true)}>
+          <div
+            className="myra-rail-player rounded-[20px] overflow-hidden cursor-pointer"
+            onClick={() => setPlayerOpen(true)}
+            onKeyDown={event => {
+              if (event.currentTarget !== event.target) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setPlayerOpen(true);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${currentTrack.title} — ${currentTrack.artist}`}
+          >
             <span className="myra-rail-player-label">NOW · DEEPLY YOURS</span>
             <div className="relative" style={{ height: 118 }}>
               <img src={currentTrack.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.45)" }} />

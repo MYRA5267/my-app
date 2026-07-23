@@ -24,6 +24,12 @@ const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405,
+      headers: { ...JSON_HEADERS, Allow: "POST, OPTIONS" },
+    });
+  }
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -40,7 +46,15 @@ Deno.serve(async (req: Request) => {
 
     // Admin API — доступен только service-role ключу, обычный клиент удалить
     // себя из auth.users не может вообще никак
-    const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceRoleKey) {
+      console.error("delete-account: SUPABASE_SERVICE_ROLE_KEY is missing");
+      return new Response(JSON.stringify({ error: "server_not_configured" }), {
+        status: 503,
+        headers: JSON_HEADERS,
+      });
+    }
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { error } = await adminClient.auth.admin.deleteUser(userData.user.id);
 
     if (error) {

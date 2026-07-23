@@ -4,15 +4,6 @@
   background: #020207;
 }
 
-.myra-player-noise {
-  opacity: 0.045;
-  mix-blend-mode: soft-light;
-  background-image:
-    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.5) 0 0.5px, transparent 0.8px),
-    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.35) 0 0.45px, transparent 0.8px);
-  background-size: 7px 7px, 11px 11px;
-}
-
 .myra-player-header {
   width: min(100%, 1280px);
   margin-inline: auto;

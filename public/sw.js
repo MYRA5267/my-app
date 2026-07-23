@@ -1,67 +1,98 @@
-// MYRA — минимальный service worker: только офлайн-подстраховка, не полноценный
-// офлайн-режим приложения. Три правила, чтобы никогда не мешать живому сайту:
-//
-// 1. index.html и любая навигация — ВСЕГДА сначала сеть. Каждый деплой меняет
-//    имена JS/CSS-чанков (см. main.tsx, обработчик vite:preloadError) — если
-//    отдавать index.html из кэша, вкладка будет ссылаться на чанки, которых
-//    уже нет на сервере. Кэш здесь — только резерв на случай реального офлайна.
-// 2. Чужой origin (Supabase, Sentry, ЮKassa, шрифты и т.п.) не трогаем вообще —
-//    ни кэша, ни перехвата, пусть идёт как обычный сетевой запрос.
-// 3. Только свои статические ассеты (хэшированные JS/CSS/картинки) — кэш-фёрст,
-//    это безопасно именно потому, что у них хэш в имени: новый деплой = новые
-//    имена файлов, старые в кэше никогда не станут "неправильной" версией.
+// MYRA PWA: свежая сеть при обычной работе и полноценная оболочка приложения
+// при офлайне. Кэшируются только файлы собственного origin; Supabase, Sentry,
+// платежи и другие внешние запросы service worker не перехватывает.
 
-const CACHE_NAME = "myra-static-v2";
+const CACHE_NAME = "myra-static-v3";
+const APP_SHELL_URL = new URL("./", self.location.href).pathname;
 const OFFLINE_URL = new URL("./offline.html", self.location.href).pathname;
+const ASSET_RE = /\.(?:js|css|png|jpg|jpeg|webp|svg|gif|ico|woff2?|ttf|webmanifest)$/i;
+
+async function cacheResponse(cache, request, response) {
+  if (response && response.ok) await cache.put(request, response.clone());
+  return response;
+}
+
+async function precacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  await cache.add(OFFLINE_URL).catch(() => {});
+
+  try {
+    const response = await fetch(new Request(APP_SHELL_URL, { cache: "reload" }));
+    if (!response.ok) return;
+    await cache.put(APP_SHELL_URL, response.clone());
+
+    // Vite writes hashed entry chunks into index.html. Precache those exact
+    // files during install so a newly installed PWA can start offline without
+    // requiring a second online visit.
+    const html = await response.text();
+    const references = Array.from(
+      html.matchAll(/(?:src|href)=["']([^"'#]+)["']/gi),
+      (match) => match[1],
+    );
+    const urls = Array.from(new Set(references.map((reference) => {
+      try {
+        return new URL(reference, self.location.origin + APP_SHELL_URL);
+      } catch {
+        return null;
+      }
+    }).filter((url) => url && url.origin === self.location.origin && ASSET_RE.test(url.pathname))));
+
+    await Promise.allSettled(urls.map(async (url) => {
+      const assetResponse = await fetch(new Request(url.toString(), { cache: "reload" }));
+      if (assetResponse.ok) await cache.put(url.toString(), assetResponse);
+    }));
+  } catch {
+    // Offline page remains available even if the shell cannot be fetched on
+    // this particular install attempt.
+  }
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll([OFFLINE_URL])).catch(() => {
-      // Не критично: без precache офлайн-страница просто не покажется офлайн
-      // при самом первом визите (до первого успешного онлайн-захода)
-    })
-  );
+  event.waitUntil(precacheAppShell());
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((names) =>
-      Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((names) => Promise.all(
+        names
+          .filter((name) => name.startsWith("myra-static-") && name !== CACHE_NAME)
+          .map((name) => caches.delete(name)),
+      ))
+      .then(() => self.clients.claim()),
   );
 });
-
-const ASSET_RE = /\.(?:js|css|png|jpg|jpeg|webp|svg|gif|woff2?|ttf)$/i;
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // правило 2
+  if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
-    );
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const response = await fetch(request);
+        if (response.ok) await cache.put(APP_SHELL_URL, response.clone());
+        return response;
+      } catch {
+        return (await cache.match(APP_SHELL_URL))
+          || (await cache.match(OFFLINE_URL))
+          || Response.error();
+      }
+    })());
     return;
   }
 
   if (ASSET_RE.test(url.pathname)) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return res;
-        });
-      })
-    );
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      return cacheResponse(cache, request, await fetch(request));
+    })());
   }
-  // Всё остальное того же origin (manifest.webmanifest и т.п.) — обычная сеть,
-  // без вмешательства
 });

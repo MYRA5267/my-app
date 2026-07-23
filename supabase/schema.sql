@@ -223,17 +223,16 @@ create policy "subscriptions_select_own"
   on public.subscriptions for select
   using ((select auth.uid()) = user_id);
 
--- Клиент НЕ может сам выдать себе активную подписку — иначе любой
--- авторизованный пользователь мог бы бесплатно включить себе MYRA Pro
--- прямым UPDATE (реальная оплата ещё не подключена, а даже когда будет —
--- статус 'active' должен ставить только доверенный бэкенд/вебхук оплаты
--- сервисным ключом, который не связан RLS). Клиенту разрешена только
--- самостоятельная отмена — переход НЕ в 'active' (например, в 'grace' или 'none')
+-- Клиент не может выдать себе ни active, ни grace: оба состояния открывают
+-- платные возможности на фронтенде. Активация/продление выполняются только
+-- доверенным webhook оплаты; самому пользователю разрешено лишь полностью
+-- отключить собственную подписку, переведя её в none.
 drop policy if exists "subscriptions_update_own" on public.subscriptions;
 create policy "subscriptions_update_own"
   on public.subscriptions for update
+  to authenticated
   using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id and status <> 'active');
+  with check ((select auth.uid()) = user_id and status = 'none');
 
 
 -- ============================================================================

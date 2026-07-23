@@ -20,6 +20,8 @@ import android.os.Looper;
 import android.util.Base64;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -57,6 +59,8 @@ public class MyraPlaybackService extends Service {
     // before the notification is shown. 256 px is sharp in the system card
     // while staying safely below that boundary.
     private static final int MAX_ARTWORK_PX = 256;
+    private static final int MAX_ARTWORK_BYTES = 3 * 1024 * 1024;
+    private static final int MAX_DECODE_PX = 512;
     private static final String CUSTOM_FLOW = "myra_flow";
     private static final String CUSTOM_LIKE = "myra_like";
 
@@ -358,16 +362,36 @@ public class MyraPlaybackService extends Service {
         try {
             if (source.startsWith("data:image/") && source.contains(";base64,")) {
                 String encoded = source.substring(source.indexOf(',') + 1);
+                // Base64 is roughly 4/3 of the decoded payload. Reject before
+                // allocating the byte array as well as after decoding it.
+                if (encoded.length() > (MAX_ARTWORK_BYTES * 4L / 3L) + 16L) return null;
                 byte[] bytes = Base64.decode(encoded, Base64.DEFAULT);
-                return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (bytes.length > MAX_ARTWORK_BYTES) return null;
+                return decodeSampled(bytes);
             }
-            if (source.startsWith("https://") || source.startsWith("http://")) {
+            if (source.startsWith("https://")) {
                 HttpURLConnection connection = (HttpURLConnection) new URL(source).openConnection();
                 connection.setConnectTimeout(5000);
                 connection.setReadTimeout(5000);
-                connection.setInstanceFollowRedirects(true);
+                connection.setInstanceFollowRedirects(false);
+                connection.setRequestProperty("Accept", "image/*");
+                int responseCode = connection.getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) {
+                    connection.disconnect();
+                    return null;
+                }
+                String contentType = connection.getContentType();
+                int contentLength = connection.getContentLength();
+                if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+                    connection.disconnect();
+                    return null;
+                }
+                if (contentLength > MAX_ARTWORK_BYTES) {
+                    connection.disconnect();
+                    return null;
+                }
                 try (InputStream stream = connection.getInputStream()) {
-                    return BitmapFactory.decodeStream(stream);
+                    return decodeSampled(readBounded(stream));
                 } finally {
                     connection.disconnect();
                 }
@@ -376,6 +400,41 @@ public class MyraPlaybackService extends Service {
             // Keep the MYRA fallback artwork if a remote cover is unavailable.
         }
         return null;
+    }
+
+    private byte[] readBounded(InputStream stream) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream(64 * 1024);
+        byte[] buffer = new byte[16 * 1024];
+        int total = 0;
+        int read;
+        while ((read = stream.read(buffer)) != -1) {
+            total += read;
+            if (total > MAX_ARTWORK_BYTES) {
+                throw new IOException("Artwork exceeds safe size");
+            }
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
+    }
+
+    @Nullable
+    private Bitmap decodeSampled(byte[] bytes) {
+        if (bytes.length == 0 || bytes.length > MAX_ARTWORK_BYTES) return null;
+
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        int largest = Math.max(bounds.outWidth, bounds.outHeight);
+        int sampleSize = 1;
+        while (largest / sampleSize > MAX_DECODE_PX) {
+            sampleSize *= 2;
+        }
+        options.inSampleSize = sampleSize;
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
     }
 
     @Nullable

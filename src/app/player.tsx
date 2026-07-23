@@ -190,7 +190,6 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 46%, ${track.c2}18 0%, transparent 34%), linear-gradient(115deg, rgba(2,2,7,0.66), rgba(2,2,7,0.94) 70%)` }} />
         {/* Оформление от надетого артефакта — реальное свечение в его цвете */}
         {artifact && <div className="fx-heavy absolute inset-0" style={{ background: `radial-gradient(circle at 82% 12%, ${artifact.accent}33 0%, transparent 42%)` }} />}
-        <div className="myra-player-noise absolute inset-0" />
       </div>
 
       {/* Header */}

@@ -18,6 +18,8 @@ const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" };
 // человека (даже быстрый диалог — это несколько сообщений за минуты, не
 // секунды), но достаточно низко, чтобы остановить скрипт-спам
 const RATE_LIMIT_PER_MINUTE = 8;
+const MAX_BODY_BYTES = 32_768;
+const OPENROUTER_TIMEOUT_MS = 15_000;
 
 // Контекст о приложении — чтобы модель отвечала по делу, а не общими фразами
 const SYSTEM_PROMPT = `Ты — служба поддержки музыкального стриминга MYRA. Отвечай кратко (2-4 предложения), дружелюбно и по делу, на языке, на котором пишет пользователь.
@@ -27,8 +29,7 @@ const SYSTEM_PROMPT = `Ты — служба поддержки музыкаль
 Контекст о приложении:
 - MYRA — стриминг музыки: каталог треков, лайки, плейлисты, подкасты, чарты, персональные рекомендации ("Моя волна").
 - Донаты артистам: без комиссии, вся сумма уходит артисту напрямую.
-- Подписка MYRA Pro (499₽/мес, только для артистов): безлимитные офлайн-загрузки, Hi-Res звук без ограничений, расширенная аналитика аудитории, ранний доступ к новым фичам.
-- MYRA Plus — бесплатный план для слушателей навсегда: эксклюзивный бейдж, Hi-Res звук без ограничений, безлимитные офлайн-загрузки, ранний доступ к новым фичам. На бесплатном тарифе без Pro/Plus офлайн-загрузки ограничены 20 треками, а максимальное качество звука — FLAC.
+- На первом публичном релизе пользовательские функции бесплатны. Не обещай активную платную подписку или успешный платёж: оплата доступна только после отдельного подключения официального процессинга.
 - Студия — только для артистов: публикация своих треков через форму (название, жанр, текст песни, обложка).
 - Обычные слушатели тоже могут загружать свою музыку в Медиатеке — просто для прослушивания и обмена с друзьями, без формы публикации.
 - Уровни и опыт: 10 XP за каждую минуту прослушанной музыки, пороги уровней растут (300, 500, 700, 900 XP...). Награды на уровнях 5, 10, 25, 50, 100 — бейджи, рамка аватара, ранний доступ, скидка на MYRA Pro.
@@ -38,8 +39,22 @@ const SYSTEM_PROMPT = `Ты — служба поддержки музыкаль
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405,
+      headers: { ...JSON_HEADERS, Allow: "POST, OPTIONS" },
+    });
+  }
 
   try {
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return new Response(JSON.stringify({ error: "payload_too_large" }), {
+        status: 413,
+        headers: JSON_HEADERS,
+      });
+    }
+
     // Проверяем, что запрос пришёл от реально залогиненного пользователя приложения —
     // иначе кто угодно из интернета мог бы бесплатно "арендовать" наш OpenRouter-ключ
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -67,10 +82,16 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", userData.user.id)
       .eq("from_role", "user")
       .gt("created_at", oneMinuteAgo);
-    // Если сам подсчёт не удался (сбой БД) — не блокируем реального пользователя
-    // из-за нашей же инфраструктурной проблемы, лимит это доп. страховка, а не
-    // единственная защита (см. ограничение истории/длины сообщений ниже)
-    if (!rateError && (recentCount ?? 0) > RATE_LIMIT_PER_MINUTE) {
+    // OpenRouter тарифицирует каждый запрос, поэтому при сбое самого счётчика
+    // безопаснее временно отказать, чем открыть неограниченный платный endpoint.
+    if (rateError) {
+      console.error("support-chat: rate limit check failed", rateError);
+      return new Response(JSON.stringify({ error: "rate_limit_unavailable" }), {
+        status: 503,
+        headers: JSON_HEADERS,
+      });
+    }
+    if ((recentCount ?? 0) >= RATE_LIMIT_PER_MINUTE) {
       return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: JSON_HEADERS });
     }
 
@@ -83,7 +104,13 @@ Deno.serve(async (req: Request) => {
     const trimmed = messages.slice(-12).map((m: { role?: string; content?: unknown }) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: String(m.content ?? "").slice(0, 2000),
-    }));
+    })).filter((message: { content: string }) => message.content.trim().length > 0);
+    if (trimmed.length === 0) {
+      return new Response(JSON.stringify({ error: "messages required" }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
 
     const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!openrouterKey) {
@@ -92,6 +119,7 @@ Deno.serve(async (req: Request) => {
 
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
       headers: {
         "Authorization": `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
@@ -113,6 +141,10 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ reply }), { headers: JSON_HEADERS });
   } catch (err) {
     console.error("support-chat error:", err);
-    return new Response(JSON.stringify({ error: "internal error" }), { status: 500, headers: JSON_HEADERS });
+    const timedOut = err instanceof DOMException && err.name === "TimeoutError";
+    return new Response(JSON.stringify({ error: timedOut ? "upstream_timeout" : "internal_error" }), {
+      status: timedOut ? 504 : 500,
+      headers: JSON_HEADERS,
+    });
   }
 });
