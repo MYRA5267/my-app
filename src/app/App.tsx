@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
-import { SkipBack, SkipForward, Play, Pause } from "./myraIcons";
+import { SkipBack, SkipForward, Play, Pause, MyraNavIcon3D } from "./myraIcons";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster, toast } from "sonner";
 
@@ -847,6 +847,10 @@ function AppInner() {
     ),
   };
 
+  // Свечение объёмных нав-иконок (SVG-фильтр) гасим на слабых устройствах —
+  // fx-simple выставляется один раз при старте (isWeakEnvironment).
+  const navWeakFxDesktop = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
+
   return themedRoot(
       <div className="myra-app-shell flex h-full w-full overflow-hidden relative">
       <DynamicBg track={currentTrack} />
@@ -859,12 +863,11 @@ function AppInner() {
           <MyraBrandLockup />
         </div>
         {navItems(showStudio).map(n => {
-          const Icon = n.icon;
           const active = tab === n.id;
           return (
             <button key={n.id} onClick={() => setTab(n.id as Tab)} data-active={active || undefined} className="myra-desktop-nav-item relative flex items-center gap-3 mx-3 px-4 py-3 rounded-2xl text-sm font-medium text-left" style={{ fontFamily: F.b, color: active ? "var(--myra-pearl)" : "color-mix(in srgb, var(--fg) 50%, transparent)" }}>
               {active && <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }} className="myra-desktop-nav-active absolute inset-0 rounded-2xl" />}
-              <span className="myra-desktop-nav-glyph relative z-10"><Icon size={18} /></span>
+              <span className="myra-desktop-nav-glyph relative z-10" style={{ color: active ? undefined : "color-mix(in srgb, var(--fg) 50%, transparent)" }}><MyraNavIcon3D name={n.id} active={active} size={20} weak={navWeakFxDesktop} /></span>
               <span className="relative z-10">{t(n.label)}</span>
             </button>
           );

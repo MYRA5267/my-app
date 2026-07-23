@@ -137,6 +137,10 @@ const NAV3D_SHAPES: Record<string, { shape: React.ReactNode; overlay?: React.Rea
   profile: {
     shape: <><circle cx="12" cy="8.3" r="3.9" /><path d="M4.7 18.7c.85-3.5 3.5-5.5 7.3-5.5s6.45 2 7.3 5.5c.2.8-.2 1.3-1 1.5-4.1 1-8.5 1-12.6 0-.8-.2-1.2-.7-1-1.5Z" /></>,
   },
+  // Студия — эквалайзер из объёмных столбиков
+  creator: {
+    shape: <><rect x="4.6" y="9.4" width="2.9" height="9.2" rx="1.45" /><rect x="9" y="5.4" width="2.9" height="13.2" rx="1.45" /><rect x="13.4" y="7.8" width="2.9" height="10.8" rx="1.45" /><rect x="17.8" y="11.4" width="2.9" height="7.2" rx="1.45" /></>,
+  },
 };
 
 // Знак «проверенный артист» — фирменная печать (гребёнка) с градиентной
