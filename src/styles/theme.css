@@ -4836,7 +4836,7 @@ section > *:nth-child(3) > .myra-glow-orb,
 .myra-pulse-empty,
 .myra-pulse-room { display: grid; width: 100%; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--myra-line); border-radius: 18px 25px 18px 24px; color: var(--fg); background: rgba(255,255,255,.018); text-align: left; }
 .myra-pulse-empty > span,
-.myra-pulse-room > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 14px 19px 13px 18px; color: var(--pulse-accent); background: color-mix(in srgb, var(--pulse-accent) 11%, transparent); }
+.myra-pulse-room > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 14px 19px 13px 18px; color: #160f26; background: radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--pulse-accent) 92%, #fff), var(--pulse-accent)); box-shadow: 0 6px 16px color-mix(in srgb, var(--pulse-accent) 42%, transparent), inset 0 1px 0 rgba(255,255,255,.32); }
 .myra-pulse-empty > div,
 .myra-pulse-room > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .myra-pulse-empty strong,
@@ -4868,7 +4868,9 @@ section > *:nth-child(3) > .myra-glow-orb,
 .myra-between-hero h1 { max-width: 620px; margin: 13px 0 12px; font-family: "Sora", sans-serif; font-size: clamp(30px, 6vw, 58px); font-weight: 780; line-height: .98; letter-spacing: -.055em; }
 .myra-between-hero p { max-width: 560px; color: color-mix(in srgb, var(--fg) 54%, transparent); font-size: clamp(12px, 2vw, 15px); line-height: 1.55; }
 .myra-between-hero-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
-.myra-between-hero-actions button { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0 16px; border: 1px solid color-mix(in srgb, var(--between-accent) 28%, var(--myra-line)); border-radius: 16px 22px 16px 21px; color: var(--fg); background: color-mix(in srgb, var(--between-accent) 8%, rgba(255,255,255,.018)); font-family: "Plus Jakarta Sans", sans-serif; font-size: 12px; font-weight: 700; }
+.myra-between-hero-actions button { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0 16px; border: 1px solid color-mix(in srgb, var(--between-accent) 34%, var(--myra-line)); border-radius: 16px 22px 16px 21px; color: var(--fg); background: linear-gradient(160deg, color-mix(in srgb, var(--between-accent) 28%, rgba(255,255,255,.05)), color-mix(in srgb, var(--between-accent) 7%, rgba(9,7,15,.5))); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 -6px 13px rgba(0,0,0,.28), 0 12px 26px color-mix(in srgb, var(--between-accent) 22%, transparent); font-family: "Plus Jakarta Sans", sans-serif; font-size: 12px; font-weight: 700; transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, border-color .2s ease; }
+.myra-between-hero-actions button:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--between-accent) 54%, transparent); }
+.myra-between-hero-actions button:active { transform: translateY(0) scale(.97); }
 .myra-between-people { margin-inline: 0; }
 .myra-between-feed { padding-top: 12px; }
 .myra-between-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 13px; padding: 4px; border: 1px solid var(--myra-line); border-radius: 16px 22px 16px 21px; background: rgba(255,255,255,.018); }
