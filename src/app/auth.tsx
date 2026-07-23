@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import { TASTE_GENRES, TRACKS, ls } from "./data";
 import { F, GLASS, SPRING, useTheme } from "./lib";
-import { MyraBrandLockup } from "./logo";
+import { MyraWordmark } from "./logo";
 import { MyraGlyph } from "./myraIcons";
 import { DetailBackdrop, DetailWave } from "./detail";
 import { useLang } from "./i18n";
@@ -260,9 +260,9 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
   const S = SLIDES[slide];
   const pickedComp = COMPANIONS.find(c => c.id === companionPick) ?? COMPANIONS[0];
   const others = COMPANIONS.filter(c => c.id !== companionPick);
-  // Правильный падеж имени спутника в кнопке (RU): «Войти с Люмой/Искрой/Эхо».
+  // Спутник задаёт настроение профиля, но не подменяет способ авторизации.
   const enterLabel = lang === "ru"
-    ? `Войти с ${({ luma: "Люмой", spark: "Искрой", echo: "Эхо" } as Record<CompanionId, string>)[companionPick]}`
+    ? `Продолжить с ${({ luma: "Люмой", spark: "Искрой", echo: "Эхо" } as Record<CompanionId, string>)[companionPick]}`
     : t("comp.enter", pickedComp.name);
   // Бесконечные лупы отключаем на слабом железе (fx-simple) и при reduce-motion.
   const weakFx = typeof document !== "undefined" && !!document.querySelector(".fx-simple");
@@ -300,9 +300,9 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 0%, var(--bg) var(--aurora-fade))" }} />
       <div className="absolute bottom-0 left-0 right-0 h-80" style={{ background: "linear-gradient(to top, var(--bg) 0%, transparent 100%)" }} />
 
-      {/* Верх: лого + тема + язык */}
+      {/* Верх: wordmark + тема + язык */}
       <div className="myra-onboarding-header relative z-10 flex items-center justify-between px-7 pt-9">
-        <MyraBrandLockup />
+        <MyraWordmark height={26} />
         <div className="flex items-center gap-2">
           <motion.button whileTap={{ scale: 0.88 }} onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ ...GLASS }}>
             {theme === "dark" ? <Moon size={15} /> : <Sun size={15} />}
@@ -313,24 +313,11 @@ export function OnboardingFlow({ onDone, forceRecovery = false, onRecoveryDone, 
         </div>
       </div>
 
-      <aside className="myra-onboarding-showcase" aria-hidden="true">
-        <div className="myra-onboarding-showcase-art">
-          <img src={S.img} alt="" />
-          <span />
-        </div>
-        <div className="myra-onboarding-showcase-copy">
-          <small>MYRA IMMERSIVE AUDIO</small>
-          <strong>{S.title}</strong>
-          <p>{S.sub}</p>
-          <DetailWave progress={38} accent={S.c2} height={38} compact />
-        </div>
-      </aside>
-
       {/* На телефоне контент прижат вниз (удобно большим пальцем), на планшете/ПК/ТВ — по центру */}
       <div className="myra-onboarding-content relative z-10 flex-1 flex flex-col justify-end md:justify-center overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {/* ── Выбор спутника (вход) ── */}
           {step === "companion" && (
-            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel px-6 pb-9 pt-4 max-w-md mx-auto w-full flex flex-col items-center text-center">
+            <motion.div key="companion" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="myra-onboarding-panel is-companion px-6 pb-9 pt-4 max-w-md mx-auto w-full flex flex-col items-center text-center">
               <h1 style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.04em", lineHeight: 1.05 }}>{t("comp.title")}</h1>
 
               {/* трио: центр — выбранный, по бокам — остальные (тап делает их центром) */}
