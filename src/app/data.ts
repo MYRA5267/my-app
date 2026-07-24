@@ -84,7 +84,7 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: Ar
     buzz: "",
     afro: `<circle cx="${hx}" cy="${hy - 16}" r="${hr + 28}" fill="${FIG}"/>`,
     curls: `<g fill="${FIG}"><circle cx="${hx}" cy="${hy - 66}" r="44"/><circle cx="${hx - 54}" cy="${hy - 42}" r="40"/><circle cx="${hx + 54}" cy="${hy - 42}" r="40"/><circle cx="${hx - 82}" cy="${hy}" r="32"/><circle cx="${hx + 82}" cy="${hy}" r="32"/><circle cx="${hx - 28}" cy="${hy - 76}" r="32"/><circle cx="${hx + 28}" cy="${hy - 76}" r="32"/></g>`,
-    long: `<path d="M162,192 C118,200 128,362 178,398 L216,398 C198,322 198,240 212,192 Z" fill="${FIG}"/><path d="M338,192 C382,200 372,362 322,398 L284,398 C302,322 302,240 288,192 Z" fill="${FIG}"/><path d="M168,188 Q250,118 332,188 Q250,166 168,188 Z" fill="${FIG}"/>`,
+    long: `<path d="M156,190 C106,206 120,370 176,404 L222,404 C200,320 200,234 214,190 Z" fill="${FIG}"/><path d="M344,190 C394,206 380,370 324,404 L278,404 C300,320 300,234 286,190 Z" fill="${FIG}"/><path d="M166,186 Q250,114 334,186 Q250,162 166,186 Z" fill="${FIG}"/><path d="M156,190 C106,206 120,370 176,404" stroke="${c2}" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/><path d="M344,190 C394,206 380,370 324,404" stroke="${c2}" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/>`,
     hood: "",
     cap: "",
     beanie: "",
@@ -105,10 +105,16 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: Ar
     chain: `<path d="M198,350 Q250,398 302,350" fill="none" stroke="${c2}" stroke-width="7" stroke-linecap="round"/><circle cx="${hx}" cy="392" r="8" fill="${c2}"/>`,
   };
 
+  // Наушники: объёмные чашки, плотно сидящие на ушах (край головы), с мягкой
+  // амбушюрой и бликом; дужка соединяет ВЕРХ чашек над макушкой (не через лицо).
+  const cupW = 34, cupH = 56, cupTop = hy - 28;
+  const cup = (x: number) =>
+    `<rect x="${x}" y="${cupTop}" width="${cupW}" height="${cupH}" rx="15" fill="${c2}"/>` +
+    `<rect x="${x + 5}" y="${cupTop + 6}" width="${cupW - 10}" height="${cupH - 12}" rx="10" fill="#0a0712" opacity="0.5"/>` +
+    `<rect x="${x + 4}" y="${cupTop + 3}" width="${cupW - 8}" height="7" rx="3.5" fill="#ffffff" opacity="0.3"/>`;
   const phones = look.phones
-    ? (look.band ? `<path d="M${hx - hr + 4},${hy + 4} Q${hx},${hy - hr - 30} ${hx + hr - 4},${hy + 4}" stroke="${c2}" stroke-width="15" fill="none" stroke-linecap="round"/>` : "")
-      + `<rect x="${hx - hr - 10}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>`
-      + `<rect x="${hx + hr - 20}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>`
+    ? (look.band ? `<path d="M${hx - hr + 12},${cupTop + 3} Q${hx},${hy - hr - 12} ${hx + hr - 12},${cupTop + 3}" stroke="${c2}" stroke-width="13" fill="none" stroke-linecap="round"/>` : "")
+      + cup(hx - hr - 4) + cup(hx + hr - 30)
     : "";
 
   const tone = look.tone ?? "#241a30";                    // подтон «кожи» силуэта
@@ -123,7 +129,7 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: Ar
       `<linearGradient id="fig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1230"/><stop offset="0.5" stop-color="#0b0716"/><stop offset="1" stop-color="#050409"/></linearGradient>` +
       `<linearGradient id="grm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="#070510"/></linearGradient>` +
       `<linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${tone}"/><stop offset="1" stop-color="#0a0712"/></linearGradient>` +
-      `<radialGradient id="facelit" cx="0.5" cy="0.4" r="0.62"><stop offset="0" stop-color="#ffffff" stop-opacity="0.26"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="facelit" cx="0.5" cy="0.4" r="0.62"><stop offset="0" stop-color="#ffffff" stop-opacity="0.36"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
       `<clipPath id="hd"><circle cx="${hx}" cy="${hy}" r="${hr}"/></clipPath>` +
       `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.78"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/></radialGradient>` +
     `</defs>` +
@@ -139,11 +145,12 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: Ar
       // Объём лица: тень с теневой стороны, свет со стороны прожектора, намёк
       // на глаза (надбровная тень) и нос — всё обрезано по контуру головы.
       `<g clip-path="url(#hd)">` +
-        `<ellipse cx="${hx - side * 30}" cy="${hy + 12}" rx="48" ry="72" fill="#050308" opacity="0.42"/>` +
+        `<ellipse cx="${hx - side * 28}" cy="${hy + 12}" rx="50" ry="74" fill="#050308" opacity="0.52"/>` +
         (look.beard ? `<path d="M${hx - 54},${hy + 16} Q${hx},${hy + 90} ${hx + 54},${hy + 16} Q${hx},${hy + 48} ${hx - 54},${hy + 16} Z" fill="#050308" opacity="0.5"/>` : "") +
         `<ellipse cx="${hx + side * 26}" cy="${hy - 4}" rx="44" ry="62" fill="url(#facelit)"/>` +
-        `<path d="M${hx - 46},${hy - 18} Q${hx},${hy - 6} ${hx + 46},${hy - 18}" stroke="#000000" stroke-width="15" fill="none" opacity="0.15" stroke-linecap="round"/>` +
-        `<path d="M${hx + side * 3},${hy - 14} L${hx + side},${hy + 16}" stroke="#ffffff" stroke-width="6" fill="none" opacity="0.26" stroke-linecap="round"/>` +
+        `<ellipse cx="${hx + side * 34}" cy="${hy - 16}" rx="15" ry="21" fill="#ffffff" opacity="0.2"/>` +
+        `<path d="M${hx - 46},${hy - 18} Q${hx},${hy - 6} ${hx + 46},${hy - 18}" stroke="#000000" stroke-width="16" fill="none" opacity="0.18" stroke-linecap="round"/>` +
+        `<path d="M${hx + side * 3},${hy - 14} L${hx + side},${hy + 17}" stroke="#ffffff" stroke-width="6" fill="none" opacity="0.34" stroke-linecap="round"/>` +
       `</g>` +
       front[look.hair] +
       (look.acc ? accEls[look.acc] : "") +
