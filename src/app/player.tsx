@@ -181,7 +181,7 @@ export function FullPlayer({ track, playing, onToggle, onClose, progress, buffer
   ] as const;
 
   return (
-    <div className="myra-full-player absolute inset-0 flex flex-col overflow-hidden" style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
+    <div className={`myra-full-player absolute inset-0 flex flex-col overflow-hidden${playing ? "" : " is-paused"}`} style={{ ...(THEMES.dark as React.CSSProperties), background: "var(--bg)", color: "var(--fg)" }}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <img src={track.img} alt="" className="fx-heavy absolute inset-0 w-full h-full object-cover opacity-50" style={{ filter: "blur(110px) saturate(1.45) brightness(0.15)", transform: "scale(1.35)" }} />
         {/* DETAIL — фирменный мотив вместо Aurora здесь конкретно: Full Player —

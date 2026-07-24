@@ -52,6 +52,112 @@ export const svgCover = (c1: string, c2: string, seed: number) => {
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 };
 
+// «Характер» артиста для образа: причёска/головной убор, аксессуар, наушники.
+export interface ArtistLook {
+  hair: "buzz" | "afro" | "curls" | "long" | "cap" | "beanie" | "bun" | "hood";
+  acc?: "glasses" | "shades" | "visor" | "chain";
+  phones?: boolean;   // наушники (чашки на ушах)
+  band?: boolean;     // дужка наушников над головой (только когда макушка свободна)
+  side?: -1 | 1;      // сторона света
+  tone?: string;      // подтон «кожи» силуэта (тёмный) — чтобы артисты были разные
+  beard?: boolean;    // щетина/борода
+}
+
+/**
+ * Стилизованный образ артиста для демо-каталога: силуэт с индивидуальным
+ * характером (причёска/убор + аксессуар + опц. наушники) под «прожектором»
+ * его цвета. Это заведомо ИЛЛЮСТРАЦИЯ (не фото реального человека) —
+ * демо-каталог вымышленный. Нужен, чтобы на профиле артиста и в списках было
+ * видно узнаваемый образ, а не пустой градиент. data-URI, офлайн, без
+ * SVG-фильтров (надёжно рендерится в Android WebView).
+ */
+export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: ArtistLook) => {
+  const r = rnd(seed * 13 + 5);
+  const side = look.side ?? (r() < 0.5 ? -1 : 1);
+  const tilt = (r() * 7 - 3.5).toFixed(1);
+  const glowX = (50 + side * 15).toFixed(0);
+  const hx = 250, hy = 210, hr = 84;
+  const FIG = "url(#fig)";
+
+  // Причёски/уборы, которые рисуются ЗА головой (объём, обрамление лица)
+  const back: Record<string, string> = {
+    buzz: "",
+    afro: `<circle cx="${hx}" cy="${hy - 16}" r="${hr + 28}" fill="${FIG}"/>`,
+    curls: `<g fill="${FIG}"><circle cx="${hx}" cy="${hy - 66}" r="44"/><circle cx="${hx - 54}" cy="${hy - 42}" r="40"/><circle cx="${hx + 54}" cy="${hy - 42}" r="40"/><circle cx="${hx - 82}" cy="${hy}" r="32"/><circle cx="${hx + 82}" cy="${hy}" r="32"/><circle cx="${hx - 28}" cy="${hy - 76}" r="32"/><circle cx="${hx + 28}" cy="${hy - 76}" r="32"/></g>`,
+    long: `<path d="M156,190 C106,206 120,370 176,404 L222,404 C200,320 200,234 214,190 Z" fill="${FIG}"/><path d="M344,190 C394,206 380,370 324,404 L278,404 C300,320 300,234 286,190 Z" fill="${FIG}"/><path d="M166,186 Q250,114 334,186 Q250,162 166,186 Z" fill="${FIG}"/><path d="M156,190 C106,206 120,370 176,404" stroke="${c2}" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/><path d="M344,190 C394,206 380,370 324,404" stroke="${c2}" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/>`,
+    hood: "",
+    cap: "",
+    beanie: "",
+    bun: "",
+  };
+  // Уборы, которые рисуются ПЕРЕД головой (сидят сверху)
+  const front: Record<string, string> = {
+    buzz: "", afro: "", curls: "", long: "", hood: "",
+    cap: `<path d="M172,196 Q250,116 328,196 Q250,178 172,196 Z" fill="${FIG}"/><rect x="170" y="188" width="160" height="20" rx="10" fill="${c2}"/><path d="M250,200 Q${hx + side * 128},188 ${hx + side * 150},207 Q${hx + side * 120},215 250,208 Z" fill="${c2}"/>`,
+    beanie: `<path d="M164,206 Q250,118 336,206 Z" fill="${c2}"/><rect x="160" y="196" width="180" height="24" rx="12" fill="${c2}"/><circle cx="${hx}" cy="122" r="13" fill="${c2}"/>`,
+    bun: `<circle cx="${hx}" cy="118" r="28" fill="${FIG}"/>`,
+  };
+  // Аксессуары на лице/шее (после головы)
+  const accEls: Record<string, string> = {
+    glasses: `<g fill="none" stroke="#ece7ff" stroke-width="6" stroke-opacity="0.92"><rect x="192" y="180" width="44" height="36" rx="13"/><rect x="264" y="180" width="44" height="36" rx="13"/><path d="M236,198 L264,198"/></g>`,
+    shades: `<g><rect x="190" y="178" width="48" height="38" rx="14" fill="#080610" stroke="${c2}" stroke-width="4"/><rect x="262" y="178" width="48" height="38" rx="14" fill="#080610" stroke="${c2}" stroke-width="4"/><path d="M238,190 L262,190" stroke="${c2}" stroke-width="5"/></g>`,
+    visor: `<rect x="188" y="184" width="124" height="24" rx="12" fill="${c2}" opacity="0.92"/><rect x="196" y="188" width="58" height="6" rx="3" fill="#ffffff" opacity="0.5"/>`,
+    chain: `<path d="M198,350 Q250,398 302,350" fill="none" stroke="${c2}" stroke-width="7" stroke-linecap="round"/><circle cx="${hx}" cy="392" r="8" fill="${c2}"/>`,
+  };
+
+  // Наушники: объёмные чашки, плотно сидящие на ушах (край головы), с мягкой
+  // амбушюрой и бликом; дужка соединяет ВЕРХ чашек над макушкой (не через лицо).
+  const cupW = 34, cupH = 56, cupTop = hy - 28;
+  const cup = (x: number) =>
+    `<rect x="${x}" y="${cupTop}" width="${cupW}" height="${cupH}" rx="15" fill="${c2}"/>` +
+    `<rect x="${x + 5}" y="${cupTop + 6}" width="${cupW - 10}" height="${cupH - 12}" rx="10" fill="#0a0712" opacity="0.5"/>` +
+    `<rect x="${x + 4}" y="${cupTop + 3}" width="${cupW - 8}" height="7" rx="3.5" fill="#ffffff" opacity="0.3"/>`;
+  const phones = look.phones
+    ? (look.band ? `<path d="M${hx - hr + 12},${cupTop + 3} Q${hx},${hy - hr - 12} ${hx + hr - 12},${cupTop + 3}" stroke="${c2}" stroke-width="13" fill="none" stroke-linecap="round"/>` : "")
+      + cup(hx - hr - 4) + cup(hx + hr - 30)
+    : "";
+
+  const tone = look.tone ?? "#241a30";                    // подтон «кожи» силуэта
+  const rimR = look.hair === "afro" ? hr + 30 : look.hair === "curls" ? hr + 36 : look.hair === "long" ? hr + 10 : hr + 6;
+  const rimY = look.hair === "afro" || look.hair === "curls" ? hy - 16 : hy; // центр рим-света с учётом объёма причёски
+
+  // Освещённый край для рим-света (флаг направления дуги/плеча зависит от side)
+  const litHead = `M${hx},${hy - hr} A${hr},${hr} 0 0 ${side > 0 ? 1 : 0} ${hx},${hy + hr}`;
+  const litShoulder = side > 0 ? `M250,322 C356,322 438,372 438,500` : `M250,322 C144,322 62,372 62,500`;
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">` +
+    `<defs>` +
+      `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="0.55" stop-color="#0c0716"/><stop offset="1" stop-color="#05040a"/></linearGradient>` +
+      `<radialGradient id="glow" cx="${glowX}%" cy="36%" r="58%"><stop offset="0" stop-color="${c2}" stop-opacity="0.9"/><stop offset="0.45" stop-color="${c2}" stop-opacity="0.28"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
+      `<linearGradient id="fig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${tone}"/><stop offset="0.55" stop-color="#0b0714"/><stop offset="1" stop-color="#050409"/></linearGradient>` +
+      `<linearGradient id="grm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="#070510"/></linearGradient>` +
+      `<radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${c2}" stop-opacity="0.5"/><stop offset="0.6" stop-color="${c2}" stop-opacity="0.14"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.78"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/></radialGradient>` +
+    `</defs>` +
+    `<rect width="500" height="500" fill="url(#bg)"/>` +
+    `<rect width="500" height="500" fill="url(#glow)"/>` +
+    `<g transform="rotate(${tilt} ${hx} ${hy + 60})">` +
+      // Мягкое свечение за фигурой
+      `<circle cx="${hx + side * 8}" cy="${rimY}" r="${rimR + 26}" fill="url(#halo)"/>` +
+      // Плоский силуэт: плечи (выше и шире), короткая широкая шея, причёска-сзади, голова
+      `<path d="M62,500 C62,368 146,322 ${hx},322 C354,322 438,368 438,500 Z" fill="${FIG}"/>` +
+      (look.hair === "hood" ? `<path d="M112,500 C102,296 148,200 ${hx},186 C352,200 398,296 388,500 Z" fill="url(#grm)"/>` : "") +
+      `<rect x="${hx - 42}" y="248" width="84" height="92" rx="26" fill="${FIG}"/>` +
+      back[look.hair] +
+      `<circle cx="${hx}" cy="${hy}" r="${hr}" fill="${FIG}"/>` +
+      // Рим-свет по освещённому краю головы и плеча (чистый постер-стиль, без псевдо-3D на лице)
+      `<path d="${litHead}" stroke="${c2}" stroke-width="4" fill="none" opacity="0.72" stroke-linecap="round"/>` +
+      front[look.hair] +
+      (look.acc ? accEls[look.acc] : "") +
+      phones +
+      `<path d="${litShoulder}" stroke="${c2}" stroke-width="3.5" fill="none" opacity="0.4"/>` +
+    `</g>` +
+    `<rect width="500" height="500" fill="url(#vig)"/>` +
+    `</svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+};
+
 /** Аватар: инициал на градиенте */
 export const svgAvatar = (initial: string, c1: string, c2: string) => {
   const svg =
@@ -225,15 +331,19 @@ export interface Artist {
   similar: string[];
 }
 
+// img — стилизованный образ артиста со СВОИМ характером (причёска/убор +
+// аксессуар + опц. наушники), не абстрактная обложка: на профиле и в списках
+// артист должен быть узнаваем и не похож на других. Палитра — из его
+// фирменного трека.
 export const ARTISTS: Artist[] = [
-  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: TRACKS[0].img, c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
-  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: TRACKS[1].img, c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
-  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: TRACKS[2].img, c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
-  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: TRACKS[3].img, c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
-  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: TRACKS[4].img, c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
-  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: TRACKS[5].img, c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
-  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: TRACKS[6].img, c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
-  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: TRACKS[7].img, c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
+  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: svgArtistPortrait(TRACKS[0].c1, TRACKS[0].c2, 71,  { hair: "long",   side: 1,  tone: "#2b1f3a" }),               c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
+  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: svgArtistPortrait(TRACKS[1].c1, TRACKS[1].c2, 82,  { hair: "buzz",   phones: true, band: true, side: -1, tone: "#26241f" }), c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
+  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: svgArtistPortrait(TRACKS[2].c1, TRACKS[2].c2, 93,  { hair: "beanie", phones: true, side: 1,  tone: "#33261c" }),  c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
+  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: svgArtistPortrait(TRACKS[3].c1, TRACKS[3].c2, 104, { hair: "bun",    side: -1, tone: "#1f2436" }),               c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
+  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: svgArtistPortrait(TRACKS[4].c1, TRACKS[4].c2, 115, { hair: "curls",  side: 1,  tone: "#301f2c" }),               c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
+  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: svgArtistPortrait(TRACKS[5].c1, TRACKS[5].c2, 126, { hair: "cap",    phones: true, side: -1, tone: "#2c2130" }),  c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
+  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: svgArtistPortrait(TRACKS[6].c1, TRACKS[6].c2, 137, { hair: "hood",   side: 1,  tone: "#1b2733" }),               c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
+  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: svgArtistPortrait(TRACKS[7].c1, TRACKS[7].c2, 148, { hair: "afro",   acc: "chain", side: -1, tone: "#33221f" }), c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
 ];
 
 export const artistByName = (name: string) => ARTISTS.find(a => a.name === name);

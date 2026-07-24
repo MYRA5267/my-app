@@ -419,7 +419,7 @@ export const HomeScreen = React.memo(function HomeScreen({ onPlay, currentTrack,
       {/* Верхняя панель */}
       <div className="myra-page-header px-5 pt-6 pb-5 flex items-center justify-between">
         <div className="lg:hidden"><MyraBrandLockup /></div>
-        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 01</span>{t("nav.home")}</div>
+        <div className="hidden lg:block myra-desktop-page-title">{t("nav.home")}</div>
         <div className="flex gap-2 relative items-center">
           <motion.button whileTap={{ scale: 0.85 }} onClick={toggleNotifs} className="myra-header-action w-10 h-10 rounded-full flex items-center justify-center relative">
             <MyraGlyph name="bell" size={17} />
@@ -690,7 +690,7 @@ export const BetweenScreen = React.memo(function BetweenScreen({ currentTrack, p
     <Page className="myra-experience-page myra-between-page">
       <header className="myra-page-header px-5 pt-6 pb-5">
         <div className="lg:hidden"><MyraBrandLockup /></div>
-        <div className="hidden lg:block myra-desktop-page-title"><span>MYRA / 03</span>{t("nav.between")}</div>
+        <div className="hidden lg:block myra-desktop-page-title">{t("nav.between")}</div>
       </header>
 
       <section className="myra-between-hero mx-5 mb-6" style={{ "--between-accent": currentTrack.c2 } as React.CSSProperties}>
@@ -1096,8 +1096,8 @@ export const LibraryScreen = React.memo(function LibraryScreen({ onPlay, onPlayT
           { glyph: "download" as const, value: myTracks.length, label: t("lib.local"), a: "#5ee7ac", b: "#67d7ff" },
           { glyph: "library" as const, value: playlists.length, label: t("lib.playlists"), a: "#f4a77f", b: "#c98cff" },
         ].map((o, i) => (
-          <motion.div key={o.glyph} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 12px 32px ${o.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
-            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
+          <motion.div key={o.glyph} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 8px 14px", background: `linear-gradient(158deg, ${o.a}22, ${o.b}0d)`, border: `1px solid ${o.a}38`, boxShadow: `0 14px 34px ${o.a}22, inset 0 1.5px 0 rgba(255,255,255,0.16), inset 0 -10px 20px rgba(0,0,0,0.3)` }}>
+            <span className="myra-glow-orb flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${o.a}, ${o.b})`, color: "#160f26", boxShadow: `0 6px 18px ${o.a}66` }}>
               <MyraGlyph name={o.glyph} size={17} />
             </span>
             <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, lineHeight: 1, letterSpacing: "-0.04em", background: `linear-gradient(120deg, ${o.a}, ${o.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}><CountUp value={o.value} /></strong>
@@ -1423,8 +1423,8 @@ export const CreatorScreen = React.memo(function CreatorScreen({ c2, creatorPlus
             { glyph: "spark" as const, value: paymentsEnabled ? `${balance.toLocaleString("ru-RU")}₽` : "—", label: t("cr.donations"), a: "#ffd28a", b: "#f4a77f", onClick: () => paymentsEnabled && setWdOpen(true), dim: !paymentsEnabled },
             { glyph: "library" as const, value: `${myTracks.length}`, label: t("cr.releases"), a: "#ff6fa5", b: "#c98cff", onClick: openStatsGated, dim: false },
           ].map((s, i) => (
-            <motion.button key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)`, opacity: s.dim ? 0.6 : 1 }}>
-              <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+            <motion.button key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} onClick={s.onClick} aria-disabled={s.dim || undefined} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 14px 34px ${s.a}22, inset 0 1.5px 0 rgba(255,255,255,0.16), inset 0 -10px 20px rgba(0,0,0,0.3)`, opacity: s.dim ? 0.6 : 1 }}>
+              <span className="myra-glow-orb flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
               <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
               <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
             </motion.button>
@@ -1647,8 +1647,8 @@ export const ProfileScreen = React.memo(function ProfileScreen({ c2, userName, h
           { glyph: "heart" as const, value: "0", label: t("pr.fans"), a: "#ff6fa5", b: "#c98cff" },
           { glyph: "chart" as const, value: fmtCount(totalPlays), label: t("pr.plays"), a: "#f4a77f", b: "#ffd28a" },
         ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 12px 32px ${s.a}1c, inset 0 1px 0 rgba(255,255,255,0.06)` }}>
-            <span className="flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
+          <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, ...SPRING }} className="flex flex-col items-center text-center" style={{ borderRadius: 22, padding: "16px 6px 14px", background: `linear-gradient(158deg, ${s.a}22, ${s.b}0d)`, border: `1px solid ${s.a}38`, boxShadow: `0 14px 34px ${s.a}22, inset 0 1.5px 0 rgba(255,255,255,0.16), inset 0 -10px 20px rgba(0,0,0,0.3)` }}>
+            <span className="myra-glow-orb flex items-center justify-center mb-2" style={{ width: 34, height: 34, borderRadius: "50%", background: `radial-gradient(circle at 50% 30%, ${s.a}, ${s.b})`, color: "#160f26", boxShadow: `0 6px 18px ${s.a}66` }}><MyraGlyph name={s.glyph} size={16} /></span>
             <strong style={{ fontFamily: F.d, fontWeight: 900, fontSize: 24, lineHeight: 1.05, letterSpacing: "-0.03em", background: `linear-gradient(120deg, ${s.a}, ${s.b})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><CountUp value={s.value} /></strong>
             <span className="mt-1" style={{ fontSize: 10.5, color: "color-mix(in srgb, var(--fg) 52%, transparent)", fontFamily: F.m }}>{s.label}</span>
           </motion.div>
