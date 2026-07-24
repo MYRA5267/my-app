@@ -52,6 +52,54 @@ export const svgCover = (c1: string, c2: string, seed: number) => {
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 };
 
+/**
+ * Стилизованный образ артиста для демо-каталога: силуэт в наушниках под
+ * «прожектором» его цвета. Это заведомо ИЛЛЮСТРАЦИЯ (не фото реального
+ * человека) — демо-каталог вымышленный. Нужен, чтобы на профиле артиста было
+ * видно образ, а не пустой градиент. data-URI, работает офлайн, без фильтров
+ * (надёжно рендерится в Android WebView).
+ */
+export const svgArtistPortrait = (c1: string, c2: string, seed: number) => {
+  const r = rnd(seed * 13 + 5);
+  const side = r() < 0.5 ? -1 : 1;          // сторона света
+  const hair = Math.floor(r() * 3);         // вариант силуэта причёски
+  const tilt = (r() * 8 - 4).toFixed(1);    // лёгкий наклон головы
+  const glowX = (50 + side * 15).toFixed(0);
+  const hx = 250, hy = 210, hr = 84;
+
+  const hairShapes = [
+    "",                                                                                     // 0 — коротко
+    `<circle cx="${hx}" cy="${hy - 20}" r="${hr + 22}" fill="url(#fig)"/>`,                  // 1 — объёмная
+    `<path d="M${hx - hr - 8},${hy + 6} Q${hx},${hy - hr - 46} ${hx + hr + 8},${hy + 6} Z" fill="url(#fig)"/>`, // 2 — «шапка»
+  ];
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">` +
+    `<defs>` +
+      `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="0.55" stop-color="#0c0716"/><stop offset="1" stop-color="#05040a"/></linearGradient>` +
+      `<radialGradient id="glow" cx="${glowX}%" cy="34%" r="56%"><stop offset="0" stop-color="${c2}" stop-opacity="0.95"/><stop offset="0.45" stop-color="${c2}" stop-opacity="0.3"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
+      `<linearGradient id="fig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1230"/><stop offset="0.5" stop-color="#0b0716"/><stop offset="1" stop-color="#050409"/></linearGradient>` +
+      `<radialGradient id="cheek" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.78"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/></radialGradient>` +
+    `</defs>` +
+    `<rect width="500" height="500" fill="url(#bg)"/>` +
+    `<rect width="500" height="500" fill="url(#glow)"/>` +
+    `<g transform="rotate(${tilt} ${hx} ${hy + 60})">` +
+      `<circle cx="${hx + side * 8}" cy="${hy}" r="${hr + 6}" fill="${c2}" opacity="0.85"/>` +
+      `<path d="M74,500 C74,384 154,340 ${hx},340 C346,340 426,384 426,500 Z" fill="url(#fig)"/>` +
+      `<rect x="${hx - 34}" y="252" width="68" height="116" rx="24" fill="url(#fig)"/>` +
+      hairShapes[hair] +
+      `<circle cx="${hx}" cy="${hy}" r="${hr}" fill="url(#fig)"/>` +
+      `<ellipse cx="${hx + side * 30}" cy="${hy + 6}" rx="38" ry="52" fill="url(#cheek)"/>` +
+      `<path d="M${hx - hr + 4},${hy + 4} Q${hx},${hy - hr - 30} ${hx + hr - 4},${hy + 4}" stroke="${c2}" stroke-width="15" fill="none" stroke-linecap="round"/>` +
+      `<rect x="${hx - hr - 10}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>` +
+      `<rect x="${hx + hr - 20}" y="${hy - 22}" width="30" height="58" rx="13" fill="${c2}"/>` +
+    `</g>` +
+    `<rect width="500" height="500" fill="url(#vig)"/>` +
+    `</svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+};
+
 /** Аватар: инициал на градиенте */
 export const svgAvatar = (initial: string, c1: string, c2: string) => {
   const svg =
@@ -225,15 +273,18 @@ export interface Artist {
   similar: string[];
 }
 
+// img — стилизованный образ артиста (силуэт в наушниках под светом его цвета),
+// не абстрактная обложка: на профиле артиста должно быть видно образ. Палитра
+// берётся из фирменного трека артиста, seed разный — силуэты чуть отличаются.
 export const ARTISTS: Artist[] = [
-  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: TRACKS[0].img, c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
-  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: TRACKS[1].img, c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
-  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: TRACKS[2].img, c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
-  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: TRACKS[3].img, c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
-  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: TRACKS[4].img, c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
-  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: TRACKS[5].img, c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
-  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: TRACKS[6].img, c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
-  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: TRACKS[7].img, c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
+  { name: "Luna Wave",   listeners: "1.2M", genre: "Синтвейв",  verified: true,  img: svgArtistPortrait(TRACKS[0].c1, TRACKS[0].c2, 71), c2: TRACKS[0].c2, similar: ["Solstice", "KRVT"] },
+  { name: "KRVT",        listeners: "640K", genre: "Электроника", verified: true,  img: svgArtistPortrait(TRACKS[1].c1, TRACKS[1].c2, 82), c2: TRACKS[1].c2, similar: ["Luna Wave", "Axel Rune"] },
+  { name: "Solstice",    listeners: "2.8M", genre: "Лоу-фай",      verified: true,  img: svgArtistPortrait(TRACKS[2].c1, TRACKS[2].c2, 93), c2: TRACKS[2].c2, similar: ["Mara Dell", "Luna Wave"] },
+  { name: "Mara Dell",   listeners: "890K", genre: "Эмбиент",    verified: false, img: svgArtistPortrait(TRACKS[3].c1, TRACKS[3].c2, 104), c2: TRACKS[3].c2, similar: ["Solstice", "Yara Voss"] },
+  { name: "Yara Voss",   listeners: "410K", genre: "Дрим-поп",  verified: false, img: svgArtistPortrait(TRACKS[4].c1, TRACKS[4].c2, 115), c2: TRACKS[4].c2, similar: ["Nadia Sol", "Mara Dell"] },
+  { name: "Axel Rune",   listeners: "1.9M", genre: "Инди",      verified: true,  img: svgArtistPortrait(TRACKS[5].c1, TRACKS[5].c2, 126), c2: TRACKS[5].c2, similar: ["Echo & Glow", "KRVT"] },
+  { name: "Echo & Glow", listeners: "8K",   genre: "Инди",      verified: false, img: svgArtistPortrait(TRACKS[6].c1, TRACKS[6].c2, 137), c2: TRACKS[6].c2, similar: ["Axel Rune", "Nadia Sol"] },
+  { name: "Nadia Sol",   listeners: "5K",   genre: "Поп",        verified: false, img: svgArtistPortrait(TRACKS[7].c1, TRACKS[7].c2, 148), c2: TRACKS[7].c2, similar: ["Yara Voss", "Echo & Glow"] },
 ];
 
 export const artistByName = (name: string) => ARTISTS.find(a => a.name === name);
