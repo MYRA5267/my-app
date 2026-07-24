@@ -130,13 +130,14 @@ export const svgArtistPortrait = (c1: string, c2: string, seed: number, look: Ar
       `<linearGradient id="grm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="#070510"/></linearGradient>` +
       `<linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${tone}"/><stop offset="1" stop-color="#0a0712"/></linearGradient>` +
       `<radialGradient id="facelit" cx="0.5" cy="0.4" r="0.62"><stop offset="0" stop-color="#ffffff" stop-opacity="0.36"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${c2}" stop-opacity="0.5"/><stop offset="0.6" stop-color="${c2}" stop-opacity="0.14"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>` +
       `<clipPath id="hd"><circle cx="${hx}" cy="${hy}" r="${hr}"/></clipPath>` +
       `<radialGradient id="vig" cx="0.5" cy="0.42" r="0.78"><stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/></radialGradient>` +
     `</defs>` +
     `<rect width="500" height="500" fill="url(#bg)"/>` +
     `<rect width="500" height="500" fill="url(#glow)"/>` +
     `<g transform="rotate(${tilt} ${hx} ${hy + 60})">` +
-      `<circle cx="${hx + side * 8}" cy="${rimY}" r="${rimR}" fill="${c2}" opacity="0.82"/>` +
+      `<circle cx="${hx + side * 8}" cy="${rimY}" r="${rimR + 26}" fill="url(#halo)"/>` +
       `<path d="M74,500 C74,384 154,340 ${hx},340 C346,340 426,384 426,500 Z" fill="${FIG}"/>` +
       (look.hair === "hood" ? `<path d="M120,500 C108,300 150,204 ${hx},190 C350,204 392,300 380,500 Z" fill="url(#grm)"/>` : "") +
       `<rect x="${hx - 34}" y="252" width="68" height="116" rx="24" fill="${FIG}"/>` +
