@@ -955,6 +955,86 @@ section > *:nth-child(3) > .myra-glow-orb,
 .myra-similar-artists { overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
 .myra-real-artist-hero > div:first-child { position: absolute; inset: 0; }
 
+/* ── Постер-хиро профиля артиста (референс «Моя волна»): имя крупно сверху,
+   большой образ артиста по центру, аврора-свечение в цвет артиста ── */
+.myra-artist-poster {
+  height: auto !important;
+  min-height: clamp(430px, 62vh, 600px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: radial-gradient(125% 105% at 50% -8%, color-mix(in srgb, var(--artist-accent) 30%, #08060f), #06050c 70%);
+}
+.myra-artist-poster > .myra-artist-aurora {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  width: min(90%, 560px);
+  height: 74%;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 44% at 50% 46%, color-mix(in srgb, var(--artist-accent) 60%, transparent), transparent 72%),
+    radial-gradient(72% 62% at 50% 40%, color-mix(in srgb, var(--artist-accent) 24%, transparent), transparent 80%);
+  filter: blur(8px) saturate(1.2);
+  animation: myra-artist-aurora-breathe 9s ease-in-out infinite;
+}
+.myra-artist-poster::after {
+  content: "";
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, transparent 50%, rgba(8,8,16,0.55) 78%, rgba(8,8,16,0.96) 100%);
+}
+.myra-artist-poster-stage {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: clamp(16px, 3vh, 26px);
+  width: 100%; max-width: 470px; padding: clamp(32px, 6vh, 52px) 24px 0;
+  text-align: center;
+}
+.myra-artist-poster-name {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  font-family: "Sora", sans-serif; font-weight: 900; font-size: clamp(34px, 6.4vw, 58px);
+  line-height: 0.98; letter-spacing: -0.05em; color: #fff;
+  text-shadow: 0 6px 34px color-mix(in srgb, var(--artist-accent) 55%, transparent);
+}
+.myra-artist-poster-frame {
+  position: relative;
+  width: clamp(190px, 52%, 272px);
+  aspect-ratio: 1;
+  border-radius: 34px;
+  overflow: hidden;
+  box-shadow:
+    0 34px 90px color-mix(in srgb, var(--artist-accent) 42%, transparent),
+    inset 0 0 0 1px rgba(255,255,255,0.12),
+    inset 0 10px 24px rgba(255,255,255,0.14),
+    inset 0 -22px 46px rgba(0,0,0,0.42);
+  animation: myra-artist-poster-float 8.5s ease-in-out infinite;
+  will-change: transform;
+}
+.myra-artist-poster-frame img { width: 100%; height: 100%; object-fit: cover; }
+.myra-artist-poster-meta {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+}
+.myra-artist-poster .myra-artist-genre { margin-top: 0; }
+.myra-artist-poster-listeners {
+  color: color-mix(in srgb, #fff 68%, transparent);
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.04em;
+}
+@keyframes myra-artist-aurora-breathe {
+  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 1;   transform: translateX(-50%) scale(1.08); }
+}
+@keyframes myra-artist-poster-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+.fx-simple .myra-artist-aurora,
+.fx-simple .myra-artist-poster-frame { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .myra-artist-aurora,
+  .myra-artist-poster-frame { animation: none !important; }
+}
+
 /* Onboarding */
 .myra-onboarding {
   background: #020207 !important;

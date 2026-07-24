@@ -217,19 +217,24 @@ export const ArtistSheet = React.memo(function ArtistSheet({ name, onClose, onPl
   return (
     <Sheet open={!!name} onClose={onClose} z={55} wide>
       {/* Шапка */}
-      <div className="myra-artist-hero relative" style={{ "--artist-accent": artist.c2 } as React.CSSProperties}>
-        <img src={artist.img} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.55)" }} />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,13,26,1) 0%, transparent 60%)" }} />
-        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+      <div className="myra-artist-hero myra-artist-poster relative" style={{ "--artist-accent": artist.c2 } as React.CSSProperties}>
+        {/* Аврора-свечение в цвет артиста за крупным образом (стиль «Моя волна») */}
+        <span className="myra-artist-aurora" aria-hidden="true" />
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="myra-artist-identity absolute bottom-3 left-6 right-6">
-          <div className="flex items-center gap-2">
-            <span style={{ fontFamily: F.d, fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", color: ON_DARK }}>{artist.name}</span>
-            {artist.verified && <MyraVerifiedBadge size={24} accent={artist.c2} title={t("verify.badge")} />}
+        <div className="myra-artist-poster-stage">
+          <div className="myra-artist-poster-name">
+            <span>{artist.name}</span>
+            {artist.verified && <MyraVerifiedBadge size={26} accent={artist.c2} title={t("verify.badge")} />}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>{artist.listeners} {t("ar.listeners")}</div>
-          <div className="myra-artist-genre">{artist.genre}</div>
+          <div className="myra-artist-poster-frame">
+            <img src={artist.img} alt={artist.name} />
+          </div>
+          <div className="myra-artist-poster-meta">
+            <span className="myra-artist-genre">{artist.genre}</span>
+            <span className="myra-artist-poster-listeners">{artist.listeners} {t("ar.listeners")}</span>
+          </div>
         </div>
       </div>
 
@@ -363,17 +368,16 @@ export const RealArtistSheet = React.memo(function RealArtistSheet({ artistId, o
 
   return (
     <Sheet open={!!artistId} onClose={onClose} z={55} wide>
-      <div className="myra-artist-hero myra-real-artist-hero relative" style={{ "--artist-accent": REAL_ARTIST_C2 } as React.CSSProperties}>
-        <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${REAL_ARTIST_C2}33, #07070f 75%)` }} />
-        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
+      <div className="myra-artist-hero myra-artist-poster relative" style={{ "--artist-accent": REAL_ARTIST_C2 } as React.CSSProperties}>
+        {/* Аврора-свечение за крупным образом артиста (стиль «Моя волна») */}
+        <span className="myra-artist-aurora" aria-hidden="true" />
+        <button onClick={onClose} aria-label={t("sheet.close")} title={t("sheet.close")} className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(10px)", color: ON_DARK }}>
           <X size={16} />
         </button>
-        <div className="myra-artist-identity absolute bottom-4 left-6 right-6 flex items-end gap-3">
-          <img src={avatar} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" style={{ border: "2px solid rgba(255,255,255,0.2)" }} />
-          <div className="min-w-0 pb-0.5">
-            <div style={{ fontFamily: F.d, fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", color: ON_DARK }} className="truncate">{name || "…"}</div>
-            {profile?.handle && <div className="text-xs mt-0.5" style={{ color: onDark(55), fontFamily: F.m }}>@{profile.handle.replace(/^@/, "")}</div>}
-          </div>
+        <div className="myra-artist-poster-stage">
+          <div className="myra-artist-poster-name"><span>{name || "…"}</span></div>
+          <div className="myra-artist-poster-frame"><img src={avatar} alt={name} /></div>
+          {profile?.handle && <div className="myra-artist-poster-meta"><span className="myra-artist-poster-listeners">@{profile.handle.replace(/^@/, "")}</span></div>}
         </div>
       </div>
 
